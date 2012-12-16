@@ -1,0 +1,13 @@
+name = "Log Filter"
+description = "Log Filter provides means of filtering, displaying and deleting dblog/watchdog logs."
+package = Administration
+;Utility
+
+core = 7.x
+php = 5.3
+
+dependencies[] = inspect
+
+files[] = LogFilter.inc
+;scripts[] = js/log_filter.min.js
+;configure = admin/config/system/log_filter
