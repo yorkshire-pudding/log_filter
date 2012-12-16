@@ -17,6 +17,14 @@ function log_filter_permission() {
       'title' => t('Administer log filtering'),
       'restrict access' => TRUE,
     ),
+    'log_filter edit filters' => array(
+      'title' => t('Edit saveable log filters'),
+      'restrict access' => TRUE,
+    ),
+    'log_filter use delete filters' => array(
+      'title' => t('Use deleting log filters'),
+      'restrict access' => TRUE,
+    ),
   );
 }
 
@@ -29,6 +37,7 @@ function log_filter_permission() {
  */
 function log_filter_menu() {
   return array(
+    //  Settings page.
     'admin/config/system/log_filter' => array(
       'title' => 'Log Filter',
       'description' => 'Configure Log Filtering',
@@ -38,6 +47,28 @@ function log_filter_menu() {
       'file' => 'admin/log_filter.admin.inc',
       'type' => MENU_NORMAL_ITEM,
     ),
+    //	Log viewer
+		/*'admin/reports/dblog' => array(
+			'title' => t('Recent log messages'),
+			'description' => t('View logged events'),
+			'page callback' => 'drupal_get_form', // hook to implement
+			'page arguments' => array('log_filter_form'), // name of implementing function
+			'access arguments' => array('access site reports'), // permission required
+			'file' => 'log_filter.module',
+			'type' => MENU_NORMAL_ITEM,
+      'weight' => -1,
+		),*/
+    'admin/reports/log_filter' => array(
+			'title' => t('Filtered log messages'),
+			'description' => t('View logged events using filters'),
+			'page callback' => 'drupal_get_form', // Hook to implement.
+			'page arguments' => array('log_filter_form'), // Name of implementing function.
+			'access arguments' => array('access site reports'), // Permission required.
+			'file' => 'log_filter.module',
+			'type' => MENU_NORMAL_ITEM,
+      'weight' => -1, // Right before or after dblog's viewer
+		),
+    //  AJAX callback.
     'log_filter/ajax/%' => array( // % ~ page response number
       'page callback' => 'log_filter_ajax_callback',
       'page arguments' => array(2), // start at that bucket index
@@ -55,6 +86,28 @@ function log_filter_menu() {
 function log_filter_admin_form_submit($form, &$form_state) {
   module_load_include('inc', 'log_filter', 'log_filter.admin');
   _log_filter_admin_form_submit($form, $form_state);
+}
+
+/**
+ * Defines log viewer form and GUI.
+ *
+ * @param array $form
+ * @param array &$form_state
+ * @return array
+ */
+function log_filter_form($form, &$form_state) {
+	return LogFilter::form($form, $form_state);
+}
+
+/**
+ * Called when log viewer form submits.
+ *
+ * @param array $form
+ * @param array &$form_state
+ * @return void
+ */
+function log_filter_form_submit($form, &$form_state){
+  LogFilter::formSubmit($form, $form_state);
 }
 
 /**
