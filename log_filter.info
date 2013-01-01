@@ -10,4 +10,4 @@ dependencies[] = inspect
 
 files[] = LogFilter.inc
 ;scripts[] = js/log_filter.min.js
-;configure = admin/config/system/log_filter
+configure = admin/config/system/log_filter
