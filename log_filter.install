@@ -5,6 +5,55 @@
  */
 
 /**
+ * Implements hook_schema().
+ *
+ * Log Filter doesn't use the Cache API because it's inefficient for working with multiple items.
+ *
+ * @return array
+ */
+function log_filter_schema() {
+  /*
+  $schema['cache_log_filter'] = drupal_get_schema_unprocessed('system', 'cache');
+  $schema['cache_log_filter']['description'] = 'Cache table for Log Filter to store translated log posts.';
+  return $schema;
+   */
+  return array(
+      'log_filter_cache' => array(
+          'description' => 'Log Filter doesn\'t use the Cache API because it\'s inefficient for working with multiple items.',
+          'fields' => array(
+              'lid' => array(
+                  'type' => 'serial',
+                  'size' => 'big',
+                  'not null' => TRUE,
+              ),
+              'wid' => array(
+                  'type' => 'int',
+                  'not null' => TRUE,
+                  'description' => 'Watchdog event ID.',
+              ),
+              'lang' => array(
+                  'type' => 'varchar',
+                  'length' => 12,
+                  'not null' => TRUE,
+                  'default' => 'en',
+                  'description' => 'Translation language.',
+              ),
+              'translated' => array(
+                  'type' => 'text',
+                  'not null' => FALSE,
+                  'description' => 'Translated log message.',
+              ),
+          ),
+          'primary key' => array('lid'),
+          'indexes' => array( // Really should be a combined index, but db API doesnt seem to support that.
+              'wid' => array('wid'),
+              'lang' => array('lang'),
+          ),
+      ),
+  );
+}
+
+/**
  * Implements hook_install().
  */
 function log_filter_install() {
@@ -18,5 +67,5 @@ function log_filter_install() {
  * Implements hook_uninstall().
  */
 function log_filter_uninstall() {
-  variable_del('log_filter_x');
+  variable_del('log_filter_trnct');
 }

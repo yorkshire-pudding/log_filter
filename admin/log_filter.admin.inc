@@ -24,6 +24,20 @@ function _log_filter_admin_form($form, &$form_state) {
       array('type' => 'file', 'group' => JS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
   );
 
+  $form['general'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('General settings'),
+      '#collapsible' => FALSE,
+      '#collapsed' => FALSE,
+      'log_filter_trnct' => array(
+          '#type' => 'textfield',
+          '#title' => t('List view message truncation'),
+          '#default_value' => variable_get('log_filter_trnct', 100),
+          //'#access' => FALSE,
+          '#required' => FALSE,
+          '#size' => 3,
+      ),
+  );
 
   $form['#submit'][] = 'log_filter_admin_form_submit';
   return system_settings_form($form);
@@ -35,5 +49,4 @@ function _log_filter_admin_form($form, &$form_state) {
  * @return void
  */
 function _log_filter_admin_form_submit($form, &$form_state) {
-
 }

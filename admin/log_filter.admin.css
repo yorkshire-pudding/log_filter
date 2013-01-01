@@ -2,6 +2,6 @@
 body.page-admin-config-system-log_filter * {
 
 }
-body.page-admin-config-system-log-filter * {
-
+body.page-admin-config-system-log-filter input#edit-log-filter-trnct {
+  text-align: right;
 }

@@ -47,17 +47,6 @@ function log_filter_menu() {
       'file' => 'admin/log_filter.admin.inc',
       'type' => MENU_NORMAL_ITEM,
     ),
-    //	Log viewer
-		/*'admin/reports/dblog' => array(
-			'title' => t('Recent log messages'),
-			'description' => t('View logged events'),
-			'page callback' => 'drupal_get_form', // hook to implement
-			'page arguments' => array('log_filter_form'), // name of implementing function
-			'access arguments' => array('access site reports'), // permission required
-			'file' => 'log_filter.module',
-			'type' => MENU_NORMAL_ITEM,
-      'weight' => -1,
-		),*/
     'admin/reports/log_filter' => array(
 			'title' => t('Filtered log messages'),
 			'description' => t('View logged events using filters'),
@@ -66,13 +55,14 @@ function log_filter_menu() {
 			'access arguments' => array('access site reports'), // Permission required.
 			'file' => 'log_filter.module',
 			'type' => MENU_NORMAL_ITEM,
-      'weight' => -1, // Right before or after dblog's viewer
+      'weight' => -1, // Right before or after dblog's viewer.
 		),
     //  AJAX callback.
-    'log_filter/ajax/%' => array( // % ~ page response number
+    'log_filter/ajax/%' => array( // % ~ ?
       'page callback' => 'log_filter_ajax_callback',
       'page arguments' => array(2), // start at that bucket index
       'access callback' => TRUE,
+      'access arguments' => array('access site reports'), // Permission required.
       'type' => MENU_CALLBACK,
     ),
   );
