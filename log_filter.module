@@ -18,7 +18,7 @@ function log_filter_permission() {
       'restrict access' => TRUE,
     ),
     'log_filter edit filters' => array(
-      'title' => t('Edit saveable log filters'),
+      'title' => t('Create/edit/delete saveable log filters'),
       'restrict access' => TRUE,
     ),
     'log_filter use delete filters' => array(

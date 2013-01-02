@@ -21,9 +21,20 @@ function log_filter_schema() {
       'log_filter' => array(
           'description' => 'Log filters.',
           'fields' => array(
-              'fid' => array(
+              'id' => array(
                   'type' => 'serial',
                   'not null' => TRUE,
+              ),
+              'name' => array(
+                  'type' => 'varchar',
+                  'length' => 32,
+                  'not null' => TRUE,
+              ),
+              'description' => array(
+                  'type' => 'varchar',
+                  'length' => 255,
+                  'not null' => TRUE,
+                  'default' => '',
               ),
               'require_admin' => array(
                   'type' => 'int',
@@ -44,7 +55,7 @@ function log_filter_schema() {
                   'not null' => TRUE,
                   'default' => '',
               ),
-              'time_equals' => array(
+              'time_range' => array(
                   'type' => 'int',
                   'not null' => TRUE,
                   'default' => 0,
@@ -58,12 +69,6 @@ function log_filter_schema() {
                   'type' => 'int',
                   'not null' => TRUE,
                   'default' => 0,
-              ),
-              'roles' => array(
-                  'type' => 'varchar',
-                  'length' => 255,
-                  'not null' => TRUE,
-                  'default' => '',
               ),
               'uid' => array(
                   'type' => 'int',
@@ -95,7 +100,10 @@ function log_filter_schema() {
                   'default' => '',
               ),
           ),
-          'primary key' => array('fid'),
+          'primary key' => array('id'),
+          'unique keys' => array(
+              'name' => array('name'),
+          ),
       ),
       'log_filter_cache' => array(
           'description' => 'Cached logs - Log Filter doesn\'t use the Cache API because it\'s inefficient for working with multiple items.',
@@ -124,9 +132,8 @@ function log_filter_schema() {
               ),
           ),
           'primary key' => array('lid'),
-          'indexes' => array( // Really should be a combined index, but db API doesnt seem to support that.
-              'wid' => array('wid'),
-              'lang' => array('lang'),
+          'unique keys' => array(
+              'log_by_lang' => array('wid', 'lang'),
           ),
       ),
   );
