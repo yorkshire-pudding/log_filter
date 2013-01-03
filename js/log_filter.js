@@ -64,6 +64,7 @@ var LogFilter = function($) {
       cache: "input[name='log_filter_cache']"
     },
     filter: {
+      filter: "select[name='log_filter_filter']",
       name: "input[name='log_filter_name']", // Hidden.
       origin: "input[name='log_filter_origin']", // Hidden.
       name_suggest: "input[name='log_filter_name_suggest']",
@@ -93,7 +94,8 @@ var LogFilter = function($) {
       bools: "div.filter-orderby input[type='checkbox']"
     },
     buttons: {
-      reset: "input[name='log_filter_reset']",
+      all: "#log_filter_filters input[type='button']",
+      //  reset: "input[name='log_filter_reset']", // Not part of filter dialog.
       create: "input[name='log_filter_create']",
       copy: "input[name='log_filter_copy']",
       edit: "input[name='log_filter_edit']",
@@ -105,7 +107,8 @@ var LogFilter = function($) {
   _initialTypes = "",
 
   //  Declare private methods, to make IDEs list them
-  _local, _o, _innerWidth, _innerHeight, _resize, _ajax, _controlRelay, _selectValue, _filterSelector, _dateFromFormat, _prepareForm, _resetCriteria;
+  _local, _o, _innerWidth, _innerHeight, _dateFromFormat, _selectValue, _resize,
+  _ajax, _controlRelay, _filterSelector, _prepareForm, _resetCriteria, _changedCriterion, _setMode;
   /**
    * @ignore
    * @private
@@ -381,7 +384,7 @@ var LogFilter = function($) {
     _.mode = $(_selectors.controls.mode).get(0).value;
 
     //  Make filter buttons call our submit relay function, and fix input type.
-    a = $("div#log_filter_filters input").get();
+    a = $("#log_filter_filters input").get();
     a.push( $("input[name='log_filter_reset']").get(0) );
     le = a.length;
     for(i = 0; i < le; i++) {
@@ -395,7 +398,7 @@ var LogFilter = function($) {
     }
 
     //  Selecting a stored filter means submit form.
-    $("select[name='log_filter_filter']").change(function() {
+    $(_selectors.filter.filter).change(function() {
       if((v = _selectValue(this))) {
         $(_selectors.filter.name).get(0).value = v;
         $(_selectors.controls.mode).get(0).value = "stored";
@@ -489,6 +492,100 @@ var LogFilter = function($) {
         $(_selectors.buttons.submit).trigger("click");
         break;
     }
+
+    //  Set change handler on all criteria fields.
+    (function() {
+      var o, k, v, k1;
+      o = _selectors.conditions;
+      for(k in o) {
+        if(o.hasOwnProperty(k)) {
+          if(typeof (v = o[k]) === "string") {
+            $(v).change(_changedCriterion);
+          }
+          else {
+            for(k1 in v) {
+              if(v.hasOwnProperty(k1)) {
+                $(v[k1]).change(_changedCriterion);
+              }
+            }
+          }
+        }
+      }
+      o = _selectors.orderBy;
+      for(k in o) {
+        if(o.hasOwnProperty(k)) {
+          $(o[k]).change(_changedCriterion);
+        }
+      }
+    })();
+
+    //  If stored filter: display description or name in fieldset header.
+
+    //  log_filter_title_display
+  };
+
+
+  _setMode = function(to) {
+    var elm, nm;
+    switch(to) {
+      case "default":
+        break;
+      case "adhoc":
+        if(_.mode === "stored") {
+          nm = (elm = $(_selectors.filter.name).get(0)).value;
+          $("#log_filter_title_display").html(
+            Drupal.t("Ad hoc - based on !origin", { "!origin": nm } )
+          );
+          elm.value = "";
+          $(_selectors.filter.origin).get(0).value = nm;
+        }
+        _.mode = to;
+        $(_selectors.controls.mode).get(0).value = to;
+        _selectValue($(_selectors.filter.filter).get(0), "");
+        $(_selectors.buttons.all).hide();
+        break;
+      case "stored":
+        break;
+      case "create":
+        break;
+      case "edit":
+        break;
+      case "delete":
+        break;
+      default:
+        inspect.log(to, {
+          category: "log_filter",
+          message: "Mode[" + to + "] not supported.",
+          severity: "error"
+        });
+    }
+  };
+
+
+  _changedCriterion = function() {
+    var jq, elm, nm;
+    switch(_.mode) {
+      case "default":
+        break;
+      case "adhoc":
+        break;
+      case "stored":
+        _setMode("adhoc");
+        break;
+      case "create":
+        break;
+      case "edit":
+        $(_selectors.buttons.save).show(); // Too often...
+        break;
+      case "delete":
+        break;
+      default:
+        inspect.log(_.mode, {
+          category: "log_filter",
+          message: "Mode[" + _.mode + "] not supported.",
+          severity: "error"
+        });
+    }
   };
 
   _resetCriteria = function() {
@@ -530,6 +627,15 @@ var LogFilter = function($) {
       _selectValue(a[i], i ? "" : "time");
       b[i].checked = i ? false : "checked";
     }
+
+    //  If adhoc and has origin, clear origin.
+    if(_.mode === "adhoc" && $(_selectors.filter.origin).get(0).value) {
+      $(_selectors.filter.origin).get(0).value = "";
+      $("#log_filter_title_display").html(
+        Drupal.t("Ad hoc")
+      );
+    }
+
   };
 
 

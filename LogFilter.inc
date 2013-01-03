@@ -36,8 +36,8 @@ class LogFilter {
           'pager_range',
       ),
       'filter' => array(
-          'filter', // Select.
           'name', // Hidden.
+          'origin',
           'name_suggest',
           'description',
       ),
@@ -50,64 +50,16 @@ class LogFilter {
           'severity',
           'type_wildcard', // Skip in actual conditions.
           'type',
-          'uid',
+          'uid', // Default in database: -1.
           'hostname',
           'location',
           'referer',
       ),
-      'orderBy' => array(
+      'order_by' => array(
           'orderby_',
           'descending_',
       ),
   );
-
-
-  protected static function _prepareCriteria(&$conditions, &$orderBy, $submitted = FALSE) {
-    $fields =& self::$_fields['conditions'];
-    $conds = array();
-    foreach ($fields as $name) {
-      switch ($name) {
-        case 'severity': // For IN.
-          if (($v = $conditions['severity'])) {
-            if (!$submitted) { // Comma-separated list.
-              $conds['severity'] = $v;
-            }
-            else { // Array.
-              $conds['severity'] = join(',', $v);
-            }
-          }
-          break;
-        case 'type': // Newline-separated list, for IN.
-          if (($v = $conditions['type'])
-              && (!!$submitted || !$conditions['type_wildcard'])
-          ) {
-            $conds['type'] = "'" . str_replace("\n", "','", $v) . "'";
-          }
-          break;
-        case 'time_range':
-        case 'time_from':
-        case 'time_to':
-        case 'uid':
-        case 'hostname':
-        case 'referer':
-          if (($v = $conditions[$name])) {
-            $conds[$name] = $v;
-          }
-          break;
-        case 'time_from_display':
-        case 'time_to_display':
-        case 'type_wildcard':
-          //  Skip these; and they BTW only exist when submitted.
-          break;
-        default:
-          throw new Exception('Unsupported condition field[' . $name . '].');
-      }
-    }
-    return array(
-        'conditions' => $conds,
-    );
-  }
-
 
   /**
 	 * Defines log viewer form and GUI.
@@ -164,14 +116,134 @@ class LogFilter {
       //  Get mode; default | adhoc | stored | create | edit | delete.
       $mode = $submitted ? $submitted['mode'] : 'default';
 
-
-
-      //  Flag if form vars should be used at all.
-      $use_submitted = $submitted && !$submitted['reset'];
-
-      //$use_filter =
+      //  Stored mode may degrade to default.
+      if ($mode == 'stored') {
+        $success = TRUE;
+        if (!$filter_name) {
+          throw new Exception('Filter name[' . $filter_name . '] cannot be empty in mode[stored].');
+        }
+        if (!($stored_filter = db_select('log_filter')
+            ->fields('log_filter')
+            ->condition('name', $filter_name, '=')
+            ->execute()->fetchAssoc())
+        ) {
+          $success = FALSE;
+          drupal_set_message(
+              t('The filter \'!name\' doesn\'t exist.', array('!name' => $filter_name)),
+              'warning'
+          );
+        }
+        elseif ($stored_filter['require_admin'] && !user_access('log_filter administer')) {
+          $success = FALSE;
+        }
+        if ($success) {
+          $filter = array(
+              'origin' => '',
+              'description' => $stored_filter['description'],
+          );
+          $fields_conditions =& self::$_fields['conditions'];
+          $conditions = array();
+          foreach ($fields_conditions as $name) {
+            switch ($name) {
+              case 'time_range':
+              case 'time_from':
+              case 'time_to':
+              case 'uid':
+                $conditions[$name] = ($v = $stored_filter[$name]) > 0 ? $v : '';
+                break;
+              case 'severity':
+                $conditions['severity'] = !strlen($v = $stored_filter['severity']) ? array('-1') : explode(',', $v);
+                break;
+              case 'type_wildcard':
+                $conditions['type_wildcard'] = !$stored_filter['type'] ? TRUE : FALSE;
+                break;
+              case 'type':
+                $conditions['type'] = ($v = $stored_filter['type']) ? $v : ''; // db text field; safeguard against null value (despite schema declaration).
+                break;
+              case 'time_from_display':
+              case 'time_to_display':
+                //  Set by frontend, if non-empty time_from/time_to
+                $conditions[$name] = '';
+                break;
+              default:
+                $conditions[$name] = $stored_filter[$name];
+            }
+          }
+          unset($fields_conditions);
+          $order_by = array();
+          if (($v = $stored_filter['order_by'])) {
+            $le = count($arr = explode(',', $v));
+            for ($i = 0; $i < $le; $i++) {
+              $v = explode(':', $arr[$i]);
+              $order_by[] = array($v[0], $v[1] == 'DESC');
+            }
+          }
+          $title = $filter_name . (($v = $filter['description']) ? (' - ' . $v) : '');
+        }
+        else {
+          $mode = 'default';
+        }
+        unset($stored_filter);
+      }
+      //  Do other modes.
+      switch ($mode) {
+        case 'default':
+          $filter = array(
+              'origin' => '',
+              'description' => '',
+          );
+          $fields_conditions =& self::$_fields['conditions'];
+          $conditions = array();
+          foreach ($fields_conditions as $name) {
+            switch ($name) {
+              case 'severity':
+                $conditions[$name] = array('-1');
+                break;
+              case 'type_wildcard':
+                $conditions[$name] = TRUE;
+                break;
+              default:
+                $conditions[$name] = '';
+            }
+          }
+          unset($fields_conditions);
+          $order_by = array(
+              array('time', TRUE),
+          );
+          $title = t('Default');
+          break;
+        case 'adhoc':
+          $filter =& $submitted['filter'];
+          $conditions =& $submitted['conditions'];
+          if (!$conditions['severity']) {
+            $conditions['severity'] = array('-1');
+          }
+          $order_by =& $submitted['order_by'];
+          $title = t('Ad hoc') . (($v = $filter['origin']) ? (' - ' . t('based on !origin', array('!origin' => $v))) : '');
+          break;
+        case 'stored':
+          //  Done earlier.
+          break;
+        case 'create':
+        case 'edit':
+        case 'delete':
+          throw new Exception('Mode[' . $mode . '] not allowed at form build.');
+          break;
+        default:
+          throw new Exception('Unsupported mode[' . $mode . '].');
+      }
 
       //  Prepare some fields.
+      //  Types.
+      if (!$conditions['type']) {
+        if (($types = db_select('watchdog')
+            ->fields('watchdog', array('type'))
+            ->distinct()
+            ->execute()->fetchCol())) {
+          sort($types);
+          $conditions['type'] = join("\n", $types);
+        }
+      }
       //  Severity.
       $options_severity = array(
           '-1' => t('Any'),
@@ -184,21 +256,8 @@ class LogFilter {
           '6' => t('info'),
           '7' => t('debug'),
       );
-
-      //  Types.
-      if ($use_submitted && ($v = $submitted['conditions']['type'])) {
-        $values_type = $v;
-      }
-      elseif (($types = db_select('watchdog')
-          ->fields('watchdog', array('type'))
-          ->distinct()
-          ->execute()->fetchCol())) {
-        sort($types);
-      }
-      $values_type = join("\n", $types);
-
       //  Order by.
-      $options_orderBy = array(
+      $options_order_by = array(
           '' => '',
           'time' => t('Time'),
           'severity' => t('Severity'),
@@ -208,12 +267,8 @@ class LogFilter {
           'location' => t('Location'),
           'referer' => t('Referrer'),
       );
-      $values_orderBy = array();
-      if ($use_submitted && ($arr = $submitted['orderBy'])) {
-        foreach ($arr as $k => $v) {
-          $values_orderBy[] = array($k, $v == 'DESC');
-        }
-      }
+      $length_order_by = count($order_by);
+
 
       //  Only own filters.
       $value_only_own = $settings && array_key_exists('only_own', $settings) ? $settings['only_own'] : FALSE;
@@ -244,7 +299,7 @@ class LogFilter {
       //  Build form.
       $form['filter'] = array(
           '#type' => 'fieldset',
-          '#title' => t('Filter') . ': <span id="log_filter_title_display">' . t('None') . '</span>',
+          '#title' => t('Filter') . ': <span id="log_filter_title_display">' . $title . '</span>',
           '#collapsible' => TRUE,
           '#collapsed' => FALSE,
           //  Control vars.
@@ -258,14 +313,14 @@ class LogFilter {
           ),
           'log_filter_origin' => array(
               '#type' => 'hidden',
-              '#default_value' => !$use_submitted ? '' : $submitted['filter']['origin'],
+              '#default_value' => $filter['origin'],
           ),
           //  Conditions.
           //  Time.
           'log_filter_time_range' => array(
               '#type' => 'textfield',
               '#title' => t('Last no. of hours'),
-              '#default_value' => !$use_submitted ? '' : $submitted['conditions']['time_range'],
+              '#default_value' => $conditions['time_range'],
               '#size' => 2,
               '#attributes' => array('autocomplete' => 'off'),
               '#prefix' => '<div id="log_filter_criteria"><div class="filter-conditions"><div class="form-item log-filter-time">',
@@ -273,27 +328,27 @@ class LogFilter {
           'log_filter_time_from_display' => array(
               '#type' => 'textfield',
               '#title' => t('From date'),
-              '#default_value' => !$use_submitted ? '' : $submitted['conditions']['time_from_display'],
+              '#default_value' => '', // Frontend sets it, if non-empty time_from.
               '#size' => 10,
               '#attributes' => array('autocomplete' => 'off'),
               '#prefix' => '<div class="log-filter-time-or">' . t('or') . '</div>',
           ),
           'log_filter_time_from' => array(
               '#type' => 'hidden',
-              '#default_value' => !$use_submitted ? '' : $submitted['conditions']['time_from'],
+              '#default_value' => $conditions['time_from'],
               '#attributes' => array('autocomplete' => 'off'),
           ),
           'log_filter_time_to_display' => array(
               '#type' => 'textfield',
               '#title' => t('To date'),
-              '#default_value' => !$use_submitted ? '' : $submitted['conditions']['time_to_display'],
+              '#default_value' => '', // Frontend sets it, if non-empty time_to.
               '#size' => 10,
               '#attributes' => array('autocomplete' => 'off'),
               '#prefix' => '<div class="log-filter-time-andor">' . t('and/or') . '</div>',
           ),
           'log_filter_time_to' => array(
               '#type' => 'hidden',
-              '#default_value' => !$use_submitted ? '' : $submitted['conditions']['time_to'],
+              '#default_value' => $conditions['time_to'],
               '#attributes' => array('autocomplete' => 'off'),
               '#suffix' => '</div>',
           ),
@@ -303,22 +358,21 @@ class LogFilter {
               '#title' => t('Severity'),
               '#multiple' => TRUE,
               '#options' => $options_severity,
-              '#default_value' => !$use_submitted ? array('-1') : // Any.
-                  $submitted['conditions']['severity'],
+              '#default_value' => $conditions['severity'],
               '#attributes' => array('autocomplete' => 'off'),
           ),
           //  Type.
           'log_filter_type_wildcard' => array(
               '#type' => 'checkbox',
               '#title' => t('Any'),
-              '#default_value' => !$use_submitted ? TRUE : $submitted['conditions']['type_wildcard'],
+              '#default_value' => $conditions['type_wildcard'],
               '#attributes' => array('autocomplete' => 'off'),
               '#prefix' => '<div class="form-item log-filter-type">'
                   . '<label>' . t('Type') . '</label>',
           ),
           'log_filter_type' => array(
               '#type' => 'textarea',
-              '#default_value' => $values_type,
+              '#default_value' => $conditions['type'],
               '#rows' => 6,
               '#cols' => 48,
               '#attributes' => array('autocomplete' => 'off'),
@@ -328,7 +382,7 @@ class LogFilter {
           'log_filter_uid' => array(
               '#type' => 'textfield',
               '#title' => t('User ID'),
-              '#default_value' => !$use_submitted ? '' : $submitted['conditions']['uid'],
+              '#default_value' => $conditions['uid'],
               '#size' => 11,
               '#attributes' => array('autocomplete' => 'off'),
               '#prefix' => '<div class="form-item log-filter-various">',
@@ -336,21 +390,21 @@ class LogFilter {
           'log_filter_hostname' => array(
               '#type' => 'textfield',
               '#title' => t('Visitor\'s hostname'),
-              '#default_value' => !$use_submitted ? '' : $submitted['conditions']['hostname'],
+              '#default_value' => $conditions['hostname'],
               '#size' => 32,
               '#attributes' => array('autocomplete' => 'off'),
           ),
           'log_filter_location' => array(
               '#type' => 'textfield',
               '#title' => t('Location'),
-              '#default_value' => !$use_submitted ? '' : $submitted['conditions']['location'],
+              '#default_value' => $conditions['location'],
               '#size' => 64,
               '#attributes' => array('autocomplete' => 'off'),
           ),
           'log_filter_referer' => array(
               '#type' => 'textfield',
               '#title' => t('Referrer'),
-              '#default_value' => !$use_submitted ? '' : $submitted['conditions']['referer'],
+              '#default_value' => $conditions['referer'],
               '#size' => 64,
               '#attributes' => array('autocomplete' => 'off'),
               '#suffix' => '</div></div>',
@@ -358,14 +412,14 @@ class LogFilter {
           //  Order by.
           'log_filter_orderby_1' => array(
               '#type' => 'select',
-              '#options' => $options_orderBy,
-              '#default_value' => !$values_orderBy ? array('') : $values_orderBy[0][0],
+              '#options' => $options_order_by,
+              '#default_value' => $length_order_by ? array($order_by[0][0]) : array(),
               '#attributes' => array('autocomplete' => 'off'),
               '#prefix' => '<div class="filter-orderby"><label>' . t('Order by') . '</label>',
           ),
           'log_filter_descending_1' => array(
               '#type' => 'checkbox',
-              '#default_value' => !$values_orderBy ? FALSE : $values_orderBy[0][1],
+              '#default_value' => $length_order_by ? $order_by[0][1] : FALSE,
               '#attributes' => array(
                   'autocomplete' => 'off',
                   'title' => t('Descending'),
@@ -373,13 +427,13 @@ class LogFilter {
           ),
           'log_filter_orderby_2' => array(
               '#type' => 'select',
-              '#options' => $options_orderBy,
-              '#default_value' => !$values_orderBy || !isset($values_orderBy[1]) ? array('') : $values_orderBy[1][0],
+              '#options' => $options_order_by,
+              '#default_value' => $length_order_by > 1 ? array($order_by[1][0]) : array(),
               '#attributes' => array('autocomplete' => 'off'),
           ),
           'log_filter_descending_2' => array(
               '#type' => 'checkbox',
-              '#default_value' => !$values_orderBy || !isset($values_orderBy[1]) ? FALSE : $values_orderBy[1][1],
+              '#default_value' => $length_order_by > 1 ? $order_by[1][1] : FALSE,
               '#attributes' => array(
                   'autocomplete' => 'off',
                   'title' => t('Descending'),
@@ -387,13 +441,13 @@ class LogFilter {
           ),
           'log_filter_orderby_3' => array(
               '#type' => 'select',
-              '#options' => $options_orderBy,
-              '#default_value' => !$values_orderBy || !isset($values_orderBy[2]) ? array('') : $values_orderBy[2][0],
+              '#options' => $options_order_by,
+              '#default_value' => $length_order_by > 2 ? array($order_by[2][0]) : array(),
               '#attributes' => array('autocomplete' => 'off'),
           ),
           'log_filter_descending_3' => array(
               '#type' => 'checkbox',
-              '#default_value' => !$values_orderBy || !isset($values_orderBy[2]) ? FALSE : $values_orderBy[2][1],
+              '#default_value' => $length_order_by > 2 ? $order_by[2][1] : FALSE,
               '#attributes' => array(
                   'autocomplete' => 'off',
                   'title' => t('Descending'),
@@ -416,7 +470,7 @@ class LogFilter {
               '#type' => 'select',
               '#title' => t('Filter'),
               '#options' => $options_filters,
-              //'#default_value' => array(2, 5),
+              '#default_value' => $filter_name,
               '#attributes' => array(
                   'autocomplete' => 'off',
                ),
@@ -446,7 +500,7 @@ class LogFilter {
           'log_filter_name_suggest' => array(
               '#type' => 'textfield',
               '#title' => t('Name'),
-              //'#default_value' => array(2, 5),
+              '#default_value' => '', // Only used frontend.
               '#size' => 32,
               '#attributes' => array(
                   'maxlength' => 32,
@@ -456,7 +510,7 @@ class LogFilter {
           'log_filter_description' => array(
               '#type' => 'textarea',
               '#title' => t('Description'),
-              //'#default_value' => array(2, 5),
+              '#default_value' => $filter['description'],
               '#rows' => 2,
               '#cols' => 32,
               '#resizable' => FALSE, // Otherwise styling too complicated, and browsers support it natively.
@@ -594,7 +648,7 @@ class LogFilter {
       if (!$filter) {
         $filter = new stdClass();
         $filter->conditions = array();
-        $filter->orderBy = array('timestamp' => 'DESC');
+        $filter->order_by = array('timestamp' => 'DESC');
       }
 
       if (($nFiltered = $nTotal = db_select('watchdog')
@@ -642,7 +696,7 @@ class LogFilter {
             }
           }
         }
-        if (($nFiltered = count($ids = $ids->orderBy($filter->orderBy[0], $filter->orderBy[1])->execute()->fetchAll()))) {
+        if (($nFiltered = count($ids = $ids->orderBy($filter->order_by[0], $filter->order_by[1])->execute()->fetchAll()))) {
 
           $logs = array();
 
@@ -681,12 +735,13 @@ class LogFilter {
       drupal_set_message($xc->getMessage(), 'error');
       return array();
     }
-
+    /*
     $arr = db_select('watchdog', null, array('fetch' => PDO::FETCH_OBJ))
 				->fields('watchdog', array('wid'))
         ->orderBy('timestamp', 'DESC')
         ->range(1, 10)
 				->execute();
+     */
   }
 
   /**
@@ -698,10 +753,6 @@ class LogFilter {
 	 */
   public static function formSubmit($form, &$form_state) {
     try {
-      $allow_crud = user_access('log_filter edit filters');
-
-      //inspect_log_message('submitted');
-
       //inspect($form_state['values']);
       $values =& $form_state['values'];
       $prefix = 'log_filter_';
@@ -736,7 +787,7 @@ class LogFilter {
         case 'stored': // Saved filter.
           //  Just get filter name.
           if (!($submitted['filter']['name'] = $filter_name = $values[$prefix . 'name'])) {
-            throw new Exception('Mode[' . $submitted['mode'] . '], empty name[' . $filter_name . '].');
+            throw new Exception('Mode[' . $mode . '], empty name[' . $filter_name . '].');
           }
           break;
         case 'create':
@@ -744,7 +795,7 @@ class LogFilter {
         case 'delete':
           //  Get name.
           if (!($submitted['filter']['name'] = $filter_name = $values[$prefix . 'name'])) {
-            throw new Exception('Mode[' . $submitted['mode'] . '], empty name[' . $filter_name . '].');
+            throw new Exception('Mode[' . $mode . '], empty name[' . $filter_name . '].');
           }
           $success = TRUE;
           //  Check CRUD permission.
@@ -817,7 +868,6 @@ class LogFilter {
                 //  Get specs from form, and save to database.
                 $load = TRUE;
                 $save = 'insert';
-                $submitted['filter']['origin'] = $values[$prefix . 'origin'];
                 $submitted['filter']['name_suggest'] = $values[$prefix . 'name_suggest'];
                 $submitted['filter']['description'] = $values[$prefix . 'description'];
                 break;
@@ -843,19 +893,18 @@ class LogFilter {
           else {
             $load = $save = FALSE;
             //  Change mode.
-            $submitted['mode'] = 'default';
+            $submitted['mode'] = $mode = 'default';
             $submitted['reset'] = TRUE;
           }
           break;
         default:
-          throw new Exception('Unsupported mode[' . $submitted['mode'] . '].');
+          throw new Exception('Unsupported mode[' . $mode . '].');
       }
 
       //  Load values from form.
       if($load) {
         $fields_conditions =& self::$_fields['conditions'];
         $conditions = array();
-        $orderBy = array();
         foreach ($fields_conditions as $name) {
           switch ($name) {
             case 'time_range':
@@ -866,21 +915,17 @@ class LogFilter {
               $conditions[$name] = $conditions['time_range'] ? '' : (($v = trim($values[$prefix . $name])) ? $v : '');
               break;
             case 'time_from_display':
-              $conditions[$name] = !$conditions['time_from'] ? '' : $values[$prefix . $name];
+              if (!$save) {
+                $conditions[$name] = !$conditions['time_from'] ? '' : $values[$prefix . $name];
+              }
               break;
             case 'time_to':
               $conditions[$name] = $conditions['time_range'] ? '' : (($v = trim($values[$prefix . $name])) ? $v : '');
               break;
             case 'time_to_display':
-              $conditions[$name] = !$conditions['time_to'] ? '' : $values[$prefix . $name];
-              break;
-            case 'type_wildcard':
-              $conditions[$name] = $values[$prefix . $name] ? TRUE : FALSE;
-              break;
-            case 'type':
-              //  Dont remember type list (may  be very long), if wildcard on.
-              $conditions[$name] = !$conditions['type_wildcard'] ?
-                  str_replace(array("\r", ',', "'", '"'), '', trim($values[$prefix . $name])) : ''; // Frontend fixes more formatting issues.
+              if (!$save) {
+                $conditions[$name] = !$conditions['time_to'] ? '' : $values[$prefix . $name];
+              }
               break;
             case 'severity':
               $arr = $values[$prefix . $name];
@@ -896,41 +941,82 @@ class LogFilter {
                   }
                 }
               }
+              if ($save) {
+                $vals = str_replace('zero', '0', join(',', $vals));
+              }
               $conditions[$name] = $vals;
+              break;
+            case 'type_wildcard':
+              $conditions[$name] = $values[$prefix . $name] ? TRUE : FALSE;
+              break;
+            case 'type':
+              //  Dont remember type list (may  be very long), if wildcard on.
+              $conditions[$name] = !$conditions['type_wildcard'] ?
+                  str_replace(array("\r", ',', "'", '"'), '', trim($values[$prefix . $name])) : ''; // Frontend fixes more formatting issues.
+              if ($save) {
+                unset($conditions['type_wildcard']);
+              }
               break;
             default:
               $conditions[$name] = trim($values[$prefix . $name]);
           }
         }
         unset($fields_conditions);
+        $submitted['conditions'] =& $conditions;
 
-        $fields_orderBy =& self::$_fields['orderBy'];
+        $fields_order_by =& self::$_fields['order_by'];
+        $order_by = array();
         for ($i = 1; $i < 10; $i++) {
-          if (array_key_exists($key = $prefix . $fields_orderBy[0] . $i, $values)) {
+          if (array_key_exists($key = $prefix . $fields_order_by[0] . $i, $values)) {
             if (($key = $values[ $key ])) {
-              $orderBy[ $key ] = $values[ $prefix . $fields_orderBy[1] . $i ] ? 'DESC' : 'ASC';
+              if (!$save) {
+                $order_by[] = array($key, $values[ $prefix . $fields_order_by[1] . $i ]);
+              }
+              else {
+                $order_by[] = $key . ':' . $values[ $prefix . $fields_order_by[1] . $i ] ? 'DESC' : 'ASC';
+              }
             }
           }
           else {
             break;
           }
         }
-        $submitted['conditions'] =& $conditions;
-        $submitted['orderBy'] =& $orderBy;
+        unset($fields_order_by);
+        if (!$save) {
+          $submitted['order_by'] =& $order_by;
+        }
+        else {
+          $submitted['order_by'] = join(',', $order_by);
+          unset($order_by);
+        }
       }
 
       if ($save) {
-
+        $success = TRUE;
         if ($save == 'edit') {
 
         }
         else { // create
 
+          $submitted['filter']['name_suggest'] = '';
         }
 
+        //  Change mode.
+        if ($success) {
+          $submitted['mode'] = $mode = 'stored';
+        }
+        else {
+          $submitted['mode'] = $mode = 'default';
+          $submitted['reset'] = TRUE;
+        }
       }
 
+      //  Clear conditions and order_by from vars to be passed to session, unless adhoc filter.
+      if ($mode != 'adhoc') {
+        unset( $submitted['conditions'], $submitted['order_by'] );
+      }
 
+      //  Pass to session.
       if (module_exists('state')) {
         State::set('module', 'log_filter', array('settings' => $settings, 'submitted' => $submitted));
       }
