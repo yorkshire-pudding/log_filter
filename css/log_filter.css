@@ -11,6 +11,16 @@ body.page-admin-reports-log-filter input.form-submit:hover {
   opacity:0.8; -ms-filter:'progid:DXImageTransform.Microsoft.Alpha(Opacity=80)'; filter:alpha(opacity=80);
   color: #000;
 }
+body.page-admin-reports-log-filter input.form-submit.theme-seven {
+  border-radius: 11px;
+  padding: 2px 8px 3px;
+}
+body.page-admin-reports-log-filter input.form-submit.edit-reset {
+  color: #336699;
+}
+body.page-admin-reports-log-filter input.form-submit.edit-delete {
+  color: #993300;
+}
 
 
   body.page-admin-reports-log-filter fieldset#edit-filter .fieldset-legend span {
@@ -129,8 +139,20 @@ body.page-admin-reports-log-filter input.form-submit:hover {
       body.page-admin-reports-log-filter div#log_filter_filters.narrow > div {
         float: left;
       }
-      body.page-admin-reports-log-filter div#log_filter_filters label {
-      }
+        body.page-admin-reports-log-filter div#log_filter_filters div.form-item-log-filter-filter label {
+          font-size: 1.1em;
+          padding-bottom: 2px;
+        }
+        body.page-admin-reports-log-filter div#log_filter_filters div.form-item-log-filter-filter select {
+          width: 215px;
+        }
+          body.page-admin-reports-log-filter div#log_filter_filters div.form-item-log-filter-filter option {
+            font-size: 1.1em;
+            padding: 1px 0;
+          }
+        body.page-admin-reports-log-filter div#log_filter_filters div.form-item-log-filter-only-own label {
+          font-weight: bold;
+        }
       body.page-admin-reports-log-filter div#log_filter_filters div.form-item-log-filter-name {
         display: none;
       }

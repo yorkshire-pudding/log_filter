@@ -30,6 +30,11 @@ function log_filter_schema() {
                   'length' => 32,
                   'not null' => TRUE,
               ),
+              'creator' => array(
+                  'type' => 'int',
+                  'not null' => TRUE,
+                  'description' => 'The user.uid that created the filter.',
+              ),
               'description' => array(
                   'type' => 'varchar',
                   'length' => 255,
@@ -50,10 +55,10 @@ function log_filter_schema() {
                   'default' => '',
               ),
               'type' => array(
-                  'type' => 'varchar',
-                  'length' => 255,
+                  'type' => 'text',
                   'not null' => TRUE,
-                  'default' => '',
+                  //  Text fields don't support default value; at least not MySQL.
+                  'description' => 'Newline-separated list of log types.',
               ),
               'time_range' => array(
                   'type' => 'int',
@@ -98,6 +103,16 @@ function log_filter_schema() {
                   'length' => 255,
                   'not null' => TRUE,
                   'default' => '',
+              ),
+              'editor' => array(
+                  'type' => 'int',
+                  'not null' => TRUE,
+                  'description' => 'The user.uid that most recently changed the filter.',
+              ),
+              'changed' => array(
+                  'type' => 'int',
+                  'not null' => TRUE,
+                  'description' => 'The Unix timestamp when the filter was most recently saved.',
               ),
           ),
           'primary key' => array('id'),

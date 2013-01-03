@@ -34,7 +34,7 @@ var LogFilter = function($) {
     errors: [],
     dateFormat: "YYYY-MM-DD",
     dateFormat_datepicker: "yy-mm-dd",
-    mode: 'use_custom' // use_custom | use_saved | create | edit | delete
+    mode: 'default' // default | adhoc | stored | create | edit | delete
   },
   /**
    * @private
@@ -59,8 +59,14 @@ var LogFilter = function($) {
     controls: {
       mode: "input[name='log_filter_mode']"
     },
-    metadata: {
-      name: "input[name='log_filter_name']",
+    settings: {
+      onlyOwn: "input[name='log_filter_only_own']",
+      cache: "input[name='log_filter_cache']"
+    },
+    filter: {
+      name: "input[name='log_filter_name']", // Hidden.
+      origin: "input[name='log_filter_origin']", // Hidden.
+      name_suggest: "input[name='log_filter_name_suggest']",
       description: "textarea[name='log_filter_description']"
     },
     conditions: {
@@ -369,7 +375,7 @@ var LogFilter = function($) {
 
 
   _prepareForm = function() {
-    var o, jq, a, le, i, elm, type;
+    var o, jq, a, le, i, elm, type, v;
 
     //  Get mode.
     _.mode = $(_selectors.controls.mode).get(0).value;
@@ -388,9 +394,11 @@ var LogFilter = function($) {
       }
     }
 
-    //  Selecting a saved filter means submit form.
+    //  Selecting a stored filter means submit form.
     $("select[name='log_filter_filter']").change(function() {
-      if(_selectValue(this)) {
+      if((v = _selectValue(this))) {
+        $(_selectors.filter.name).get(0).value = v;
+        $(_selectors.controls.mode).get(0).value = "stored";
         $(_selectors.buttons.submit).trigger("click");
       }
     });
@@ -434,37 +442,52 @@ var LogFilter = function($) {
       }
     });
 
-    //  Un-check type:any upon change in list of types.
+    //  Un-check type:any upon change in list of types (and fix formatting of the list).
     (jq = $(o.type.some)).change(function() {
+      var v = this.value;
       $(o.type.all).get(0).checked = false;
+      if(v && (v = $.trim(v))) {
+        this.value = v.replace(/[\r\,\"\']/g, "").replace(/[\ \n]+\n/g, "\n").replace(/\n[\ \n]+/g, "\n");
+      }
     });
     //  Memorize initial list of types.
     _initialTypes = jq.get(0).value;
 
     //  Show buttons according to mode.
     switch(_.mode) {
-      case "use_saved":
+      case "default":
+        $(_selectors.buttons.create).show();
+        break;
+      case "adhoc":
+        $(_selectors.buttons.create).show();
+        break;
+      case "stored":
         $(_selectors.buttons.copy).show();
         $(_selectors.buttons.edit).show();
         $(_selectors.buttons.del).show();
         break;
       case "create": // Frontend should only see this mode if backend validation rejects the form.
         $(_selectors.buttons.save).show();
-        $(_selectors.metadata.name).parent().show();
-        $(_selectors.metadata.description).parent().parent().show();
+        $(_selectors.filter.name).parent().show();
+        $(_selectors.filter.description).parent().parent().show();
         break;
       case "edit":
         $(_selectors.buttons.del).show();
         $(_selectors.buttons.save).show();
-        $(_selectors.metadata.description).parent().parent().show();
+        $(_selectors.filter.description).parent().parent().show();
         break;
-      default: // use_custom
-        if(_.mode === "delete") { // Frontend should never see this mode on page load.
-          _.mode = "use_custom";
-          $(_selectors.controls.mode).get(0).value = "use_custom";
-          _resetCriteria();
-        }
-        $(_selectors.buttons.create).show();
+      case "delete": // Frontend should never see this mode on page load.
+      default:
+        inspect.log(_.mode, {
+          category: "log_filter",
+          message: "Mode[" + _.mode + "] " + (_.mode === "delete" ? "not valid in frontend" : "not supported."),
+          severity: "error"
+        });
+        //  Reset criteria, and reload page.
+        $(_selectors.controls.mode).get(0).value = "default";
+        _resetCriteria();
+        $(_selectors.buttons.submit).trigger("click");
+        break;
     }
   };
 
@@ -523,6 +546,11 @@ var LogFilter = function($) {
       case "log_filter_edit":
         break;
       case "log_filter_delete":
+        if ($(_selectors.filter.name).get(0).value) {
+          $(_selectors.controls.mode).get(0).value = "delete";
+          _resetCriteria();
+          $(_selectors.buttons.submit).trigger("click");
+        }
         break;
       case "log_filter_save":
         break;
@@ -597,6 +625,10 @@ var LogFilter = function($) {
         }, "LogFilter._ajax()");
       }
     });
+  };
+
+  this.inspect = function() {
+    inspect(_, "LogFilter");
   };
 
   /**
