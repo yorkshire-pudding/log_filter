@@ -34,7 +34,7 @@ var LogFilter = function($) {
     errors: [],
     dateFormat: "YYYY-MM-DD",
     dateFormat_datepicker: "yy-mm-dd",
-    mode: 'create' // create | edit
+    mode: 'use_custom' // use_custom | use_saved | create | edit | delete
   },
   /**
    * @private
@@ -56,12 +56,19 @@ var LogFilter = function($) {
    * @type {obj}
    */
   _selectors = {
-    fields: {
+    controls: {
+      mode: "input[name='log_filter_mode']"
+    },
+    metadata: {
+      name: "input[name='log_filter_name']",
+      description: "textarea[name='log_filter_description']"
+    },
+    conditions: {
       time_range: "input[name='log_filter_time_range']",
       time_from_display: "input[name='log_filter_time_from_display']",
       time_from: "input[name='log_filter_time_from']",
-      time_to_display: "input[name='log_filter_time_from_display']",
-      time_to: "input[name='log_filter_time_from']",
+      time_to_display: "input[name='log_filter_time_to_display']",
+      time_to: "input[name='log_filter_time_to']",
       severity: {
         all: "input[name='log_filter_severity[-1]']",
         some: "div#edit-log-filter-severity input:not([name='log_filter_severity[-1]'])"
@@ -73,13 +80,14 @@ var LogFilter = function($) {
       uid: "input[name='log_filter_uid']",
       hostname: "input[name='log_filter_hostname']",
       location: "input[name='log_filter_location']",
-      referer: "input[name='log_filter_referer']",
-      orderBy: {
-        selects: "div.filter-orderby select",
-        bools: "div.filter-orderby input[type='checkbox']"
-      }
+      referer: "input[name='log_filter_referer']"
     },
-    controls: {
+    orderBy: {
+      selects: "div.filter-orderby select",
+      bools: "div.filter-orderby input[type='checkbox']"
+    },
+    buttons: {
+      reset: "input[name='log_filter_reset']",
       create: "input[name='log_filter_create']",
       copy: "input[name='log_filter_copy']",
       edit: "input[name='log_filter_edit']",
@@ -91,7 +99,7 @@ var LogFilter = function($) {
   _initialTypes = "",
 
   //  Declare private methods, to make IDEs list them
-  _local, _o, _innerWidth, _innerHeight, _resize, _ajax, _controlRelay, _selectValue, _filterSelector, _dateFromFormat, _prepareForm, _resetForm;
+  _local, _o, _innerWidth, _innerHeight, _resize, _ajax, _controlRelay, _selectValue, _filterSelector, _dateFromFormat, _prepareForm, _resetCriteria;
   /**
    * @ignore
    * @private
@@ -310,7 +318,7 @@ var LogFilter = function($) {
       return true; // all done
     }
     //  secure array
-    if(!self.isArray(val)) {
+    if(!$.isArray(val)) {
       v = ["" + val];
     }
     else {
@@ -327,7 +335,7 @@ var LogFilter = function($) {
     nOpts = (rOpts = $("option", elm).get()).length;
     for(i = 0; i < nOpts; i++) {
       if( ( (r = rOpts[i]).selected =
-          self.arrayIndexOf(v, r.value) > -1 ? "selected" : false)
+          $.inArray(r.value, v) > -1 ? "selected" : false)
       ) { // set? and count
         ++set;
         if(!multi) {
@@ -361,7 +369,31 @@ var LogFilter = function($) {
 
 
   _prepareForm = function() {
-    var o = _selectors.fields, jq, a, i;
+    var o, jq, a, le, i, elm, type;
+
+    //  Get mode.
+    _.mode = $(_selectors.controls.mode).get(0).value;
+
+    //  Make filter buttons call our submit relay function, and fix input type.
+    a = $("div#log_filter_filters input").get();
+    a.push( $("input[name='log_filter_reset']").get(0) );
+    le = a.length;
+    for(i = 0; i < le; i++) {
+      if((type = (elm = a[i]).getAttribute("type")) === "button" || type === "submit") {
+        if(type === "submit") {
+          elm.setAttribute("type", "button");
+        }
+        $(elm).unbind().
+            click(_controlRelay);
+      }
+    }
+
+    //  Selecting a saved filter means submit form.
+    $("select[name='log_filter_filter']").change(function() {
+      if(_selectValue(this)) {
+        $(_selectors.buttons.submit).trigger("click");
+      }
+    });
 
     //  Put jQuery UI datepicker on time fields.
     a = [ "from", "to" ];
@@ -387,6 +419,7 @@ var LogFilter = function($) {
     }
 
     //  Un-check severity:any upon change in list of severity.
+    o = _selectors.conditions;
     $(o.severity.some).change(function() {
       $(o.severity.all).get(0).checked = false;
     });
@@ -407,29 +440,56 @@ var LogFilter = function($) {
     });
     //  Memorize initial list of types.
     _initialTypes = jq.get(0).value;
+
+    //  Show buttons according to mode.
+    switch(_.mode) {
+      case "use_saved":
+        $(_selectors.buttons.copy).show();
+        $(_selectors.buttons.edit).show();
+        $(_selectors.buttons.del).show();
+        break;
+      case "create": // Frontend should only see this mode if backend validation rejects the form.
+        $(_selectors.buttons.save).show();
+        $(_selectors.metadata.name).parent().show();
+        $(_selectors.metadata.description).parent().parent().show();
+        break;
+      case "edit":
+        $(_selectors.buttons.del).show();
+        $(_selectors.buttons.save).show();
+        $(_selectors.metadata.description).parent().parent().show();
+        break;
+      default: // use_custom
+        if(_.mode === "delete") { // Frontend should never see this mode on page load.
+          _.mode = "use_custom";
+          $(_selectors.controls.mode).get(0).value = "use_custom";
+          _resetCriteria();
+        }
+        $(_selectors.buttons.create).show();
+    }
   };
 
-  _resetForm = function() {
-    var o = _selectors.fields, k, v, a, b, le, i;
+  _resetCriteria = function() {
+    var o = _selectors.conditions, k, v, a, b, le, i;
     for(k in o) {
       if(o.hasOwnProperty(k)) {
         v = o[k];
         switch(k) {
           case "severity":
-            v.all.checked = "checked";
-            v.some.value = _initialTypes;
-            break;
-          case "type":
-            v.all.checked = "checked";
+            $(v.all).get(0).checked = "checked";
             le = (a = $(v.some).get()).length;
             for(i = 0; i < le; i++) {
               a[i].checked = false;
             }
             break;
+          case "type":
+            $(v.all).get(0).checked = "checked";
+            $(v.some).get(0).value = _initialTypes;
+            break;
           case "orderBy":
             le = (a = $(v.selects).get()).length;
             b = $(v.bools).get();
             for(i = 0; i < le; i++) {
+              //  Default to order by time ascending, only.
               _selectValue(a[i], i ? "" : "time");
               b[i].checked = i ? false : "checked";
             }
@@ -439,15 +499,23 @@ var LogFilter = function($) {
         }
       }
     }
-
+    o = _selectors.orderBy;
+    le = (a = $(o.selects).get()).length;
+    b = $(o.bools).get();
+    for(i = 0; i < le; i++) {
+      //  Default to order by time ascending, only.
+      _selectValue(a[i], i ? "" : "time");
+      b[i].checked = i ? false : "checked";
+    }
   };
 
 
   _controlRelay = function() {
     var nm = this.name;
-    //inspect(nm);
-
     switch(nm) {
+      case "log_filter_reset":
+        _resetCriteria();
+        break;
       case "log_filter_create":
         break;
       case "log_filter_copy":
@@ -461,9 +529,6 @@ var LogFilter = function($) {
       default:
         inspect.console("Unsupported button name[" + nm + "]");
     }
-
-
-
     return false; // For IE8's sake.
   };
 
@@ -551,20 +616,9 @@ var LogFilter = function($) {
     }
     _init = true;
 
-    //  Make filter buttons call our submit relay function, and fix input type.
-    if((le = (a = $("div#log_filter_filters input").get()).length)) {
-      for(i = 0; i < le; i++) {
-        if((type = (elm = a[i]).getAttribute("type")) === "button" || type === "submit") {
-          if(type === "submit") {
-            elm.setAttribute("type", "button");
-          }
-          $(elm).unbind().
-              click(_controlRelay);
-        }
-      }
-    }
 
-    $("select[name='log_filter_filter']").change(_filterSelector);
+
+
 
 
 

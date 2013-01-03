@@ -22,6 +22,30 @@ class LogFilter {
 	}
 
   /**
+	 * @type array
+	 */
+	protected static $_fields = array(
+      'conditions' => array(
+          'time_range',
+          'time_from_display',
+          'time_from',
+          'time_to_display',
+          'time_to',
+          'severity',
+          'type_wildcard',
+          'type',
+          'uid',
+          'hostname',
+          'location',
+          'referer',
+      ),
+      'orderBy' => array(
+          'orderby_',
+          'descending_',
+      ),
+  );
+
+  /**
 	 * Defines log viewer form and GUI.
 	 *
 	 * @param array $form
@@ -69,6 +93,18 @@ class LogFilter {
 
 
     try {
+      $submitted = NULL;
+      if (module_exists('state')) {
+        $submitted = State::remove('module', 'log_filter');
+      }
+      else {
+        drupal_session_start();
+        if (!empty($_SESSION['module']) && !empty($_SESSION['module']['log_filter'])) {
+          $submitted = $_SESSION['module']['log_filter'];
+        }
+      }
+
+      //inspect($submitted, '$submitted');
 
 
       $options_filters = array(
@@ -81,7 +117,7 @@ class LogFilter {
 
       $options_severity = array(
           '-1' => t('Any'),
-          '0' => t('emergency'),
+          'zero' => t('emergency'),
           '1' => t('alert'),
           '2' => t('critical'),
           '3' => t('error'),
@@ -106,12 +142,12 @@ class LogFilter {
       $options_type = join("\n", $types);
 
       $options_orderBy = array(
-          '' => t('None'),
+          '' => '',
           'time' => t('Time'),
           'severity' => t('Severity'),
           'type' => t('Type'),
           'uid' => t('User ID'),
-          'hostname' => t('User\'s host name'),
+          'hostname' => t('Visitor\'s hostname'),
           'location' => t('Location'),
           'referer' => t('Referrer'),
       );
@@ -122,6 +158,15 @@ class LogFilter {
           '#title' => t('Filter') . ': <span id="log_filter_title_display">' . t('None') . '</span>',
           '#collapsible' => TRUE,
           '#collapsed' => FALSE,
+          //  Control vars.
+          'log_filter_mode' => array(
+              '#type' => 'hidden',
+              '#default_value' => 'use_custom',
+          ),
+          'log_filter_origin' => array(
+              '#type' => 'hidden',
+              //'#default_value' => array(2, 5),
+          ),
           //  Time.
           'log_filter_time_range' => array(
               '#type' => 'textfield',
@@ -129,7 +174,7 @@ class LogFilter {
               //'#default_value' => array(2, 5),
               '#size' => 2,
               '#attributes' => array('autocomplete' => 'off'),
-              '#prefix' => '<div id="log_filter_criteria"><div class="filter-criteria"><div class="form-item log-filter-time">',
+              '#prefix' => '<div id="log_filter_criteria"><div class="filter-conditions"><div class="form-item log-filter-time">',
           ),
           'log_filter_time_from_display' => array(
               '#type' => 'textfield',
@@ -195,7 +240,7 @@ class LogFilter {
           ),
           'log_filter_hostname' => array(
               '#type' => 'textfield',
-              '#title' => t('User\'s host name'),
+              '#title' => t('Visitor\'s hostname'),
               //'#default_value' => array(2, 5),
               '#size' => 32,
               '#attributes' => array('autocomplete' => 'off'),
@@ -267,10 +312,10 @@ class LogFilter {
               '#attributes' => array(
                   'type' => 'button', // Doesnt work; still type:submit.
                   'class' => array('form-submit'),
-                  //'style' => 'display:none;',
+                  'style' => 'display:none;',
               ),
-              '#prefix' => '<div>',
-              '#suffix' => '</div></div>',
+              '#prefix' => '<div class="log-filter-reset">',
+              '#suffix' => '</div></div></div>',
           ),
           //  Filters.
           'log_filter_filter' => array(
@@ -291,7 +336,7 @@ class LogFilter {
               '#attributes' => array(
                   'type' => 'button', // Doesnt work; still type:submit.
                   'class' => array('form-submit'),
-                  //'style' => 'display:none;',
+                  'style' => 'display:none;',
               ),
               '#prefix' => '<div>',
               '#suffix' => '</div>',
@@ -325,7 +370,7 @@ class LogFilter {
               '#attributes' => array(
                   'type' => 'button', // Doesnt work; still type:submit.
                   'class' => array('form-submit'),
-                  //'style' => 'display:none;',
+                  'style' => 'display:none;',
               ),
               '#prefix' => '<div>',
               '#suffix' => '</div>',
@@ -338,7 +383,7 @@ class LogFilter {
               '#attributes' => array(
                   'type' => 'button', // Doesnt work; still type:submit.
                   'class' => array('form-submit'),
-                  //'style' => 'display:none;',
+                  'style' => 'display:none;',
               ),
               '#prefix' => '<div>',
               '#suffix' => '</div>',
@@ -351,7 +396,7 @@ class LogFilter {
               '#attributes' => array(
                   'type' => 'button', // Doesnt work; still type:submit.
                   'class' => array('form-submit'),
-                  //'style' => 'display:none;',
+                  'style' => 'display:none;',
               ),
               '#prefix' => '<div>',
               '#suffix' => '</div>',
@@ -364,7 +409,7 @@ class LogFilter {
               '#attributes' => array(
                   'type' => 'button', // Doesnt work; still type:submit.
                   'class' => array('form-submit'),
-                  //'style' => 'display:none;',
+                  'style' => 'display:none;',
               ),
               '#prefix' => '<div>',
               '#suffix' => '</div></div>',
@@ -604,34 +649,112 @@ class LogFilter {
 	 * @return void
 	 */
   public static function formSubmit($form, &$form_state) {
-
-
     //inspect($form_state['values']);
+    $values =& $form_state['values'];
+    $prefix = 'log_filter_';
 
+    $submitted = array();
+    $submitted['mode'] = $values[$prefix . 'mode'];
+    $submitted['filter'] = $values[$prefix . 'filter'];
+    $submitted['origin'] = $values[$prefix . 'origin'];
+    $submitted['reset'] = FALSE;
 
-    $filter = new stdClass();
-    $filter->conditions = array();
-    $filter->orderBy = array('timestamp' => 'was');
+    $load_values = FALSE;
+    switch ($submitted['mode']) {
+      case 'use_custom': // Custom conditions & order, or conditions & order based on saved filter (conditions and/or order modified ad-hoc).
+        //  Get specs from form.
+        $load_values = TRUE;
+        break;
+      case 'use_saved': // Saved filter.
+        //  Get specs from database.
+        break;
+      case 'create':
+        //  Get specs from form, and save to database.
+        $load_values = TRUE;
+        break;
+      case 'edit':
+        //  Get specs from form, and save to database.
+        $load_values = TRUE;
+        break;
+      case 'delete':
+        //  Delete from database, and reset form.
+
+        //  resetting must include setting the 'mode' field to 'use_custom'
+
+        $submitted['reset'] = TRUE;
+        break;
+      default:
+        inspect_trace(NULL, 'Unsupported mode[' . $submitted['mode'] . ']');
+        $submitted['reset'] = TRUE;
+    }
+
+    $submitted['conditions'] = $conditions = array();
+    $submitted['orderBy'] = $orderBy = array();
+    if($load_values) {
+      $fields_conditions =& self::$_fields['conditions'];
+      foreach ($fields_conditions as $name) {
+        switch ($name) {
+          case 'time_range':
+          case 'time_from':
+          case 'time_to':
+          case 'uid':
+            $conditions[$name] = ($v = (int)$values[$prefix . $name]) ? $v : '';
+            break;
+          case 'type_wildcard':
+            $conditions[$name] = $values[$prefix . $name] ? TRUE : FALSE;
+            break;
+          case 'type':
+            //  Dont remember type list (may  be very long), if wildcard on.
+            $conditions[$name] = !$conditions['type_wildcard'] ? str_replace("\r", '', $values[$prefix . $name]) : '';
+            break;
+          case 'severity':
+            $arr = $values[$prefix . $name];
+            $vals = array();
+            foreach ($arr as $k => $v) {
+              if($v) {
+                if('' . $k == '-1') {
+                  $vals = array();
+                  break;
+                }
+                else {
+                  $vals[] = $k;
+                }
+              }
+            }
+            $conditions[$name] = $vals;
+            break;
+          default:
+            $conditions[$name] = $values[$prefix . $name];
+        }
+      }
+
+      $fields_orderBy =& self::$_fields['orderBy'];
+      for ($i = 1; $i < 10; $i++) {
+        if (array_key_exists($key = $prefix . $fields_orderBy[0] . $i, $values)) {
+          if (($key = $values[ $key ])) {
+            $orderBy[ $key ] = $values[ $prefix . $fields_orderBy[1] . $i ] ? 'DESC' : 'ASC';
+          }
+        }
+        else {
+          break;
+        }
+      }
+      $submitted['conditions'] =& $conditions;
+      $submitted['orderBy'] =& $orderBy;
+    }
 
     if (module_exists('state')) {
-      State::set('module', 'log_filter', 'filter', $filter);
+      State::set('module', 'log_filter', $submitted);
     }
     else {
       drupal_session_start();
       if (!isset($_SESSION['module'])) {
         $_SESSION['module'] = array(
-            'log_filter' => array(
-                'filter' => $filter,
-            ),
-        );
-      }
-      elseif (!isset($_SESSION['module']['log_filter'])) {
-        $_SESSION['module']['log_filter'] = array(
-            'filter' => $filter,
+            'log_filter' => $submitted,
         );
       }
       else {
-        $_SESSION['module']['log_filter']['filter'] = $filter;
+        $_SESSION['module']['log_filter'] = $submitted;
       }
     }
 

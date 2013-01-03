@@ -30,64 +30,64 @@ body.page-admin-reports-log-filter input.form-submit:hover {
     body.page-admin-reports-log-filter div#log_filter_criteria {
         margin-right: 20px;
     }
-      body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria:after {
+      body.page-admin-reports-log-filter div#log_filter_criteria div.filter-conditions:after {
         /* clearfix */ clear:both; content:"."; display:block; height:0; visibility:hidden; font-size:0;
       }
-      body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria > div {
+      body.page-admin-reports-log-filter div#log_filter_criteria div.filter-conditions > div {
         float: left;
         padding: 0 10px;
         margin: 10px 0 0;
         border-right: 1px dotted #999;
       }
-      body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria > div:first-child {
+      body.page-admin-reports-log-filter div#log_filter_criteria div.filter-conditions > div:first-child {
         padding-left: 0;
       }
-      body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria > div:last-child {
+      body.page-admin-reports-log-filter div#log_filter_criteria div.filter-conditions > div:last-child {
         padding-right: 0;
         border-right: none;
       }
 
-          body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria div div.form-checkboxes div.form-item {
+          body.page-admin-reports-log-filter div#log_filter_criteria div.filter-conditions div div.form-checkboxes div.form-item {
             padding: 0 2px;
           }
-          body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria div#edit-log-filter-severity.form-checkboxes div.form-item:first-child {
+          body.page-admin-reports-log-filter div#log_filter_criteria div.filter-conditions div#edit-log-filter-severity.form-checkboxes div.form-item:first-child {
             margin: 2px 0 5px;
           }
-            body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria div#edit-log-filter-severity.form-checkboxes div.form-item:first-child label {
+            body.page-admin-reports-log-filter div#log_filter_criteria div.filter-conditions div#edit-log-filter-severity.form-checkboxes div.form-item:first-child label {
               color: #666;
               font-weight: bold;
             }
-        body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria div div.form-item.form-item-log-filter-type-wildcard {
+        body.page-admin-reports-log-filter div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-type-wildcard {
           padding: 0 2px;
           margin: 2px 0 4px;
         }
-          body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria div div.form-item.form-item-log-filter-type-wildcard label {
+          body.page-admin-reports-log-filter div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-type-wildcard label {
             color: #666;
             font-weight: bold;
           }
-          body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria div div.form-item.form-item-log-filter-type textarea {
+          body.page-admin-reports-log-filter div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-type textarea {
             width: 300px;
           }
-        body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria div div.form-item.form-item-log-filter-time-range {
+        body.page-admin-reports-log-filter div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-time-range {
           padding: 0 2px;
         }
-          body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria div div.form-item.form-item-log-filter-time-range input {
+          body.page-admin-reports-log-filter div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-time-range input {
             text-align: right;
           }
-        body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria div div.log-filter-time-or {
+        body.page-admin-reports-log-filter div#log_filter_criteria div.filter-conditions div div.log-filter-time-or {
           padding: 10px 0 4px;
         }
-        body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria div div.log-filter-time-andor {
+        body.page-admin-reports-log-filter div#log_filter_criteria div.filter-conditions div div.log-filter-time-andor {
           padding: 3px 0 1px;
         }
-        body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria div div.form-item.form-item-log-filter-uid {
+        body.page-admin-reports-log-filter div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-uid {
           padding-top: 0;
         }
-          body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria div div.form-item.form-item-log-filter-uid input {
+          body.page-admin-reports-log-filter div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-uid input {
             text-align: right;
           }
-          body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria div div.form-item.form-item-log-filter-location input,
-          body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria div div.form-item.form-item-log-filter-referer input {
+          body.page-admin-reports-log-filter div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-location input,
+          body.page-admin-reports-log-filter div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-referer input {
             width: 350px;
           }
 
@@ -103,7 +103,7 @@ body.page-admin-reports-log-filter input.form-submit:hover {
         body.page-admin-reports-log-filter div#log_filter_criteria div.filter-orderby > label {
           float: left;
         }
-        body.page-admin-reports-log-filter div#log_filter_criteria div.filter-orderby > div.form-item {
+        body.page-admin-reports-log-filter div#log_filter_criteria div.filter-orderby > div {
           float: left;
           padding: 0;
         }
@@ -113,13 +113,11 @@ body.page-admin-reports-log-filter input.form-submit:hover {
         body.page-admin-reports-log-filter div#log_filter_criteria div.filter-orderby > div.form-item.form-type-checkbox input {
           margin: 0 4px;
         }
-        /*
-        body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria div.log-filter-cache > div.form-item.form-item-log-filter-cache {
-          padding-top: 0;
+        body.page-admin-reports-log-filter div#log_filter_criteria div.filter-orderby > div.log-filter-reset {
+          float: right;
+          margin-right: 15px;
+          padding: 0;
         }
-        body.page-admin-reports-log-filter div#log_filter_criteria div.filter-criteria div.log-filter-cache > div.form-item.form-item-log-filter-cache div.description {
-          margin-left: 0;
-        }*/
 
     body.page-admin-reports-log-filter div.fieldset-wrapper div#log_filter_filters {
       background-color: #DDD;
@@ -133,13 +131,18 @@ body.page-admin-reports-log-filter input.form-submit:hover {
       }
       body.page-admin-reports-log-filter div#log_filter_filters label {
       }
-      body.page-admin-reports-log-filter div#log_filter_filters input[type="text"] {
-        width: 210px;
+      body.page-admin-reports-log-filter div#log_filter_filters div.form-item-log-filter-name {
+        display: none;
       }
-      body.page-admin-reports-log-filter div#log_filter_filters textarea {
-        width: 215px;
+        body.page-admin-reports-log-filter div#log_filter_filters input[type="text"] {
+          width: 210px;
+        }
+      body.page-admin-reports-log-filter div#log_filter_filters div.form-item-log-filter-description {
+        display: none;
       }
-
+        body.page-admin-reports-log-filter div#log_filter_filters textarea {
+          width: 215px;
+        }
 
 
 
