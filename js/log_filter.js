@@ -397,13 +397,12 @@ var LogFilter = function($) {
       }
     }
 
-    //  Selecting a stored filter means submit form.
+    //  Selecting a stored filter - or default filter - means submit form.
     $(_selectors.filter.filter).change(function() {
-      if((v = _selectValue(this))) {
-        $(_selectors.filter.name).get(0).value = v;
-        $(_selectors.controls.mode).get(0).value = "stored";
-        $(_selectors.buttons.submit).trigger("click");
-      }
+      var v = _selectValue(this);
+      $(_selectors.filter.name).get(0).value = v;
+      $(_selectors.controls.mode).get(0).value = v ? "stored" : "default";
+      $(_selectors.buttons.submit).trigger("click");
     });
 
     //  Put jQuery UI datepicker on time fields.
@@ -459,12 +458,15 @@ var LogFilter = function($) {
     //  Show buttons according to mode.
     switch(_.mode) {
       case "default":
+        $("div.form-item-log-filter-only-own").show();
         $(_selectors.buttons.create).show();
         break;
       case "adhoc":
+        $("div.form-item-log-filter-only-own").show();
         $(_selectors.buttons.create).show();
         break;
       case "stored":
+        $("div.form-item-log-filter-only-own").show();
         $(_selectors.buttons.copy).show();
         $(_selectors.buttons.edit).show();
         $(_selectors.buttons.del).show();
@@ -519,9 +521,22 @@ var LogFilter = function($) {
       }
     })();
 
-    //  If stored filter: display description or name in fieldset header.
+    //  Submit if user checks filter_only_own.
+    $(_selectors.settings.onlyOwn).change(function() {
+      var elm;
+      if(this.checked) {
+        if(_.mode === "stored") {
+          $(_selectors.controls.mode).get(0).value = "adhoc";
+          _selectValue($(_selectors.filter.filter).get(0), "");
+          $(_selectors.filter.origin).get(0).value = (elm = $(_selectors.filter.name).get(0)).value;
+          elm.value = "";
+        }
+        $(_selectors.buttons.submit).trigger("click");
+      }
+    });
 
-    //  log_filter_title_display
+
+
   };
 
 
@@ -529,8 +544,10 @@ var LogFilter = function($) {
     var elm, nm;
     switch(to) {
       case "default":
+        $("div.form-item-log-filter-only-own").show();
         break;
       case "adhoc":
+        $("div.form-item-log-filter-only-own").show();
         if(_.mode === "stored") {
           nm = (elm = $(_selectors.filter.name).get(0)).value;
           $("#log_filter_title_display").html(
@@ -545,10 +562,13 @@ var LogFilter = function($) {
         $(_selectors.buttons.all).hide();
         break;
       case "stored":
+        $("div.form-item-log-filter-only-own").show();
         break;
       case "create":
+        $("div.form-item-log-filter-only-own").hide();
         break;
       case "edit":
+        $("div.form-item-log-filter-only-own").hide();
         break;
       case "delete":
         break;
@@ -635,7 +655,9 @@ var LogFilter = function($) {
         Drupal.t("Ad hoc")
       );
     }
-
+    else if(_.mode === "stored") {
+      _setMode("adhoc");
+    }
   };
 
 

@@ -152,7 +152,14 @@ class LogFilter {
                 $conditions[$name] = ($v = $stored_filter[$name]) > 0 ? $v : '';
                 break;
               case 'severity':
-                $conditions['severity'] = !strlen($v = $stored_filter['severity']) ? array('-1') : explode(',', $v);
+                if (!strlen($v = $stored_filter['severity'])) {
+                  $v = array('-1');
+                }
+                else {
+                  $v = str_replace(',0,', ',zero,', ',' . $v . ',');
+                  $v = explode(',', substr($v, 1, strlen($v) - 1));
+                }
+                $conditions['severity'] = $v;
                 break;
               case 'type_wildcard':
                 $conditions['type_wildcard'] = !$stored_filter['type'] ? TRUE : FALSE;

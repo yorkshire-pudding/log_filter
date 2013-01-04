@@ -150,6 +150,9 @@ body.page-admin-reports-log-filter input.form-submit.edit-delete {
             font-size: 1.1em;
             padding: 1px 0;
           }
+      body.page-admin-reports-log-filter div#log_filter_filters div.form-item-log-filter-only-own {
+        display: none;
+      }
         body.page-admin-reports-log-filter div#log_filter_filters div.form-item-log-filter-only-own label {
           font-weight: bold;
         }
