@@ -56,10 +56,8 @@ var LogFilter = function($) {
    * @type {obj}
    */
   _selectors = {
-    controls: {
-      mode: "input[name='log_filter_mode']"
-    },
     settings: {
+      mode: "input[name='log_filter_mode']",
       onlyOwn: "input[name='log_filter_only_own']",
       cache: "input[name='log_filter_cache']"
     },
@@ -72,36 +70,49 @@ var LogFilter = function($) {
     },
     conditions: {
       time_range: "input[name='log_filter_time_range']",
-      time_from_display: "input[name='log_filter_time_from_display']",
       time_from: "input[name='log_filter_time_from']",
-      time_to_display: "input[name='log_filter_time_to_display']",
+      time_from_display: "input[name='log_filter_time_from_display']",
       time_to: "input[name='log_filter_time_to']",
-      severity: {
+      time_to_display: "input[name='log_filter_time_to_display']",
+      /*severity: {
         all: "input[name='log_filter_severity[-1]']",
         some: "div#edit-log-filter-severity input:not([name='log_filter_severity[-1]'])"
-      },
-      type: {
+      },*/
+      severity_any: "input[name='log_filter_severity[-1]']",
+      severity_some: "div#edit-log-filter-severity input:not([name='log_filter_severity[-1]'])", // More elements.
+      /*type: {
         all: "input[name='log_filter_type_wildcard']",
         some: "textarea[name='log_filter_type']"
-      },
+      },*/
+      type_any: "input[name='log_filter_type_wildcard']",
+      type_some: "textarea[name='log_filter_type']", // Single element.
       uid: "input[name='log_filter_uid']",
       hostname: "input[name='log_filter_hostname']",
       location: "input[name='log_filter_location']",
       referer: "input[name='log_filter_referer']"
     },
     orderBy: {
-      selects: "div.filter-orderby select",
+      options: "div.filter-orderby select",
       bools: "div.filter-orderby input[type='checkbox']"
     },
     buttons: {
-      all: "#log_filter_filters input[type='button']",
-      //  reset: "input[name='log_filter_reset']", // Not part of filter dialog.
+      reset: "input[name='log_filter_reset']", // Not part of filter dialog.
       create: "input[name='log_filter_create']",
       copy: "input[name='log_filter_copy']",
       edit: "input[name='log_filter_edit']",
       del: "input[name='log_filter_delete']",
       save: "input[name='log_filter_save']",
+      delByFilter: "input[name='log_filter_delete_by_filter']",
       submit: "input#edit-submit"
+    }
+  },
+  _elements = {
+    settings: {},
+    filter: {},
+    conditions: {},
+    orderBy: [], // Array.
+    buttons: {
+      all: []
     }
   },
   _initialTypes = "",
@@ -380,80 +391,172 @@ var LogFilter = function($) {
   _prepareForm = function() {
     var o, jq, a, le, i, elm, type, v;
 
-    //  Get mode.
-    _.mode = $(_selectors.controls.mode).get(0).value;
-
-    //  Make filter buttons call our submit relay function, and fix input type.
-    a = $("#log_filter_filters input").get();
-    a.push( $("input[name='log_filter_reset']").get(0) );
-    le = a.length;
-    for(i = 0; i < le; i++) {
-      if((type = (elm = a[i]).getAttribute("type")) === "button" || type === "submit") {
-        if(type === "submit") {
-          elm.setAttribute("type", "button");
-        }
-        $(elm).unbind().
-            click(_controlRelay);
-      }
-    }
-
-    //  Selecting a stored filter - or default filter - means submit form.
-    $(_selectors.filter.filter).change(function() {
-      var v = _selectValue(this);
-      $(_selectors.filter.name).get(0).value = v;
-      $(_selectors.controls.mode).get(0).value = v ? "stored" : "default";
-      $(_selectors.buttons.submit).trigger("click");
-    });
-
-    //  Put jQuery UI datepicker on time fields.
-    a = [ "from", "to" ];
-    for(i = 0; i < 2; i++) {
-      (jq = $("input[name=\'log_filter_time_" + a[i] + "_display\']")).datepicker({
-        dateFormat: _.dateFormat_datepicker
-      });
-      if((v = $("input[name=\'log_filter_time_" + a[i] + "\']").val()) && (v = parseInt(v, 10))) {
-        jq.datepicker("setDate", new Date(v * 1000));
-      }
-      jq.change(function() {
-        var v, d, r = $("input[name=\'" + this.name.replace(/_display$/, "") + "\']").get(0);
-        if((v = $.trim(this.value)).length) {
-          if((d = _dateFromFormat(v, _.dateFormat))) {
-            r.value = Math.floor(d.getTime() / 1000);
+    //  Buttons; get element references, and fix some issues.
+    (function() {
+      var oSels = _selectors.buttons, oElms = _elements.buttons, nm, jq, elm;
+      for(nm in oSels) {
+        if(oSels.hasOwnProperty(nm) && (elm = (jq = $(oSels[nm])).get(0))) {
+          if(nm === "submit") {
+            oElms[nm] = elm;
           }
           else {
-            r.value = "";
-            alert( Drupal.t("The date '!date' is not valid\n- please use the format: !format", {"!date": v, "!format": _.dateFormat}) );
+            oElms[nm] = elm;
+            elm.setAttribute("type", "button"); // Fix type (apparant Form API shortcoming).
+            jq.unbind(); // Remove Drupal native button handlers.
+            //  If filter button: add to list of those, and set our common button handler.
+            if(nm !== "reset") {
+              oElms.all.push(elm);
+              jq.click(_controlRelay);
+            }
           }
         }
-      });
-    }
+      }
+    })();
+    //inspect(_elements.buttons);
 
-    //  Un-check severity:any upon change in list of severity.
-    o = _selectors.conditions;
-    $(o.severity.some).change(function() {
-      $(o.severity.all).get(0).checked = false;
-    });
-    //  Un-check specific severities upon checking severity:any.
-    $(o.severity.all).change(function() {
-      var a, le, i;
-      if(this.checked) {
-        le = (a = $(o.severity.some).get()).length;
-        for(i = 0; i < le; i++) {
-          a[i].checked = false;
+    //  Fields; get element references, and fix some issues.
+    (function() {
+      var oSels, oElms, nm, jq, elm, aElms, le, i, v;
+      //  Settings.
+      oSels = _selectors.settings;
+      oElms = _elements.settings;
+      for(nm in oSels) {
+        if(oSels.hasOwnProperty(nm) && (elm = (jq = $(oSels[nm])).get(0))) {
+          oElms[nm] = elm;
+          switch(nm) {
+            case "mode":
+              //  Get mode.
+              _.mode = elm.value;
+              break;
+            case "onlyOwn":
+              //  Submit if user checks filter_only_own.
+              jq.change(function() {
+                if(this.checked) {
+                  if(_.mode === "stored") {
+                    _elements.settings.mode.value = "adhoc";
+                    _selectValue(_elements.filter.filter, "");
+                    _elements.filter.origin.value = _elements.filter.name.value; // Pass name to origin.
+                    _elements.filter.name.value = "";
+                  }
+                  $(_elements.buttons.submit).trigger("click");
+                }
+              });
+              break;
+          }
         }
       }
-    });
-
-    //  Un-check type:any upon change in list of types (and fix formatting of the list).
-    (jq = $(o.type.some)).change(function() {
-      var v = this.value;
-      $(o.type.all).get(0).checked = false;
-      if(v && (v = $.trim(v))) {
-        this.value = v.replace(/[\r\,\"\']/g, "").replace(/[\ \n]+\n/g, "\n").replace(/\n[\ \n]+/g, "\n");
+      //  Filter.
+      oSels = _selectors.filter;
+      oElms = _elements.filter;
+      for(nm in oSels) {
+        if(oSels.hasOwnProperty(nm) && (elm = (jq = $(oSels[nm])).get(0))) {
+          oElms[nm] = elm;
+          switch(nm) {
+            case "filter":
+              //  Selecting a stored filter - or default filter - means submit form.
+              jq.change(function() { // Submit if user checks filter_only_own.
+                var v = _selectValue(this);
+                _elements.filter.name.value = v;
+                _elements.settings.mode.value = v ? "stored" : "default";
+                $(_elements.buttons.submit).trigger("click");
+              });
+              break;
+          }
+        }
       }
-    });
-    //  Memorize initial list of types.
-    _initialTypes = jq.get(0).value;
+      //  Conditions.
+      oSels = _selectors.conditions;
+      oElms = _elements.conditions;
+      for(nm in oSels) {
+        if(oSels.hasOwnProperty(nm) && (elm = (jq = $(oSels[nm])).get(0))) {
+          switch(nm) {
+            case "time_from": // Hidden fields.
+            case "time_to":
+              oElms[nm] = elm;
+              break;
+            case "severity_some": // More elements.
+              oElms[nm] = jq.get();
+              //  Un-check severity:any upon change in list of severity.
+              jq.change(function() {
+                _elements.conditions.severity_any.checked = false;
+              });
+              break;
+            default:
+              oElms[nm] = elm;
+              jq.change(_changedCriterion); // Criterion change handler.
+              switch(nm) {
+                case "time_from_display":
+                case "time_to_display":
+                  //  Put jQuery UI datepicker on time fields.
+                  jq.datepicker({
+                    dateFormat: _.dateFormat_datepicker
+                  });
+                  if((v = _elements.conditions[ nm === "time_from_display" ? "time_from" : "time_to" ].value) && (v = parseInt(v, 10))) {
+                    jq.datepicker("setDate", new Date(v * 1000));
+                  }
+                  jq.change(function() {
+                    var v, d, r = $("input[name=\'" + this.name.replace(/_display$/, "") + "\']").get(0);
+                    if((v = $.trim(this.value)).length) {
+                      if((d = _dateFromFormat(v, _.dateFormat))) {
+                        r.value = Math.floor(d.getTime() / 1000);
+                      }
+                      else {
+                        r.value = "";
+                        alert( Drupal.t("The date '!date' is not valid\n- please use the format: !format", {"!date": v, "!format": _.dateFormat}) );
+                      }
+                    }
+                  });
+                  break;
+                case "severity_any":
+                  //  Un-check specific severities upon checking severity:any.
+                  jq.change(function() {
+                    var a, le, i;
+                    if(this.checked) {
+                      le = (a = _elements.conditions.severity_some).length;
+                      for(i = 0; i < le; i++) {
+                        a[i].checked = false;
+                      }
+                    }
+                  });
+                  break;
+                case "type_some":
+                  //  Un-check type_any upon change in list of types (and fix formatting of the list).
+                  jq.change(function() {
+                    var v = this.value;
+                    _elements.conditions.type_any.checked = false;
+                    if(v && (v = $.trim(v))) {
+                      this.value = v.replace(/[\r\,\"\']/g, "").replace(/[\ \n]+\n/g, "\n").replace(/\n[\ \n]+/g, "\n");
+                    }
+                  });
+                  //  Memorize initial list of types.
+                  _initialTypes = elm.value;
+                  break;
+              }
+          }
+        }
+      }
+      //  Order by.
+      oElms = _elements.orderBy; // Array.
+      if((le = (aElms = (jq = $(_selectors.orderBy.options)).get()).length)) {
+        for(i = 0; i < le; i++) {
+          oElms.push(
+            [ elm = aElms[i] ]
+          );
+          $(elm).change(_changedCriterion); // Criterion change handler.
+        }
+        if((le = (aElms = (jq = $(_selectors.orderBy.bools)).get()).length)) {
+          for(i = 0; i < le; i++) {
+            oElms[i].push(
+              elm = aElms[i]
+            );
+            $(elm).change(_changedCriterion); // Criterion change handler.
+          }
+        }
+      }
+    })();
+    //inspect(_elements.conditions);
+    //inspect(_elements.orderBy);
+
 
     //  Show buttons according to mode.
     switch(_.mode) {
@@ -489,54 +592,11 @@ var LogFilter = function($) {
           severity: "error"
         });
         //  Reset criteria, and reload page.
-        $(_selectors.controls.mode).get(0).value = "default";
+        _elements.settings.mode.value = "default";
         _resetCriteria();
-        $(_selectors.buttons.submit).trigger("click");
+        $(_elements.buttons.submit).trigger("click");
         break;
     }
-
-    //  Set change handler on all criteria fields.
-    (function() {
-      var o, k, v, k1;
-      o = _selectors.conditions;
-      for(k in o) {
-        if(o.hasOwnProperty(k)) {
-          if(typeof (v = o[k]) === "string") {
-            $(v).change(_changedCriterion);
-          }
-          else {
-            for(k1 in v) {
-              if(v.hasOwnProperty(k1)) {
-                $(v[k1]).change(_changedCriterion);
-              }
-            }
-          }
-        }
-      }
-      o = _selectors.orderBy;
-      for(k in o) {
-        if(o.hasOwnProperty(k)) {
-          $(o[k]).change(_changedCriterion);
-        }
-      }
-    })();
-
-    //  Submit if user checks filter_only_own.
-    $(_selectors.settings.onlyOwn).change(function() {
-      var elm;
-      if(this.checked) {
-        if(_.mode === "stored") {
-          $(_selectors.controls.mode).get(0).value = "adhoc";
-          _selectValue($(_selectors.filter.filter).get(0), "");
-          $(_selectors.filter.origin).get(0).value = (elm = $(_selectors.filter.name).get(0)).value;
-          elm.value = "";
-        }
-        $(_selectors.buttons.submit).trigger("click");
-      }
-    });
-
-
-
   };
 
 
@@ -551,13 +611,13 @@ var LogFilter = function($) {
         if(_.mode === "stored") {
           nm = (elm = $(_selectors.filter.name).get(0)).value;
           $("#log_filter_title_display").html(
-            Drupal.t("Ad hoc - based on !origin", { "!origin": nm } )
+            Drupal.t("Ad hoc - based on !origin", {"!origin": nm} )
           );
           elm.value = "";
           $(_selectors.filter.origin).get(0).value = nm;
         }
         _.mode = to;
-        $(_selectors.controls.mode).get(0).value = to;
+        $(_selectors.settings.mode).get(0).value = to;
         _selectValue($(_selectors.filter.filter).get(0), "");
         $(_selectors.buttons.all).hide();
         break;
@@ -626,7 +686,7 @@ var LogFilter = function($) {
             $(v.some).get(0).value = _initialTypes;
             break;
           case "orderBy":
-            le = (a = $(v.selects).get()).length;
+            le = (a = $(v.options).get()).length;
             b = $(v.bools).get();
             for(i = 0; i < le; i++) {
               //  Default to order by time ascending, only.
@@ -640,7 +700,7 @@ var LogFilter = function($) {
       }
     }
     o = _selectors.orderBy;
-    le = (a = $(o.selects).get()).length;
+    le = (a = $(o.options).get()).length;
     b = $(o.bools).get();
     for(i = 0; i < le; i++) {
       //  Default to order by time ascending, only.
@@ -675,7 +735,7 @@ var LogFilter = function($) {
         break;
       case "log_filter_delete":
         if ($(_selectors.filter.name).get(0).value) {
-          $(_selectors.controls.mode).get(0).value = "delete";
+          $(_selectors.settings.mode).get(0).value = "delete";
           _resetCriteria();
           $(_selectors.buttons.submit).trigger("click");
         }

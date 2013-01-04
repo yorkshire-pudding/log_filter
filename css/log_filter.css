@@ -131,13 +131,17 @@ body.page-admin-reports-log-filter input.form-submit.edit-delete {
 
     body.page-admin-reports-log-filter div.fieldset-wrapper div#log_filter_filters {
       background-color: #DDD;
-      padding: 0 15px;
+      padding: 9px 15px 0 0;
     }
       body.page-admin-reports-log-filter div#log_filter_filters:after {
         /* clearfix */ clear:both; content:"."; display:block; height:0; visibility:hidden; font-size:0;
       }
       body.page-admin-reports-log-filter div#log_filter_filters.narrow > div {
         float: left;
+      }
+      body.page-admin-reports-log-filter div#log_filter_filters > div {
+        padding: 0 0 9px 15px;
+        margin: 0;
       }
         body.page-admin-reports-log-filter div#log_filter_filters div.form-item-log-filter-filter label {
           font-size: 1.1em;
