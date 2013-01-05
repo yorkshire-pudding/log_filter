@@ -168,5 +168,6 @@ function log_filter_install() {
  * Implements hook_uninstall().
  */
 function log_filter_uninstall() {
+  variable_del('log_filter_hidedblog');
   variable_del('log_filter_trnct');
 }

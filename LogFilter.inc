@@ -68,7 +68,7 @@ class LogFilter {
 	 * @param array &$form_state
 	 * @return array
 	 */
-  public static function form($form, &$form_state) {
+  public static function viewerForm($form, &$form_state) {
     $path = drupal_get_path('module', 'log_filter');
     //  Get jQuery UI datepicker.
     drupal_add_library("system", "ui.datepicker");
@@ -564,6 +564,19 @@ class LogFilter {
               '#prefix' => '<div>',
               '#suffix' => '</div>',
           ),
+          'log_filter_cancel' => array(
+              '#type' => 'button',
+              '#name' => 'log_filter_cancel',
+              '#value' => t('Cancel'),
+              '#button_type' => 'button', // Doesnt work; still type:submit.
+              '#attributes' => array(
+                  'type' => 'button', // Doesnt work; still type:submit.
+                  'class' => array('form-submit', 'theme-' . $theme),
+                  'style' => 'display:none;',
+              ),
+              '#prefix' => '<div>',
+              '#suffix' => '</div></div>',
+          ),
           'log_filter_save' => array(
               '#type' => 'button',
               '#name' => 'log_filter_save',
@@ -573,19 +586,6 @@ class LogFilter {
                   'type' => 'button', // Doesnt work; still type:submit.
                   'class' => array('form-submit', 'theme-' . $theme),
                   'style' => 'display:none;',
-              ),
-              '#prefix' => '<div>',
-              '#suffix' => '</div>',
-          ),
-          'log_filter_delete_by_filter' => array(
-              '#type' => 'button',
-              '#name' => 'log_filter_delete_by_filter',
-              '#value' => t('Delete matching logs'),
-              '#button_type' => 'button', // Doesnt work; still type:submit.
-              '#attributes' => array(
-                  'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit', 'edit-delete', 'theme-' . $theme),
-                  //'style' => 'display:none;',
               ),
               '#prefix' => '<div>',
               '#suffix' => '</div></div>',
@@ -758,7 +758,7 @@ class LogFilter {
 	 * @param array &$form_state
 	 * @return void
 	 */
-  public static function formSubmit($form, &$form_state) {
+  public static function viewerFormSubmit($form, &$form_state) {
     try {
       //inspect($form_state['values']);
       $values =& $form_state['values'];
@@ -1045,4 +1045,99 @@ class LogFilter {
     }
   }
 
+  /**
+	 * Defines log removal form and GUI.
+	 *
+	 * @param array $form
+	 * @param array &$form_state
+	 * @return array
+	 */
+  public static function removerForm($form, &$form_state) {
+    $path = drupal_get_path('module', 'log_filter');
+    drupal_add_css(
+        $path . '/css/log_filter.css',
+        array('type' => 'file', 'group' => CSS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
+    );
+
+    try {
+      $form = array();
+
+      //  Add our submit form;
+      $form['#submit'][] = 'log_filter_remove_form_submit';
+      return $form;
+    }
+    catch (Exception $xc) {
+      self::_errorHandler($xc);
+      drupal_set_message($xc->getMessage(), 'error');
+      return array();
+    }
+  }
+
+  /**
+	 * Called when log removal form submits.
+	 *
+	 * @param array $form
+	 * @param array &$form_state
+	 * @return void
+	 */
+  public static function removerFormSubmit($form, &$form_state) {
+    try {
+      //inspect($form_state['values']);
+      $values =& $form_state['values'];
+      $prefix = 'log_filter_';
+    }
+    catch (Exception $xc) {
+      self::_errorHandler($xc);
+      drupal_set_message($xc->getMessage(), 'error');
+    }
+  }
+}
+
+
+/**
+ * Defines log viewer form and GUI.
+ *
+ * Function name not underscore prefixed to prevent html form id starting with hyphen (unhealthy naming).
+ *
+ * @param array $form
+ * @param array &$form_state
+ * @return array
+ */
+function log_filter_form($form, &$form_state) {
+	return LogFilter::viewerForm($form, $form_state);
+}
+
+/**
+ * Called when log viewer form submits.
+ *
+ * @param array $form
+ * @param array &$form_state
+ * @return void
+ */
+function _log_filter_form_submit($form, &$form_state){
+  LogFilter::viewerFormSubmit($form, $form_state);
+}
+
+/**
+ * Defines log removal form and GUI.
+ *
+ * Function name not underscore prefixed to prevent html form id starting with hyphen (unhealthy naming).
+ *
+ * @param array $form
+ * @param array &$form_state
+ * @return array
+ */
+function log_filter_remove_form($form, &$form_state) {
+	return LogFilter::removerForm($form, $form_state);
+}
+
+/**
+ * Called when log removal form submits.
+ *
+ * @param array $form
+ * @param array &$form_state
+ * @return void
+ */
+function _log_filter_remove_form_submit($form, &$form_state){
+  LogFilter::removerFormSubmit($form, $form_state);
 }

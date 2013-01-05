@@ -53,6 +53,11 @@ var LogFilter = function($) {
   _jqUiDial,
   /**
    * @private
+   * @type {bool|undefined}
+   */
+  _submitted,
+  /**
+   * @private
    * @type {obj}
    */
   _selectors = {
@@ -96,14 +101,17 @@ var LogFilter = function($) {
       bools: "div.filter-orderby input[type='checkbox']"
     },
     buttons: {
+      submit: "input#edit-submit", // Not part of filter dialog.
       reset: "input[name='log_filter_reset']", // Not part of filter dialog.
       create: "input[name='log_filter_create']",
       copy: "input[name='log_filter_copy']",
       edit: "input[name='log_filter_edit']",
       del: "input[name='log_filter_delete']",
-      save: "input[name='log_filter_save']",
-      delByFilter: "input[name='log_filter_delete_by_filter']",
-      submit: "input#edit-submit"
+      cancel: "input[name='log_filter_cancel']",
+      save: "input[name='log_filter_save']"
+    },
+    misc: {
+      title: "#log_filter_title_display"
     }
   },
   _elements = {
@@ -112,14 +120,15 @@ var LogFilter = function($) {
     conditions: {},
     orderBy: [], // Array.
     buttons: {
-      all: []
-    }
+      crud: [] // create, copy, edit, del, cancel, save.
+    },
+    misc: {}
   },
   _initialTypes = "",
 
   //  Declare private methods, to make IDEs list them
   _local, _o, _innerWidth, _innerHeight, _dateFromFormat, _selectValue, _resize,
-  _ajax, _controlRelay, _filterSelector, _prepareForm, _resetCriteria, _changedCriterion, _setMode;
+  _ajax, _crudRelay, _prepareForm, _resetCriteria, _changedCriterion, _setMode;
   /**
    * @ignore
    * @private
@@ -367,25 +376,7 @@ var LogFilter = function($) {
   };
 
 
-  _filterSelector = function(evt, elm) {
-    var r = elm || this, val = _selectValue(r), context = $("div#log_filter_filters").get(0);
 
-    $("input[type='button']", context).hide();
-
-    switch(val) {
-      case "":
-      case "_none":
-        $("input[name='log_filter_create']", context).show();
-        break;
-      case 22:
-        //
-        break;
-      case 11:
-        //
-        break;
-      default:
-    }
-  };
 
 
   _prepareForm = function() {
@@ -403,16 +394,24 @@ var LogFilter = function($) {
             oElms[nm] = elm;
             elm.setAttribute("type", "button"); // Fix type (apparant Form API shortcoming).
             jq.unbind(); // Remove Drupal native button handlers.
-            //  If filter button: add to list of those, and set our common button handler.
-            if(nm !== "reset") {
-              oElms.all.push(elm);
-              jq.click(_controlRelay);
+            switch(nm) {
+              case "create":
+              case "copy":
+              case "edit":
+              case "del":
+              case "cancel":
+              case "save":
+                oElms.crud.push(elm);
+                jq.click(_crudRelay); // Set our common button handler.
+                break;
+              case "reset":
+                jq.click(_resetCriteria);
+                break
             }
           }
         }
       }
     })();
-    //inspect(_elements.buttons);
 
     //  Fields; get element references, and fix some issues.
     (function() {
@@ -554,35 +553,43 @@ var LogFilter = function($) {
         }
       }
     })();
-    //inspect(_elements.conditions);
-    //inspect(_elements.orderBy);
+
+    //  Miscellaneous.
+    (function() {
+      var oSels = _selectors.misc, oElms = _elements.buttons, nm, jq, elm;
+      for(nm in oSels) {
+        if(oSels.hasOwnProperty(nm) && (elm = (jq = $(oSels[nm])).get(0))) {
+          oElms[nm] = elm;
+        }
+      }
+    })();
 
 
     //  Show buttons according to mode.
     switch(_.mode) {
       case "default":
-        $("div.form-item-log-filter-only-own").show();
-        $(_selectors.buttons.create).show();
+        $(_elements.settings.onlyOwn).show();
+        $(_elements.buttons.create).show();
         break;
       case "adhoc":
-        $("div.form-item-log-filter-only-own").show();
-        $(_selectors.buttons.create).show();
+        $(_elements.settings.onlyOwn).show();
+        $(_elements.buttons.create).show();
         break;
       case "stored":
-        $("div.form-item-log-filter-only-own").show();
-        $(_selectors.buttons.copy).show();
-        $(_selectors.buttons.edit).show();
-        $(_selectors.buttons.del).show();
+        $(_elements.settings.onlyOwn).show();
+        $(_elements.buttons.copy).show();
+        $(_elements.buttons.edit).show();
+        $(_elements.buttons.del).show();
         break;
       case "create": // Frontend should only see this mode if backend validation rejects the form.
-        $(_selectors.buttons.save).show();
-        $(_selectors.filter.name).parent().show();
-        $(_selectors.filter.description).parent().parent().show();
+        $(_elements.buttons.save).show();
+        $(_elements.filter.name).parent().show();
+        $(_elements.filter.description).parent().parent().show();
         break;
       case "edit":
-        $(_selectors.buttons.del).show();
-        $(_selectors.buttons.save).show();
-        $(_selectors.filter.description).parent().parent().show();
+        $(_elements.buttons.del).show();
+        $(_elements.buttons.save).show();
+        $(_elements.filter.description).parent().parent().show();
         break;
       case "delete": // Frontend should never see this mode on page load.
       default:
@@ -600,37 +607,65 @@ var LogFilter = function($) {
   };
 
 
-  _setMode = function(to) {
-    var elm, nm;
-    switch(to) {
+  _setMode = function(mode, submit, initially) {
+    var fromMode = _.mode, doSubmit, elm, nm;
+    if(_submitted) {
+      return;
+    }
+    //  Hide all filter buttons.
+    if(!submit && !initially) {
+      $(_elements.buttons.crud).hide();
+    }
+
+    switch(mode) {
       case "default":
-        $("div.form-item-log-filter-only-own").show();
+        $(_elements.settings.onlyOwn).show();
+        $(_elements.buttons.create).show();
         break;
       case "adhoc":
-        $("div.form-item-log-filter-only-own").show();
-        if(_.mode === "stored") {
-          nm = (elm = $(_selectors.filter.name).get(0)).value;
-          $("#log_filter_title_display").html(
+        $(_elements.settings.onlyOwn).show();
+        if(fromMode === "stored") {
+          //  Pass current name to origin field.
+          nm = (elm = _elements.filter.name).value;
+          elm.value = "";
+          _elements.filter.origin.value = nm;
+          $(_elements.misc.title).html(
             Drupal.t("Ad hoc - based on !origin", {"!origin": nm} )
           );
-          elm.value = "";
-          $(_selectors.filter.origin).get(0).value = nm;
         }
-        _.mode = to;
-        $(_selectors.settings.mode).get(0).value = to;
-        _selectValue($(_selectors.filter.filter).get(0), "");
-        $(_selectors.buttons.all).hide();
+        _selectValue(_elements.filter.filter, "");
+        $(_elements.buttons.create).show();
         break;
       case "stored":
-        $("div.form-item-log-filter-only-own").show();
+        $(_elements.settings.onlyOwn).show();
+        $([
+          _elements.buttons.copy,
+          _elements.buttons.edit,
+          _elements.buttons.del
+        ]).show();
         break;
       case "create":
-        $("div.form-item-log-filter-only-own").hide();
+        $(_elements.settings.onlyOwn).hide();
+        $([
+          _elements.buttons.cancel,
+          _elements.buttons.save
+        ]).show();
         break;
       case "edit":
-        $("div.form-item-log-filter-only-own").hide();
+        $(_elements.settings.onlyOwn).hide();
+        $([
+          _elements.buttons.cancel,
+          _elements.buttons.save
+        ]).show();
         break;
-      case "delete":
+      case "delete": // Pop confirm(), and submit upon positive confirmation.
+        if(!confirm(Drupal.t(
+          "Are you sure you want to delete the filter\n!filter?",
+          { "!filter": _elements.filter.name.value }
+        ))) {
+          return;
+        }
+        doSubmit = true;
         break;
       default:
         inspect.log(to, {
@@ -638,6 +673,11 @@ var LogFilter = function($) {
           message: "Mode[" + to + "] not supported.",
           severity: "error"
         });
+    }
+    _elements.settings.mode.value = _.mode = mode;
+    if(submit || doSubmit) {
+      _submitted = true;
+      $(_elements.buttons.submit).trigger("click");
     }
   };
 
@@ -655,7 +695,7 @@ var LogFilter = function($) {
       case "create":
         break;
       case "edit":
-        $(_selectors.buttons.save).show(); // Too often...
+        $(_elements.buttons.save).show(); // Too often...
         break;
       case "delete":
         break;
@@ -667,51 +707,46 @@ var LogFilter = function($) {
         });
     }
   };
-
+  /**
+   * Clear all condition and orderby fields, and set defaults.
+   *
+   * @return {void}
+   */
   _resetCriteria = function() {
-    var o = _selectors.conditions, k, v, a, b, le, i;
-    for(k in o) {
-      if(o.hasOwnProperty(k)) {
-        v = o[k];
-        switch(k) {
-          case "severity":
-            $(v.all).get(0).checked = "checked";
-            le = (a = $(v.some).get()).length;
+    var o = _elements.conditions, nm, r, a, le, i;
+    for(nm in o) {
+      if(o.hasOwnProperty(nm)) {
+        r = o[nm];
+        //  Default to severity any and type any.
+        switch(nm) {
+          case "severity_any":
+          case "type_any":
+            r.checked = true;
+            break;
+          case "severity_some": // Array.
+            le = r.length;
             for(i = 0; i < le; i++) {
-              a[i].checked = false;
+              r[i].checked = false;
             }
             break;
-          case "type":
-            $(v.all).get(0).checked = "checked";
-            $(v.some).get(0).value = _initialTypes;
+          case "type_some":
+            r.value = _initialTypes;
             break;
-          case "orderBy":
-            le = (a = $(v.options).get()).length;
-            b = $(v.bools).get();
-            for(i = 0; i < le; i++) {
-              //  Default to order by time ascending, only.
-              _selectValue(a[i], i ? "" : "time");
-              b[i].checked = i ? false : "checked";
-            }
-            break;
-          default: // text fields
-            $(v).get(0).value = "";
+          default:
+            r.value = "";
         }
       }
     }
-    o = _selectors.orderBy;
-    le = (a = $(o.options).get()).length;
-    b = $(o.bools).get();
+    le = (a = _elements.orderBy).length;
+    //  Default to order by time ascending, only.
     for(i = 0; i < le; i++) {
-      //  Default to order by time ascending, only.
-      _selectValue(a[i], i ? "" : "time");
-      b[i].checked = i ? false : "checked";
+      _selectValue(a[i][0], i ? "" : "time");
+      a[i][1].checked = i ? false : "checked";
     }
-
     //  If adhoc and has origin, clear origin.
-    if(_.mode === "adhoc" && $(_selectors.filter.origin).get(0).value) {
-      $(_selectors.filter.origin).get(0).value = "";
-      $("#log_filter_title_display").html(
+    if(_.mode === "adhoc" && _elements.filter.origin.value) {
+      _elements.filter.origin.value = "";
+      $(_elements.misc.title).html(
         Drupal.t("Ad hoc")
       );
     }
@@ -720,8 +755,12 @@ var LogFilter = function($) {
     }
   };
 
-
-  _controlRelay = function() {
+  /**
+   * Common handler for all CRUD buttons.
+   *
+   * @return {void}
+   */
+  _crudRelay = function() {
     var nm = this.name;
     switch(nm) {
       case "log_filter_reset":
@@ -734,11 +773,13 @@ var LogFilter = function($) {
       case "log_filter_edit":
         break;
       case "log_filter_delete":
-        if ($(_selectors.filter.name).get(0).value) {
-          $(_selectors.settings.mode).get(0).value = "delete";
+        if (_elements.filter.name.value) {
+          _elements.settings.mode.value = "delete";
           _resetCriteria();
-          $(_selectors.buttons.submit).trigger("click");
+          $(_elements.buttons.submit).trigger("click");
         }
+        break;
+      case "log_filter_cancel":
         break;
       case "log_filter_save":
         break;
@@ -747,6 +788,7 @@ var LogFilter = function($) {
     }
     return false; // For IE8's sake.
   };
+
 
   /**
    * @param {str} act
@@ -817,6 +859,13 @@ var LogFilter = function($) {
 
   this.inspect = function() {
     inspect(_, "LogFilter");
+  };
+  /**
+   * @param {string|falsy} [group]
+   * @return {object}
+   */
+  this.inspectElements = function(group) {
+    inspect(!group ? _elements : _elements[group], "_elements" + (!group ? "" : ("." + group)));
   };
 
   /**

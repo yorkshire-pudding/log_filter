@@ -21,8 +21,8 @@ function log_filter_permission() {
       'title' => t('Create/edit/delete saveable log filters'),
       'restrict access' => TRUE,
     ),
-    'log_filter use delete filters' => array(
-      'title' => t('Use deleting log filters'),
+    'log_filter remove logs' => array(
+      'title' => t('Remove logs'),
       'restrict access' => TRUE,
     ),
   );
@@ -36,7 +36,7 @@ function log_filter_permission() {
  * @return void
  */
 function log_filter_menu() {
-  return array(
+  $items = array(
     //  Settings page.
     'admin/config/system/log_filter' => array(
       'title' => 'Log Filter',
@@ -47,16 +47,6 @@ function log_filter_menu() {
       'file' => 'admin/log_filter.admin.inc',
       'type' => MENU_NORMAL_ITEM,
     ),
-    'admin/reports/log_filter' => array(
-			'title' => t('Filtered log messages'),
-			'description' => t('View logged events using filters'),
-			'page callback' => 'drupal_get_form', // Hook to implement.
-			'page arguments' => array('log_filter_form'), // Name of implementing function.
-			'access arguments' => array('access site reports'), // Permission required.
-			'file' => 'log_filter.module',
-			'type' => MENU_NORMAL_ITEM,
-      'weight' => -1, // Right before or after dblog's viewer.
-		),
     //  AJAX callback.
     'log_filter/ajax/%' => array( // % ~ ?
       'page callback' => 'log_filter_ajax_callback',
@@ -66,6 +56,56 @@ function log_filter_menu() {
       'type' => MENU_CALLBACK,
     ),
   );
+
+  $i = 0;
+  //  Add two tabs to dblog's default viewer.
+  if (!variable_get('log_filter_hidedblog', FALSE)) {
+    $items['admin/reports/dblog/dblog'] = array(
+			'type' => MENU_DEFAULT_LOCAL_TASK,
+      'title' => t('Recent log messages'),
+      'weight' => ++$i,
+		);
+    $items['admin/reports/dblog/log_filter'] = array(
+			'title' => t('Filtered log messages'),
+			'description' => t('View logged events using filters'),
+			'page callback' => 'drupal_get_form', // Hook to implement.
+			'page arguments' => array('log_filter_form'), // Name of implementing function.
+			'access arguments' => array('access site reports'), // Permission required.
+			'file' => 'LogFilter.inc',
+			'type' => MENU_LOCAL_TASK,
+      'weight' => ++$i,
+		);
+  }
+  //  ... or take over url of dblog's default viewer.
+  else {
+    $items['admin/reports/dblog'] = array(
+      'title' => 'Recent log messages',
+			'description' => t('View logged events using filters'),
+			'page callback' => 'drupal_get_form', // Hook to implement.
+			'page arguments' => array('log_filter_form'), // Name of implementing function.
+			'access arguments' => array('access site reports'), // Permission required.
+			'file' => 'LogFilter.inc',
+			'type' => MENU_NORMAL_ITEM,
+      'weight' => -1,
+    );
+    $items['admin/reports/dblog/log_filter'] = array(
+			'type' => MENU_DEFAULT_LOCAL_TASK,
+      'title' => t('Recent log messages'),
+      'weight' => ++$i,
+		);
+  }
+
+  $items['admin/reports/dblog/log_filter_remove_logs'] = array(
+    'title' => t('Remove log messages'),
+    'description' => t('Remove logged events using filters'),
+    'page callback' => 'drupal_get_form', // Hook to implement.
+    'page arguments' => array('log_filter_remove_form'), // Name of implementing function.
+    'access arguments' => array('log_filter remove logs'), // Permission required.
+    'file' => 'LogFilter.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => ++$i,
+  );
+  return $items;
 }
 
 /**
@@ -76,28 +116,6 @@ function log_filter_menu() {
 function log_filter_admin_form_submit($form, &$form_state) {
   module_load_include('inc', 'log_filter', 'log_filter.admin');
   _log_filter_admin_form_submit($form, $form_state);
-}
-
-/**
- * Defines log viewer form and GUI.
- *
- * @param array $form
- * @param array &$form_state
- * @return array
- */
-function log_filter_form($form, &$form_state) {
-	return LogFilter::form($form, $form_state);
-}
-
-/**
- * Called when log viewer form submits.
- *
- * @param array $form
- * @param array &$form_state
- * @return void
- */
-function log_filter_form_submit($form, &$form_state){
-  LogFilter::formSubmit($form, $form_state);
 }
 
 /**
