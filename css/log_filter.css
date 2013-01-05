@@ -7,14 +7,30 @@ form#log-filter-form input[type="checkbox"],
 form#log-filter-form select {
   cursor: pointer;
 }
+form#log-filter-form fieldset#edit-filter input.form-submit {
+  margin: 0;
+}
 form#log-filter-form input.form-submit:hover {
   opacity:0.8; -ms-filter:'progid:DXImageTransform.Microsoft.Alpha(Opacity=80)'; filter:alpha(opacity=80);
+}
+form#log-filter-form input.form-submit:disabled {
+  cursor: not-allowed;
+}
+form#log-filter-form input.form-submit:disabled:hover {
+  opacity:1.0; -ms-filter:'progid:DXImageTransform.Microsoft.Alpha(Opacity=100)'; filter:alpha(opacity=100);
+}
+
+form#log-filter-form fieldset#edit-filter input.form-submit.theme-seven {
+  color: #444;
+}
+form#log-filter-form fieldset#edit-filter input.form-submit.theme-seven:hover {
   color: #000;
 }
 form#log-filter-form input.form-submit.theme-seven {
   border-radius: 11px;
   padding: 2px 8px 3px;
 }
+
 form#log-filter-form input.form-submit.edit-reset {
   color: #336699;
 }
@@ -40,22 +56,25 @@ form#log-filter-form input.form-submit.edit-delete {
     form#log-filter-form div#log_filter_criteria {
         margin-right: 20px;
     }
-      form#log-filter-form div#log_filter_criteria div.filter-conditions:after {
-        /* clearfix */ clear:both; content:"."; display:block; height:0; visibility:hidden; font-size:0;
+      /* conditions */
+      form#log-filter-form div#log_filter_criteria div.filter-conditions {
       }
-      form#log-filter-form div#log_filter_criteria div.filter-conditions > div {
-        float: left;
-        padding: 0 10px;
-        margin: 10px 0 0;
-        border-right: 1px dotted #999;
-      }
-      form#log-filter-form div#log_filter_criteria div.filter-conditions > div:first-child {
-        padding-left: 0;
-      }
-      form#log-filter-form div#log_filter_criteria div.filter-conditions > div:last-child {
-        padding-right: 0;
-        border-right: none;
-      }
+        form#log-filter-form div#log_filter_criteria div.filter-conditions:after {
+          /* clearfix */ clear:both; content:"."; display:block; height:0; visibility:hidden; font-size:0;
+        }
+        form#log-filter-form div#log_filter_criteria div.filter-conditions > div {
+          float: left;
+          padding: 0 10px;
+          margin: 10px 0 0;
+          border-right: 1px dotted #999;
+        }
+        form#log-filter-form div#log_filter_criteria div.filter-conditions > div:first-child {
+          padding-left: 0;
+        }
+        form#log-filter-form div#log_filter_criteria div.filter-conditions > div:last-child {
+          padding-right: 0;
+          border-right: none;
+        }
 
           form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-checkboxes div.form-item {
             padding: 0 2px;
@@ -101,48 +120,40 @@ form#log-filter-form input.form-submit.edit-delete {
             width: 350px;
           }
 
-    form#log-filter-form div#log_filter_criteria div.filter-orderby {
-      padding-top: 12px;
-      margin-top: 10px;
-      border-top: 1px dotted #999;
-      clear: left;
-    }
-      form#log-filter-form div#log_filter_criteria div.filter-orderby:after {
-        /* clearfix */ clear:both; content:"."; display:block; height:0; visibility:hidden; font-size:0;
+      /* orderBy */
+      form#log-filter-form div#log_filter_criteria div.filter-orderby {
+        padding-top: 12px;
+        margin-top: 10px;
+        border-top: 1px dotted #999;
+        clear: left;
       }
-        form#log-filter-form div#log_filter_criteria div.filter-orderby > label {
-          float: left;
+        form#log-filter-form div#log_filter_criteria div.filter-orderby:after {
+          /* clearfix */ clear:both; content:"."; display:block; height:0; visibility:hidden; font-size:0;
         }
-        form#log-filter-form div#log_filter_criteria div.filter-orderby > div {
-          float: left;
-          padding: 0;
-        }
-        form#log-filter-form div#log_filter_criteria div.filter-orderby > div.form-item.form-type-select {
-          margin-left: 20px;
-        }
-        form#log-filter-form div#log_filter_criteria div.filter-orderby > div.form-item.form-type-checkbox input {
-          margin: 0 4px;
-        }
-        form#log-filter-form div#log_filter_criteria div.filter-orderby > div.log-filter-reset {
-          float: right;
-          margin-right: 15px;
-          padding: 0;
-        }
+          form#log-filter-form div#log_filter_criteria div.filter-orderby > label {
+            float: left;
+          }
+          form#log-filter-form div#log_filter_criteria div.filter-orderby > div {
+            float: left;
+            padding: 0;
+          }
+          form#log-filter-form div#log_filter_criteria div.filter-orderby > div.form-item.form-type-select {
+            margin-left: 20px;
+          }
+          form#log-filter-form div#log_filter_criteria div.filter-orderby > div.form-item.form-type-checkbox input {
+            margin: 0 4px;
+          }
+          form#log-filter-form div#log_filter_criteria div.filter-orderby > div.log-filter-reset {
+            float: right;
+            margin-right: 15px;
+            padding: 0;
+          }
 
+    /* filter */
     form#log-filter-form div.fieldset-wrapper div#log_filter_filters {
       background-color: #DDD;
       padding: 9px 15px 0 0;
     }
-      form#log-filter-form div#log_filter_filters:after {
-        /* clearfix */ clear:both; content:"."; display:block; height:0; visibility:hidden; font-size:0;
-      }
-      form#log-filter-form div#log_filter_filters.narrow > div {
-        float: left;
-      }
-      form#log-filter-form div#log_filter_filters > div {
-        padding: 0 0 9px 15px;
-        margin: 0;
-      }
         form#log-filter-form div#log_filter_filters div.form-item-log-filter-filter label {
           font-size: 1.1em;
           padding-bottom: 2px;
@@ -154,24 +165,73 @@ form#log-filter-form input.form-submit.edit-delete {
             font-size: 1.1em;
             padding: 1px 0;
           }
+      form#log-filter-form div#log_filter_filters:after {
+        /* clearfix */ clear:both; content:"."; display:block; height:0; visibility:hidden; font-size:0;
+      }
+      form#log-filter-form div#log_filter_filters.narrow > div {
+        float: left;
+      }
+      form#log-filter-form div#log_filter_filters > div {
+        padding: 0 0 9px 15px;
+        margin: 0;
+      }
       form#log-filter-form div#log_filter_filters div.form-item-log-filter-only-own {
         display: none;
       }
         form#log-filter-form div#log_filter_filters div.form-item-log-filter-only-own label {
           font-weight: bold;
         }
-      form#log-filter-form div#log_filter_filters div.form-item-log-filter-name {
+      form#log-filter-form div#log_filter_filters > div.log-filter-button,
+      form#log-filter-form div#log_filter_filters > div.log-filter-cancel-save > div.log-filter-button {
+      }
+      form#log-filter-form div#log_filter_filters > div.log-filter-set-name {
         display: none;
       }
-        form#log-filter-form div#log_filter_filters input[type="text"] {
-          width: 210px;
+        form#log-filter-form div#log_filter_filters > div.log-filter-set-name:after {
+          /* clearfix */ clear:both; content:"."; display:block; height:0; visibility:hidden; font-size:0;
+        }
+        form#log-filter-form div#log_filter_filters > div.log-filter-set-name > label {
+          float: left;
+        }
+        form#log-filter-form div#log_filter_filters > div.log-filter-set-name > div.form-item-log-filter-name-suggest {
+          float: left;
+          clear: left;
+          padding: 0;
+          margin: 0;
+        }
+          form#log-filter-form div#log_filter_filters > div.log-filter-set-name > div.form-item-log-filter-name-suggest input[type="text"] {
+            width: 165px;
+          }
+        form#log-filter-form div#log_filter_filters > div.log-filter-set-name > div.log-filter-button {
+          float: left;
+          position: relative;  top: -1px;
         }
       form#log-filter-form div#log_filter_filters div.form-item-log-filter-description {
         display: none;
       }
-        form#log-filter-form div#log_filter_filters textarea {
+        form#log-filter-form div#log_filter_filters div.form-item-log-filter-description textarea {
           width: 215px;
         }
+      form#log-filter-form div#log_filter_filters > div.log-filter-cancel-save {
+      }
+        form#log-filter-form div#log_filter_filters > div.log-filter-cancel-save:after {
+          /* clearfix */ clear:both; content:"."; display:block; height:0; visibility:hidden; font-size:0;
+        }
+        form#log-filter-form div#log_filter_filters > div.log-filter-cancel-save > div.log-filter-button.log-filter-cancel {
+          float: left;
+        }
+        form#log-filter-form div#log_filter_filters > div.log-filter-cancel-save > div.log-filter-button.log-filter-save {
+          float: right;
+        }
+        form#log-filter-form div#log_filter_filters > div.log-filter-cancel-save.log-filter-reversed-button-sequence > div.log-filter-button.log-filter-cancel {
+          float: right;
+        }
+        form#log-filter-form div#log_filter_filters > div.log-filter-cancel-save.log-filter-reversed-button-sequence > div.log-filter-button.log-filter-save {
+          float: left;
+        }
+
+
+
 
 
 

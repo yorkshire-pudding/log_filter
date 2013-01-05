@@ -21,6 +21,12 @@ var LogFilter = function($) {
   /**
    * @ignore
    * @private
+   * @type {string}
+   */
+  _name = "LogFilter",
+  /**
+   * @ignore
+   * @private
    * @type {boolean|undefined}
    */
   _init,
@@ -34,7 +40,8 @@ var LogFilter = function($) {
     errors: [],
     dateFormat: "YYYY-MM-DD",
     dateFormat_datepicker: "yy-mm-dd",
-    mode: 'default' // default | adhoc | stored | create | edit | delete
+    mode: 'default', // default | adhoc | stored | create | edit | delete
+    modePrevious: 'default'
   },
   /**
    * @private
@@ -57,6 +64,15 @@ var LogFilter = function($) {
    */
   _submitted,
   /**
+   * List of previously used localized labels/messages.
+   *
+   * @private
+   * @type {object}
+   */
+  _local = {
+
+  },
+  /**
    * @private
    * @type {obj}
    */
@@ -76,9 +92,9 @@ var LogFilter = function($) {
     conditions: {
       time_range: "input[name='log_filter_time_range']",
       time_from: "input[name='log_filter_time_from']",
-      time_from_display: "input[name='log_filter_time_from_display']",
+      time_from_proxy: "input[name='log_filter_time_from_proxy']",
       time_to: "input[name='log_filter_time_to']",
-      time_to_display: "input[name='log_filter_time_to_display']",
+      time_to_proxy: "input[name='log_filter_time_to_proxy']",
       /*severity: {
         all: "input[name='log_filter_severity[-1]']",
         some: "div#edit-log-filter-severity input:not([name='log_filter_severity[-1]'])"
@@ -127,27 +143,23 @@ var LogFilter = function($) {
   _initialTypes = "",
 
   //  Declare private methods, to make IDEs list them
-  _local, _o, _innerWidth, _innerHeight, _dateFromFormat, _selectValue, _resize,
+  _errorHandler, _local, _o, _innerWidth, _innerHeight, _dateFromFormat, _selectValue, _resize,
   _ajax, _crudRelay, _prepareForm, _resetCriteria, _changedCriterion, _setMode;
   /**
    * @ignore
    * @private
-   * @param {str} nm
+   * @param {Error} [er]
+   * @param {string} [ms]
    * @return {str}
    */
-  _local = function(nm) {
-    var s;
-    //  S.... Drupal.t() doesnt use the 'g' flag when replace()'ing, so Drupal.t() replacement is utterly useless - and nowhere to report the bug :-(
-    if(!(s = _o(_localEn, nm))) { // English t message overridden?
-      switch(nm) {
-        case "x":
-          s = Drupal.t("X.!newlineY !link_startZ!link_end.");
-          break;
-        default:
-          s = "[LOCAL: " + nm + "]";
-      }
-    }
-    return s.replace(/\!newline/g, "\n");
+  _errorHandler = function(er, ms) {
+    var s = (!ms ? "" : (ms + ":\n")) + (!er ? "" : inspect.traceGet(er));
+    inspect.console(s);
+    inspect.log(s, {
+      category: "log_filter",
+      message: s,
+      severity: "error"
+    });
   };
   /**
    * Object/function property getter, Object.hasOwnproperty() alternative.
@@ -380,11 +392,11 @@ var LogFilter = function($) {
 
 
   _prepareForm = function() {
-    var o, jq, a, le, i, elm, type, v;
-
-    //  Buttons; get element references, and fix some issues.
-    (function() {
-      var oSels = _selectors.buttons, oElms = _elements.buttons, nm, jq, elm;
+    var oSels, oElms, nm, jq, elm, aElms, le, i, v;
+    try {
+      //  Buttons; get element references, and fix some issues.
+      oSels = _selectors.buttons;
+      oElms = _elements.buttons;
       for(nm in oSels) {
         if(oSels.hasOwnProperty(nm) && (elm = (jq = $(oSels[nm])).get(0))) {
           if(nm === "submit") {
@@ -411,11 +423,7 @@ var LogFilter = function($) {
           }
         }
       }
-    })();
-
-    //  Fields; get element references, and fix some issues.
-    (function() {
-      var oSels, oElms, nm, jq, elm, aElms, le, i, v;
+      //  Fields; get element references, and fix some issues.
       //  Settings.
       oSels = _selectors.settings;
       oElms = _elements.settings;
@@ -484,17 +492,17 @@ var LogFilter = function($) {
               oElms[nm] = elm;
               jq.change(_changedCriterion); // Criterion change handler.
               switch(nm) {
-                case "time_from_display":
-                case "time_to_display":
+                case "time_from_proxy":
+                case "time_to_proxy":
                   //  Put jQuery UI datepicker on time fields.
                   jq.datepicker({
                     dateFormat: _.dateFormat_datepicker
                   });
-                  if((v = _elements.conditions[ nm === "time_from_display" ? "time_from" : "time_to" ].value) && (v = parseInt(v, 10))) {
+                  if((v = _elements.conditions[ nm === "time_from_proxy" ? "time_from" : "time_to" ].value) && (v = parseInt(v, 10))) {
                     jq.datepicker("setDate", new Date(v * 1000));
                   }
                   jq.change(function() {
-                    var v, d, r = $("input[name=\'" + this.name.replace(/_display$/, "") + "\']").get(0);
+                    var v, d, r = $("input[name=\'" + this.name.replace(/_proxy$/, "") + "\']").get(0);
                     if((v = $.trim(this.value)).length) {
                       if((d = _dateFromFormat(v, _.dateFormat))) {
                         r.value = Math.floor(d.getTime() / 1000);
@@ -552,159 +560,149 @@ var LogFilter = function($) {
           }
         }
       }
-    })();
-
-    //  Miscellaneous.
-    (function() {
-      var oSels = _selectors.misc, oElms = _elements.buttons, nm, jq, elm;
+      //  Miscellaneous.
+      oSels = _selectors.misc;
+      oElms = _elements.misc;
       for(nm in oSels) {
         if(oSels.hasOwnProperty(nm) && (elm = (jq = $(oSels[nm])).get(0))) {
           oElms[nm] = elm;
         }
       }
-    })();
-
-
-    //  Show buttons according to mode.
-    switch(_.mode) {
-      case "default":
-        $(_elements.settings.onlyOwn).show();
-        $(_elements.buttons.create).show();
-        break;
-      case "adhoc":
-        $(_elements.settings.onlyOwn).show();
-        $(_elements.buttons.create).show();
-        break;
-      case "stored":
-        $(_elements.settings.onlyOwn).show();
-        $(_elements.buttons.copy).show();
-        $(_elements.buttons.edit).show();
-        $(_elements.buttons.del).show();
-        break;
-      case "create": // Frontend should only see this mode if backend validation rejects the form.
-        $(_elements.buttons.save).show();
-        $(_elements.filter.name).parent().show();
-        $(_elements.filter.description).parent().parent().show();
-        break;
-      case "edit":
-        $(_elements.buttons.del).show();
-        $(_elements.buttons.save).show();
-        $(_elements.filter.description).parent().parent().show();
-        break;
-      case "delete": // Frontend should never see this mode on page load.
-      default:
-        inspect.log(_.mode, {
-          category: "log_filter",
-          message: "Mode[" + _.mode + "] " + (_.mode === "delete" ? "not valid in frontend" : "not supported."),
-          severity: "error"
-        });
-        //  Reset criteria, and reload page.
-        _elements.settings.mode.value = "default";
-        _resetCriteria();
-        $(_elements.buttons.submit).trigger("click");
-        break;
+    }
+    catch(er) {
+      _errorHandler(er, _name + "._prepareForm()");
     }
   };
 
-
+  /**
+   * Sets current mode.
+   *
+   * Values:
+   * - default
+   * - adhoc
+   * - stored
+   * - create
+   * - edit
+   * - delete
+   *
+   * @param {string} mode
+   * @param {boolean} [submit]
+   * @param {boolean} [initially]
+   * @return {void}
+   */
   _setMode = function(mode, submit, initially) {
     var fromMode = _.mode, doSubmit, elm, nm;
-    if(_submitted) {
-      return;
+    try {
+      if(_submitted) {
+        return;
+      }
+      //  Hide all filter buttons.
+      if(!submit && !initially) {
+        $(_elements.buttons.crud).hide();
+      }
+      switch(mode) {
+        case "default":
+          $(_elements.settings.onlyOwn.parentNode).show();
+          (elm = _elements.buttons.create).value = self.local("saveAs");
+          $(elm).show();
+          break;
+        case "adhoc":
+          $(_elements.settings.onlyOwn.parentNode).show();
+          if(fromMode === "stored") {
+            //  Pass current name to origin field.
+            nm = (elm = _elements.filter.name).value;
+            elm.value = "";
+            _elements.filter.origin.value = nm;
+            $(_elements.misc.title).html(
+              Drupal.t("Ad hoc - based on !origin", {"!origin": nm} )
+            );
+          }
+          _selectValue(_elements.filter.filter, "");
+          (elm = _elements.buttons.create).value = self.local("saveAs");
+          $(elm).show();
+          break;
+        case "stored":
+          $(_elements.settings.onlyOwn.parentNode).show();
+          (elm = _elements.buttons.create).value = self.local("saveAsNew");
+          //$(elm).show();
+          $([
+            //_elements.buttons.copy,
+            //_elements.buttons.edit,
+            elm,
+            _elements.buttons.del
+          ]).show();
+          break;
+        case "create":
+          $(_elements.settings.onlyOwn.parentNode).hide();
+          $([
+            _elements.filter.name_suggest.parentNode.parentNode,
+            _elements.buttons.cancel
+          ]).show();
+          break;
+        case "edit":
+          $(_elements.settings.onlyOwn.parentNode).hide();
+          $([
+            _elements.filter.description.parentNode,
+            _elements.buttons.cancel,
+            _elements.buttons.save
+          ]).show();
+          break;
+        case "delete": // Pop confirm(), and submit upon positive confirmation.
+          if (_elements.filter.name.value) {
+            if(!confirm(Drupal.t(
+              "Are you sure you want to delete the filter\n!filter?",
+              { "!filter": _elements.filter.name.value }
+            ))) {
+              return;
+            }
+            doSubmit = true;
+          }
+          else {
+            throw new Error("Cant delete filter having empty name[" + _elements.filter.name.value + "].");
+          }
+          break;
+        default:
+          throw new Error("Mode[" + mode + "] not supported.");
+      }
+      _.modePrevious = fromMode;
+      _elements.settings.mode.value = _.mode = mode;
+      if(submit || doSubmit) {
+        _submitted = true;
+        $(_elements.buttons.submit).trigger("click");
+      }
     }
-    //  Hide all filter buttons.
-    if(!submit && !initially) {
-      $(_elements.buttons.crud).hide();
-    }
-
-    switch(mode) {
-      case "default":
-        $(_elements.settings.onlyOwn).show();
-        $(_elements.buttons.create).show();
-        break;
-      case "adhoc":
-        $(_elements.settings.onlyOwn).show();
-        if(fromMode === "stored") {
-          //  Pass current name to origin field.
-          nm = (elm = _elements.filter.name).value;
-          elm.value = "";
-          _elements.filter.origin.value = nm;
-          $(_elements.misc.title).html(
-            Drupal.t("Ad hoc - based on !origin", {"!origin": nm} )
-          );
-        }
-        _selectValue(_elements.filter.filter, "");
-        $(_elements.buttons.create).show();
-        break;
-      case "stored":
-        $(_elements.settings.onlyOwn).show();
-        $([
-          _elements.buttons.copy,
-          _elements.buttons.edit,
-          _elements.buttons.del
-        ]).show();
-        break;
-      case "create":
-        $(_elements.settings.onlyOwn).hide();
-        $([
-          _elements.buttons.cancel,
-          _elements.buttons.save
-        ]).show();
-        break;
-      case "edit":
-        $(_elements.settings.onlyOwn).hide();
-        $([
-          _elements.buttons.cancel,
-          _elements.buttons.save
-        ]).show();
-        break;
-      case "delete": // Pop confirm(), and submit upon positive confirmation.
-        if(!confirm(Drupal.t(
-          "Are you sure you want to delete the filter\n!filter?",
-          { "!filter": _elements.filter.name.value }
-        ))) {
-          return;
-        }
-        doSubmit = true;
-        break;
-      default:
-        inspect.log(to, {
-          category: "log_filter",
-          message: "Mode[" + to + "] not supported.",
-          severity: "error"
-        });
-    }
-    _elements.settings.mode.value = _.mode = mode;
-    if(submit || doSubmit) {
-      _submitted = true;
-      $(_elements.buttons.submit).trigger("click");
+    catch(er) {
+      _errorHandler(er, _name + "._setMode()");
     }
   };
-
-
+  /**
+   * Change handler for all condition and orderBy fields.
+   *
+   * @return {void}
+   */
   _changedCriterion = function() {
-    var jq, elm, nm;
-    switch(_.mode) {
-      case "default":
-        break;
-      case "adhoc":
-        break;
-      case "stored":
-        _setMode("adhoc");
-        break;
-      case "create":
-        break;
-      case "edit":
-        $(_elements.buttons.save).show(); // Too often...
-        break;
-      case "delete":
-        break;
-      default:
-        inspect.log(_.mode, {
-          category: "log_filter",
-          message: "Mode[" + _.mode + "] not supported.",
-          severity: "error"
-        });
+    try {
+      switch(_.mode) {
+        case "default":
+          break;
+        case "adhoc":
+          break;
+        case "stored":
+          _setMode("adhoc");
+          break;
+        case "create":
+          break;
+        case "edit":
+          _elements.buttons.save.disabled = false;
+          break;
+        case "delete":
+          break;
+        default:
+          throw new Error("Mode[" + _.mode + "] not supported.");
+      }
+    }
+    catch(er) {
+      _errorHandler(er, _name + "._changedCriterion()");
     }
   };
   /**
@@ -767,26 +765,37 @@ var LogFilter = function($) {
         _resetCriteria();
         break;
       case "log_filter_create":
+        _setMode("create");
         break;
       case "log_filter_copy":
         break;
       case "log_filter_edit":
+        _setMode("edit");
         break;
       case "log_filter_delete":
-        if (_elements.filter.name.value) {
-          _elements.settings.mode.value = "delete";
-          _resetCriteria();
-          $(_elements.buttons.submit).trigger("click");
-        }
+        _setMode("delete");
         break;
       case "log_filter_cancel":
+        switch(_.mode) {
+          case "create":
+            //
+            break;
+          case 22:
+            //
+            break;
+          case 11:
+            //
+            break;
+          default: // 00
+          //
+      }
         break;
       case "log_filter_save":
         break;
       default:
         inspect.console("Unsupported button name[" + nm + "]");
     }
-    return false; // For IE8's sake.
+    return false; // For IE<9's sake.
   };
 
 
@@ -856,18 +865,36 @@ var LogFilter = function($) {
       }
     });
   };
-
+  /**
+   * @return {void}
+   */
   this.inspect = function() {
     inspect(_, "LogFilter");
   };
   /**
    * @param {string|falsy} [group]
-   * @return {object}
+   * @return {void}
    */
   this.inspectElements = function(group) {
     inspect(!group ? _elements : _elements[group], "_elements" + (!group ? "" : ("." + group)));
   };
-
+  this.local = function(nm) {
+    var s;
+    //  S.... Drupal.t() doesnt use the 'g' flag when replace()'ing, so Drupal.t() replacement is utterly useless - and nowhere to report the bug :-(
+    if(!(s = _o(_local, nm))) { // English t message overridden?
+      switch(nm) {
+        case "saveAs":
+          s = Drupal.t("Save as...");
+          break;
+        case "saveAsNew":
+          s = Drupal.t("Save as new");
+          break;
+        default:
+          s = "[LOCAL: " + nm + "]";
+      }
+    }
+    return s.replace(/\!newline/g, "\n");
+  };
   /**
    *
    *
@@ -885,15 +912,9 @@ var LogFilter = function($) {
     }
     _init = true;
 
-
-
-
-
-
-
     _prepareForm();
 
-
+    _setMode(_.mode, false, true);
 
     _resize();
     $(window).resize(_resize);

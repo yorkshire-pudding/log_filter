@@ -44,9 +44,9 @@ class LogFilter {
       'conditions' => array(
           'time_range',
           'time_from',
-          'time_from_display', // Skip in actual conditions.
+          'time_from_proxy', // Skip in actual conditions.
           'time_to',
-          'time_to_display', // Skip in actual conditions.
+          'time_to_proxy', // Skip in actual conditions.
           'severity',
           'type_wildcard', // Skip in actual conditions.
           'type',
@@ -167,8 +167,8 @@ class LogFilter {
               case 'type':
                 $conditions['type'] = ($v = $stored_filter['type']) ? $v : ''; // db text field; safeguard against null value (despite schema declaration).
                 break;
-              case 'time_from_display':
-              case 'time_to_display':
+              case 'time_from_proxy':
+              case 'time_to_proxy':
                 //  Set by frontend, if non-empty time_from/time_to
                 $conditions[$name] = '';
                 break;
@@ -313,14 +313,17 @@ class LogFilter {
           'log_filter_mode' => array(
               '#type' => 'hidden',
               '#default_value' => $mode,
+              '#attributes' => array('autocomplete' => 'off'),
           ),
           'log_filter_name' => array(
               '#type' => 'hidden',
               '#default_value' => $filter_name,
+              '#attributes' => array('autocomplete' => 'off'),
           ),
           'log_filter_origin' => array(
               '#type' => 'hidden',
               '#default_value' => $filter['origin'],
+              '#attributes' => array('autocomplete' => 'off'),
           ),
           //  Conditions.
           //  Time.
@@ -332,7 +335,7 @@ class LogFilter {
               '#attributes' => array('autocomplete' => 'off'),
               '#prefix' => '<div id="log_filter_criteria"><div class="filter-conditions"><div class="form-item log-filter-time">',
           ),
-          'log_filter_time_from_display' => array(
+          'log_filter_time_from_proxy' => array(
               '#type' => 'textfield',
               '#title' => t('From date'),
               '#default_value' => '', // Frontend sets it, if non-empty time_from.
@@ -345,7 +348,7 @@ class LogFilter {
               '#default_value' => $conditions['time_from'],
               '#attributes' => array('autocomplete' => 'off'),
           ),
-          'log_filter_time_to_display' => array(
+          'log_filter_time_to_proxy' => array(
               '#type' => 'textfield',
               '#title' => t('To date'),
               '#default_value' => '', // Frontend sets it, if non-empty time_to.
@@ -494,25 +497,37 @@ class LogFilter {
           'log_filter_create' => array(
               '#type' => 'button',
               '#name' => 'log_filter_create',
-              '#value' => t('Create filter'),
+              '#value' => t('Save as...'),
               '#button_type' => 'button', // Doesnt work; still type:submit.
               '#attributes' => array(
                   'type' => 'button', // Doesnt work; still type:submit.
                   'class' => array('form-submit', 'theme-' . $theme),
                   'style' => 'display:none;',
               ),
-              '#prefix' => '<div>',
+              '#prefix' => '<div class="log-filter-button log-filter-create">',
               '#suffix' => '</div>',
           ),
           'log_filter_name_suggest' => array(
               '#type' => 'textfield',
-              '#title' => t('Name'),
               '#default_value' => '', // Only used frontend.
               '#size' => 32,
               '#attributes' => array(
                   'maxlength' => 32,
                   'autocomplete' => 'off',
                ),
+               '#prefix' => '<div class="log-filter-set-name"><label>' . t('Name') . '</label>',
+          ),
+          'log_filter_set_name' => array(
+              '#type' => 'button',
+              '#name' => 'log_filter_set_name',
+              '#value' => t('Set'),
+              '#button_type' => 'button', // Doesnt work; still type:submit.
+              '#attributes' => array(
+                  'type' => 'button', // Doesnt work; still type:submit.
+                  'class' => array('form-submit', 'theme-' . $theme),
+              ),
+              '#prefix' => '<div class="log-filter-button">',
+              '#suffix' => '</div></div>',
           ),
           'log_filter_description' => array(
               '#type' => 'textarea',
@@ -535,7 +550,7 @@ class LogFilter {
                   'class' => array('form-submit', 'theme-' . $theme),
                   'style' => 'display:none;',
               ),
-              '#prefix' => '<div>',
+              '#prefix' => '<div class="log-filter-button log-filter-copy">',
               '#suffix' => '</div>',
           ),
           'log_filter_edit' => array(
@@ -548,7 +563,7 @@ class LogFilter {
                   'class' => array('form-submit', 'theme-' . $theme),
                   'style' => 'display:none;',
               ),
-              '#prefix' => '<div>',
+              '#prefix' => '<div class="log-filter-button log-filter-edit">',
               '#suffix' => '</div>',
           ),
           'log_filter_delete' => array(
@@ -561,7 +576,7 @@ class LogFilter {
                   'class' => array('form-submit', 'edit-delete', 'theme-' . $theme),
                   'style' => 'display:none;',
               ),
-              '#prefix' => '<div>',
+              '#prefix' => '<div class="log-filter-button log-filter-delete">',
               '#suffix' => '</div>',
           ),
           'log_filter_cancel' => array(
@@ -574,8 +589,10 @@ class LogFilter {
                   'class' => array('form-submit', 'theme-' . $theme),
                   'style' => 'display:none;',
               ),
-              '#prefix' => '<div>',
-              '#suffix' => '</div></div>',
+              '#prefix' => '<div class="log-filter-cancel-save'
+                  . (strpos(strtolower(PHP_OS), 'win') === 0 ? ' log-filter-reversed-button-sequence' : '') .'">'
+                  . '<div class="log-filter-button log-filter-cancel">',
+              '#suffix' => '</div>',
           ),
           'log_filter_save' => array(
               '#type' => 'button',
@@ -587,10 +604,12 @@ class LogFilter {
                   'class' => array('form-submit', 'theme-' . $theme),
                   'style' => 'display:none;',
               ),
-              '#prefix' => '<div>',
-              '#suffix' => '</div></div>',
+              '#prefix' => '<div class="log-filter-button log-filter-save">',
+              '#suffix' => '</div></div></div>',
           ),
       );
+
+
 
       $title_cache = t('Easier on performance, despite translated logs are being cached.');
 
@@ -648,7 +667,7 @@ class LogFilter {
           '#suffix' => '</span>',
       );
       //  Add our submit form;
-      $form['#submit'][] = 'log_filter_form_submit';
+      $form['#submit'][] = '_log_filter_form_submit';
       return $form;
 
 
@@ -921,7 +940,7 @@ class LogFilter {
             case 'time_from':
               $conditions[$name] = $conditions['time_range'] ? '' : (($v = trim($values[$prefix . $name])) ? $v : '');
               break;
-            case 'time_from_display':
+            case 'time_from_proxy':
               if (!$save) {
                 $conditions[$name] = !$conditions['time_from'] ? '' : $values[$prefix . $name];
               }
@@ -929,7 +948,7 @@ class LogFilter {
             case 'time_to':
               $conditions[$name] = $conditions['time_range'] ? '' : (($v = trim($values[$prefix . $name])) ? $v : '');
               break;
-            case 'time_to_display':
+            case 'time_to_proxy':
               if (!$save) {
                 $conditions[$name] = !$conditions['time_to'] ? '' : $values[$prefix . $name];
               }
@@ -1063,7 +1082,7 @@ class LogFilter {
       $form = array();
 
       //  Add our submit form;
-      $form['#submit'][] = 'log_filter_remove_form_submit';
+      $form['#submit'][] = '_log_filter_remove_form_submit';
       return $form;
     }
     catch (Exception $xc) {
