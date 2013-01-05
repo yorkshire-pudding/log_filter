@@ -27,12 +27,6 @@ var LogFilter = function($) {
   /**
    * @ignore
    * @private
-   * @type {boolean|undefined}
-   */
-  _init,
-  /**
-   * @ignore
-   * @private
    * @type {obj}
    */
   _ = {
@@ -40,8 +34,10 @@ var LogFilter = function($) {
     errors: [],
     dateFormat: "YYYY-MM-DD",
     dateFormat_datepicker: "yy-mm-dd",
-    mode: 'default', // default | adhoc | stored | create | edit | delete
-    modePrevious: 'default'
+    mode: "default", // default | adhoc | stored | create | edit | delete
+    modePrevious: "default",
+    name: "",
+    origin: ""
   },
   /**
    * @private
@@ -55,9 +51,9 @@ var LogFilter = function($) {
   _secure,
   /**
    * @private
-   * @type {bool|undefined}
+   * @type {jquery|undefined}
    */
-  _jqUiDial,
+  _jqOverlay,
   /**
    * @private
    * @type {bool|undefined}
@@ -120,7 +116,7 @@ var LogFilter = function($) {
       submit: "input#edit-submit", // Not part of filter dialog.
       reset: "input[name='log_filter_reset']", // Not part of filter dialog.
       create: "input[name='log_filter_create']",
-      copy: "input[name='log_filter_copy']",
+      set_name: "input[name='log_filter_set_name']",
       edit: "input[name='log_filter_edit']",
       del: "input[name='log_filter_delete']",
       cancel: "input[name='log_filter_cancel']",
@@ -136,15 +132,15 @@ var LogFilter = function($) {
     conditions: {},
     orderBy: [], // Array.
     buttons: {
-      crud: [] // create, copy, edit, del, cancel, save.
+      crud: [] // create, edit, del, cancel, save.
     },
     misc: {}
   },
   _initialTypes = "",
 
   //  Declare private methods, to make IDEs list them
-  _errorHandler, _local, _o, _innerWidth, _innerHeight, _dateFromFormat, _selectValue, _resize,
-  _ajax, _crudRelay, _prepareForm, _resetCriteria, _changedCriterion, _setMode;
+  _errorHandler, _o, _innerWidth, _innerHeight, _dateFromFormat, _selectValue, _submit, _resize, _overlayResize,
+  _ajax, _crudRelay, _prepareForm, _resetCriteria, _changedCriterion, _setMode, _buttonDisable, _buttonEnable;
   /**
    * @ignore
    * @private
@@ -323,6 +319,23 @@ var LogFilter = function($) {
     $("div#log_filter_filters")[ wW < 1400 ? "addClass" : "removeClass" ]("narrow");
 	};
   /**
+   * Resizes custom overlay to fill whole window/document; handler for window resize event.
+	 * @return {void}
+	 */
+	_overlayResize = function() {
+		var w = window, d = document.documentElement, dW, dD;
+		_jqOverlay.css({
+			width: ((dD = _innerWidth(d)) > (dW = _innerWidth(w)) ? dD : dW) + "px",
+			height: ((dD = _innerHeight(d)) > (dW = _innerHeight(w)) ? dD : dW) + "px"
+		});
+	};
+  /**
+   * @return {void}
+   */
+  _submit = function() {
+    $(_elements.buttons.submit).trigger("click");
+  };
+  /**
    * @param {element} elm
    * @param {string|undefined} [val]
    * @return {string|integer}
@@ -336,10 +349,10 @@ var LogFilter = function($) {
     }
     // getting and setting
     multi = elm.multiple;
+    nOpts = (rOpts = $("option", elm).get()).length;
     //  get ----------------
     //  translating selectedIndex to actual option is weird/error prone, so we use jQuery list of options instead
     if(val === undefined) {
-      nOpts = (rOpts = $("option", elm).get()).length;
       if(!multi) {
         return (v = rOpts[ndx].value) !== "_none" ? v : "";
       }
@@ -354,7 +367,10 @@ var LogFilter = function($) {
     }
     //  set ------------------------------------
     //  start by clearing all
-    elm.selectedIndex = -1;
+    //  elm.selectedIndex = -1; ...is seriously unhealthy, may effectively ruin the select.
+    for(i = 0; i < nOpts; i++) {
+      rOpts[i].selected = false;
+    }
     if(val === "" || val === "_none") {
       return true; // all done
     }
@@ -373,11 +389,8 @@ var LogFilter = function($) {
         v[i] = "" + v[i];
       }
     }
-    nOpts = (rOpts = $("option", elm).get()).length;
     for(i = 0; i < nOpts; i++) {
-      if( ( (r = rOpts[i]).selected =
-          $.inArray(r.value, v) > -1 ? "selected" : false)
-      ) { // set? and count
+      if( ( (r = rOpts[i]).selected = $.inArray(r.value, v) > -1 ? "selected" : false) ) { // set? and count
         ++set;
         if(!multi) {
           return 1;
@@ -386,43 +399,48 @@ var LogFilter = function($) {
     }
     return set;
   };
-
-
-
-
-
+  /**
+   * @return {void}
+   */
+  _buttonDisable = function(elm) {
+    elm.disabled = "disabled";
+    $(elm).addClass("form-button-disabled");
+  };
+  /**
+   * @return {void}
+   */
+  _buttonEnable = function(elm) {
+    elm.disabled = false;
+    $(elm).removeClass("form-button-disabled");
+  };
+  /**
+   * @return {void}
+   */
   _prepareForm = function() {
     var oSels, oElms, nm, jq, elm, aElms, le, i, v;
     try {
-      //  Buttons; get element references, and fix some issues.
-      oSels = _selectors.buttons;
-      oElms = _elements.buttons;
+      //  Filter; do first because we need references to name and origin.
+      oSels = _selectors.filter;
+      oElms = _elements.filter;
       for(nm in oSels) {
         if(oSels.hasOwnProperty(nm) && (elm = (jq = $(oSels[nm])).get(0))) {
-          if(nm === "submit") {
-            oElms[nm] = elm;
-          }
-          else {
-            oElms[nm] = elm;
-            elm.setAttribute("type", "button"); // Fix type (apparant Form API shortcoming).
-            jq.unbind(); // Remove Drupal native button handlers.
-            switch(nm) {
-              case "create":
-              case "copy":
-              case "edit":
-              case "del":
-              case "cancel":
-              case "save":
-                oElms.crud.push(elm);
-                jq.click(_crudRelay); // Set our common button handler.
-                break;
-              case "reset":
-                jq.click(_resetCriteria);
-                break
-            }
+          oElms[nm] = elm;
+          switch(nm) {
+            case "filter":
+              //  Selecting a stored filter - or default filter - means submit form.
+              jq.change(function() { // Submit if user checks filter_only_own.
+                var v = _selectValue(this);
+                _elements.filter.name.value = v;
+                _elements.settings.mode.value = v ? "stored" : "default";
+                _submit();
+              });
+              break;
           }
         }
       }
+      _.name = _elements.filter.name.value;
+      _.origin = _elements.filter.origin.value;
+
       //  Fields; get element references, and fix some issues.
       //  Settings.
       oSels = _selectors.settings;
@@ -442,30 +460,11 @@ var LogFilter = function($) {
                   if(_.mode === "stored") {
                     _elements.settings.mode.value = "adhoc";
                     _selectValue(_elements.filter.filter, "");
-                    _elements.filter.origin.value = _elements.filter.name.value; // Pass name to origin.
+                    _elements.filter.origin.value = _.name; // Pass name to origin.
                     _elements.filter.name.value = "";
                   }
-                  $(_elements.buttons.submit).trigger("click");
+                  _submit();
                 }
-              });
-              break;
-          }
-        }
-      }
-      //  Filter.
-      oSels = _selectors.filter;
-      oElms = _elements.filter;
-      for(nm in oSels) {
-        if(oSels.hasOwnProperty(nm) && (elm = (jq = $(oSels[nm])).get(0))) {
-          oElms[nm] = elm;
-          switch(nm) {
-            case "filter":
-              //  Selecting a stored filter - or default filter - means submit form.
-              jq.change(function() { // Submit if user checks filter_only_own.
-                var v = _selectValue(this);
-                _elements.filter.name.value = v;
-                _elements.settings.mode.value = v ? "stored" : "default";
-                $(_elements.buttons.submit).trigger("click");
               });
               break;
           }
@@ -487,6 +486,7 @@ var LogFilter = function($) {
               jq.change(function() {
                 _elements.conditions.severity_any.checked = false;
               });
+              jq.change(_changedCriterion); // Criterion change handler.
               break;
             default:
               oElms[nm] = elm;
@@ -509,7 +509,7 @@ var LogFilter = function($) {
                       }
                       else {
                         r.value = "";
-                        alert( Drupal.t("The date '!date' is not valid\n- please use the format: !format", {"!date": v, "!format": _.dateFormat}) );
+                        alert( self.local("invalidDate", {"!date": v, "!format": _.dateFormat}) );
                       }
                     }
                   });
@@ -560,12 +560,47 @@ var LogFilter = function($) {
           }
         }
       }
+
       //  Miscellaneous.
       oSels = _selectors.misc;
       oElms = _elements.misc;
       for(nm in oSels) {
         if(oSels.hasOwnProperty(nm) && (elm = (jq = $(oSels[nm])).get(0))) {
           oElms[nm] = elm;
+        }
+      }
+
+      //  Buttons; get element references, and fix some issues.
+      oSels = _selectors.buttons;
+      oElms = _elements.buttons;
+      for(nm in oSels) {
+        if(oSels.hasOwnProperty(nm) && (elm = (jq = $(oSels[nm])).get(0))) {
+          if(nm === "submit") {
+            oElms[nm] = elm;
+            jq.click(function() {
+              _submitted = true;
+              _jqOverlay.show();
+            });
+          }
+          else {
+            oElms[nm] = elm;
+            elm.setAttribute("type", "button"); // Fix type (apparant Form API shortcoming).
+            jq.unbind(); // Remove Drupal native button handlers.
+            switch(nm) {
+              case "create":
+              case "set_name":
+              case "edit":
+              case "del":
+              case "cancel":
+              case "save":
+                oElms.crud.push(elm);
+                jq.click(_crudRelay); // Set our common button handler.
+                break;
+              case "reset":
+                jq.click(_resetCriteria);
+                break
+            }
+          }
         }
       }
     }
@@ -591,71 +626,122 @@ var LogFilter = function($) {
    * @return {void}
    */
   _setMode = function(mode, submit, initially) {
-    var fromMode = _.mode, doSubmit, elm, nm;
+    var fromMode = _.mode, doSubmit, elm, nm, v;
     try {
       if(_submitted) {
         return;
       }
       //  Hide all filter buttons.
-      if(!submit && !initially) {
+      if(!submit && !initially && mode !== "delete") {
         $(_elements.buttons.crud).hide();
       }
       switch(mode) {
         case "default":
-          $(_elements.settings.onlyOwn.parentNode).show();
+          $("option[value='']", _elements.filter.filter).html( self.local("default") ); // Set visual value of filter selector's empty option.
+          $(_elements.misc.title).html(self.local("default"));
+          if(!initially) {
+            _selectValue(_elements.filter.filter, "");
+            _elements.filter.name.value = _.name = _elements.filter.origin.value = _.origin = "";
+            $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // Hide name_suggest.
+            _buttonEnable(_elements.buttons.submit);
+          }
           (elm = _elements.buttons.create).value = self.local("saveAs");
           $(elm).show();
+          $(_elements.settings.onlyOwn.parentNode).show(); // Show only_own checkbox.
           break;
         case "adhoc":
-          $(_elements.settings.onlyOwn.parentNode).show();
+          if(!initially) {
+            _selectValue(_elements.filter.filter, "");
+            _buttonEnable(_elements.buttons.submit);
+          }
           if(fromMode === "stored") {
             //  Pass current name to origin field.
-            nm = (elm = _elements.filter.name).value;
-            elm.value = "";
-            _elements.filter.origin.value = nm;
-            $(_elements.misc.title).html(
-              Drupal.t("Ad hoc - based on !origin", {"!origin": nm} )
-            );
+            _elements.filter.origin.value = _.origin = nm = _.name;
+            _elements.filter.name.value = _.name = "";
+            $("option[value='']", _elements.filter.filter).html("(" + nm + ")"); // Set visual value of filter selector's empty option.
+            $(_elements.misc.title).html( self.local("adhocForOrigin", {"!origin": nm} ) );
           }
-          _selectValue(_elements.filter.filter, "");
+          else {
+            $("option[value='']", _elements.filter.filter).html(self.local("adhoc")); // Set visual value of filter selector's empty option.
+            $(_elements.misc.title).html(self.local("adhoc"));
+          }
           (elm = _elements.buttons.create).value = self.local("saveAs");
           $(elm).show();
-          break;
-        case "stored":
-          $(_elements.settings.onlyOwn.parentNode).show();
-          (elm = _elements.buttons.create).value = self.local("saveAsNew");
-          //$(elm).show();
           $([
-            //_elements.buttons.copy,
-            //_elements.buttons.edit,
+            _elements.filter.name_suggest.parentNode.parentNode, // Hide name_suggest.
+            //_elements.buttons.cancel
+          ]).hide();
+          _buttonEnable(_elements.buttons.submit);
+          $(_elements.settings.onlyOwn.parentNode).show(); // Show only_own checkbox.
+          break;
+        case "stored": // stored mode may only appear on page load and after cancelling create.
+          if(!initially) {
+            _selectValue(_elements.filter.filter, nm = _.name);
+            $("option[value='']", _elements.filter.filter).html( self.local("default") ); // Set visual value of filter selector's empty option.
+            $(_elements.misc.title).html( nm );
+            $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // Hide name_suggest.
+            _buttonEnable(_elements.buttons.submit);
+          }
+          (elm = _elements.buttons.create).value = self.local("saveAsNew");
+          $([
+            _elements.buttons.edit,
             elm,
             _elements.buttons.del
           ]).show();
+          $(_elements.settings.onlyOwn.parentNode).show(); // Show only_own checkbox.
           break;
         case "create":
-          $(_elements.settings.onlyOwn.parentNode).hide();
+          switch(fromMode) {
+            case "default":
+            case "adhoc":
+              $("option[value='']", _elements.filter.filter).html("(" + self.local("newName") + ")"); // Set visual value of filter selector's empty option.
+              $(_elements.misc.title).html( self.local("newTitle") );
+              break;
+            case "stored":
+              _selectValue(_elements.filter.filter, "");
+              //  Pass current name to origin field.
+              _elements.filter.origin.value = _.origin = nm = _.name;
+              _elements.filter.name.value = _.name = "";
+              $("option[value='']", _elements.filter.filter).html("(" + nm + ")"); // Set visual value of filter selector's empty option.
+              $(_elements.misc.title).html( self.local("newForOrigin", {"!origin": nm} ) );
+              break;
+            default:
+              throw new Error("Cant create from mode[" + fromMode + "].");
+          }
           $([
-            _elements.filter.name_suggest.parentNode.parentNode,
+            _elements.filter.name_suggest.parentNode.parentNode, // Show name_suggest.
+            _elements.buttons.set_name,
             _elements.buttons.cancel
           ]).show();
+          _buttonDisable(_elements.buttons.submit);
+          $(_elements.settings.onlyOwn.parentNode).hide(); // Hide only_own checkbox.
           break;
         case "edit":
-          $(_elements.settings.onlyOwn.parentNode).hide();
+          //  If going from create to edit: memorize mode right before create, to prevent ending up having (useless) create as previous mode.
+          if(fromMode === "create") {
+            fromMode = _.modePrevious;
+          }
           $([
-            _elements.filter.description.parentNode,
+            _elements.filter.description.parentNode, // Show description.
             _elements.buttons.cancel,
             _elements.buttons.save
           ]).show();
+          $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // Hide name_suggest.
+          _buttonDisable(_elements.buttons.submit);
+          $(_elements.settings.onlyOwn.parentNode).hide(); // Hide only_own checkbox.
           break;
         case "delete": // Pop confirm(), and submit upon positive confirmation.
+          _jqOverlay.addClass("log-filter-overlay-opaque").show();
           if (_elements.filter.name.value) {
-            if(!confirm(Drupal.t(
-              "Are you sure you want to delete the filter\n!filter?",
+            if(!confirm( self.local(
+              "confirmDelete",
               { "!filter": _elements.filter.name.value }
             ))) {
+              _jqOverlay.removeClass("log-filter-overlay-opaque").hide();
               return;
             }
             doSubmit = true;
+            _jqOverlay.removeClass("log-filter-overlay-opaque");
           }
           else {
             throw new Error("Cant delete filter having empty name[" + _elements.filter.name.value + "].");
@@ -667,8 +753,7 @@ var LogFilter = function($) {
       _.modePrevious = fromMode;
       _elements.settings.mode.value = _.mode = mode;
       if(submit || doSubmit) {
-        _submitted = true;
-        $(_elements.buttons.submit).trigger("click");
+        _submit();
       }
     }
     catch(er) {
@@ -684,6 +769,7 @@ var LogFilter = function($) {
     try {
       switch(_.mode) {
         case "default":
+          _setMode("adhoc");
           break;
         case "adhoc":
           break;
@@ -693,7 +779,8 @@ var LogFilter = function($) {
         case "create":
           break;
         case "edit":
-          _elements.buttons.save.disabled = false;
+          //_elements.buttons.save.disabled = false;
+          //_buttonEnable(_elements.buttons.save);
           break;
         case "delete":
           break;
@@ -741,14 +828,12 @@ var LogFilter = function($) {
       _selectValue(a[i][0], i ? "" : "time");
       a[i][1].checked = i ? false : "checked";
     }
-    //  If adhoc and has origin, clear origin.
-    if(_.mode === "adhoc" && _elements.filter.origin.value) {
-      _elements.filter.origin.value = "";
-      $(_elements.misc.title).html(
-        Drupal.t("Ad hoc")
-      );
+    //  Degrade mode.
+    if(_.mode === "adhoc") {
+      _setMode("default");
     }
-    else if(_.mode === "stored") {
+    //else if(_.mode === "stored") {
+    else {
       _setMode("adhoc");
     }
   };
@@ -760,44 +845,57 @@ var LogFilter = function($) {
    */
   _crudRelay = function() {
     var nm = this.name;
-    switch(nm) {
-      case "log_filter_reset":
-        _resetCriteria();
-        break;
-      case "log_filter_create":
-        _setMode("create");
-        break;
-      case "log_filter_copy":
-        break;
-      case "log_filter_edit":
-        _setMode("edit");
-        break;
-      case "log_filter_delete":
-        _setMode("delete");
-        break;
-      case "log_filter_cancel":
-        switch(_.mode) {
-          case "create":
-            //
-            break;
-          case 22:
-            //
-            break;
-          case 11:
-            //
-            break;
-          default: // 00
-          //
+    try {
+      switch(nm) {
+        case "log_filter_reset":
+          _resetCriteria();
+          break;
+        case "log_filter_create":
+          _setMode("create");
+          break;
+        case "log_filter_set_name":
+          //  If successfully saved filter by that name in database, via AJAX.
+          _setMode("edit");
+          break;
+        case "log_filter_edit":
+          _setMode("edit");
+          break;
+        case "log_filter_delete":
+          _setMode("delete");
+          break;
+        case "log_filter_cancel":
+          switch(_.mode) {
+            case "create":
+            case "edit":
+              switch(_.modePrevious) {
+                case "default":
+                case "adhoc":
+                  break;
+                case "stored":
+                  //  Revert.
+                  _elements.filter.name = _.name = _.origin;
+                  _elements.filter.origin = _.origin = "";
+                  break;
+                default:
+                  throw new Error("Previous mode[" + _.modePrevious + "] not supported when cancelling.");
+              }
+              _setMode(_.modePrevious);
+              break;
+            default:
+              throw new Error("Cant cancel in mode[" + _.mode + "].");
+          }
+          break;
+        case "log_filter_save":
+          break;
+        default:
+          throw new Error("Unsupported button name[" + nm + "].");
       }
-        break;
-      case "log_filter_save":
-        break;
-      default:
-        inspect.console("Unsupported button name[" + nm + "]");
+    }
+    catch(er) {
+      _errorHandler(er, _name + "._crudRelay()");
     }
     return false; // For IE<9's sake.
   };
-
 
   /**
    * @param {str} act
@@ -878,16 +976,51 @@ var LogFilter = function($) {
   this.inspectElements = function(group) {
     inspect(!group ? _elements : _elements[group], "_elements" + (!group ? "" : ("." + group)));
   };
-  this.local = function(nm) {
-    var s;
+  /**
+   * Caches translated labels/message having no replacers.
+   *
+   * @param {string} name
+   * @param {object|falsy} [replacers]
+   * @return {string}
+   */
+  this.local = function(name, replacers) {
+    var nm = name, s;
     //  S.... Drupal.t() doesnt use the 'g' flag when replace()'ing, so Drupal.t() replacement is utterly useless - and nowhere to report the bug :-(
     if(!(s = _o(_local, nm))) { // English t message overridden?
       switch(nm) {
+        case "default":
+          _local[nm] = s = Drupal.t("Default");
+          break;
+        case "adhoc":
+          _local[nm] = s = Drupal.t("Ad hoc");
+          break;
+        case "adhocForOrigin":
+          //  {"!origin": nm}
+          s = Drupal.t("Ad hoc - based on !origin", replacers );
+          break;
+        case "newForOrigin":
+          //  {"!origin": nm}
+          s = Drupal.t("New - based on !origin", replacers );
+          break;
+        case "newTitle":
+          _local[nm] = s = Drupal.t("New");
+          break;
+        case "newName":
+          _local[nm] = s = Drupal.t("new");
+          break;
         case "saveAs":
-          s = Drupal.t("Save as...");
+          _local[nm] = s = Drupal.t("Save as...");
           break;
         case "saveAsNew":
-          s = Drupal.t("Save as new");
+          _local[nm] = s = Drupal.t("Save as new");
+          break;
+        case "confirmDelete":
+          //  { "!filter": _elements.filter.name.value }
+          s = Drupal.t("Are you sure you want to delete the filter\n!filter?", replacers);
+          break;
+        case "dateInvalid":
+          //  {"!date": v, "!format": _.dateFormat}
+          s = Drupal.t("The date '!date' is not valid\n- please use the format: !format", replacers);
           break;
         default:
           s = "[LOCAL: " + nm + "]";
@@ -896,21 +1029,34 @@ var LogFilter = function($) {
     return s.replace(/\!newline/g, "\n");
   };
   /**
+   * @function
+   * @name LogFilter.init
+   * @return {void}
+   */
+  this.init = function() {
+    this.init = function() {};
+    //	Create overlay, to prevent user from doing anything before page load and after form submission.
+		$("body").append(
+			"<div id=\"log_filter_overlay\" tabindex=\"10000\">&nbsp;</div>"
+		);
+		_jqOverlay = $("div#log_filter_overlay");
+    _overlayResize();
+		$(window).resize(function() {
+			_overlayResize();
+		});
+  };
+  /**
    *
    *
    *  Options:
    *  - (int) x
    * @function
-   * @name LogFilter.init
+   * @name LogFilter.setup
    * @param {obj} [options]
    * @return {void}
    */
-  this.init = function(options) {
-    var a, le, i, elm, type, jq, v;
-    if(_init) {
-      return;
-    }
-    _init = true;
+  this.setup = function(options) {
+    this.setup = function() {};
 
     _prepareForm();
 
@@ -918,6 +1064,8 @@ var LogFilter = function($) {
 
     _resize();
     $(window).resize(_resize);
+
+    _jqOverlay.hide();
   };
 };
 

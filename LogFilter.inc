@@ -292,12 +292,12 @@ class LogFilter {
       if (($options_filters = $options_filters->orderBy('changed', 'DESC')->orderBy('name', 'ASC')
           ->execute()->fetchCol())) {
         $options_filters = array_merge(
-            array('' => ''),
+            array('' => t('Default')),
             array_combine($options_filters, $options_filters)
         );
       }
       else {
-        $options_filters = array('' => '');
+        $options_filters = array('' => t('Default'));
       }
 
       //  Get current theme.
@@ -309,6 +309,10 @@ class LogFilter {
           '#title' => t('Filter') . ': <span id="log_filter_title_display">' . $title . '</span>',
           '#collapsible' => TRUE,
           '#collapsed' => FALSE,
+          'frontend_init' => array(
+              '#type' => 'markup',
+              '#markup' => '<script type="text/javascript"> LogFilter.init(); </script>',
+          ),
           //  Control vars.
           'log_filter_mode' => array(
               '#type' => 'hidden',
@@ -494,6 +498,19 @@ class LogFilter {
                   'autocomplete' => 'off',
                ),
           ),
+          'log_filter_edit' => array(
+              '#type' => 'button',
+              '#name' => 'log_filter_edit',
+              '#value' => t('Edit'),
+              '#button_type' => 'button', // Doesnt work; still type:submit.
+              '#attributes' => array(
+                  'type' => 'button', // Doesnt work; still type:submit.
+                  'class' => array('form-submit', 'theme-' . $theme),
+                  'style' => 'display:none;',
+              ),
+              '#prefix' => '<div class="log-filter-edit-create"><div class="log-filter-button log-filter-edit">',
+              '#suffix' => '</div>',
+          ),
           'log_filter_create' => array(
               '#type' => 'button',
               '#name' => 'log_filter_create',
@@ -505,7 +522,7 @@ class LogFilter {
                   'style' => 'display:none;',
               ),
               '#prefix' => '<div class="log-filter-button log-filter-create">',
-              '#suffix' => '</div>',
+              '#suffix' => '</div></div>',
           ),
           'log_filter_name_suggest' => array(
               '#type' => 'textfield',
@@ -540,36 +557,10 @@ class LogFilter {
                   'autocomplete' => 'off',
                ),
           ),
-          'log_filter_copy' => array(
-              '#type' => 'button',
-              '#name' => 'log_filter_copy',
-              '#value' => t('Copy filter'),
-              '#button_type' => 'button', // Doesnt work; still type:submit.
-              '#attributes' => array(
-                  'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit', 'theme-' . $theme),
-                  'style' => 'display:none;',
-              ),
-              '#prefix' => '<div class="log-filter-button log-filter-copy">',
-              '#suffix' => '</div>',
-          ),
-          'log_filter_edit' => array(
-              '#type' => 'button',
-              '#name' => 'log_filter_edit',
-              '#value' => t('Edit'),
-              '#button_type' => 'button', // Doesnt work; still type:submit.
-              '#attributes' => array(
-                  'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit', 'theme-' . $theme),
-                  'style' => 'display:none;',
-              ),
-              '#prefix' => '<div class="log-filter-button log-filter-edit">',
-              '#suffix' => '</div>',
-          ),
           'log_filter_delete' => array(
               '#type' => 'button',
               '#name' => 'log_filter_delete',
-              '#value' => t('Delete filter'),
+              '#value' => t('Delete'),
               '#button_type' => 'button', // Doesnt work; still type:submit.
               '#attributes' => array(
                   'type' => 'button', // Doesnt work; still type:submit.
@@ -597,7 +588,7 @@ class LogFilter {
           'log_filter_save' => array(
               '#type' => 'button',
               '#name' => 'log_filter_save',
-              '#value' => t('Save filter'),
+              '#value' => t('Save'),
               '#button_type' => 'button', // Doesnt work; still type:submit.
               '#attributes' => array(
                   'type' => 'button', // Doesnt work; still type:submit.
@@ -614,7 +605,7 @@ class LogFilter {
       $title_cache = t('Easier on performance, despite translated logs are being cached.');
 
       $form['log_filter_footer'] = array(
-          'frontend_instantiation' => array(
+          'frontend_setup' => array(
               '#type' => 'markup',
               '#markup' => '<script type="text/javascript">
 (function($) {
@@ -625,7 +616,7 @@ class LogFilter {
     //  Set hover title on cache checkboxs label.
     $("div.form-item-log-filter-cache label").get(0).setAttribute("title", "' . str_replace(array("\n", "\r", '"'), '', $title_cache) . '");
     //  Go.
-    LogFilter.init();
+    LogFilter.setup();
   } );
 })(jQuery);
 </script>
@@ -791,7 +782,6 @@ class LogFilter {
 
       $submitted = array(
           'mode' => $values[$prefix . 'mode'],
-          'reset' => FALSE,
           'filter' => array(
               'name' => '',
               'origin' => '',
@@ -892,6 +882,11 @@ class LogFilter {
             switch ($mode) {
               case 'create':
                 //  Get specs from form, and save to database.
+
+
+                //  We shall never see this mode backend, because we create using AJAX.
+
+
                 $load = TRUE;
                 $save = 'insert';
                 $submitted['filter']['name_suggest'] = $values[$prefix . 'name_suggest'];
@@ -902,6 +897,8 @@ class LogFilter {
                 $load = TRUE;
                 $save = 'update';
                 $submitted['filter']['description'] = $values[$prefix . 'description'];
+                //  Change mode.
+                $submitted['mode'] = $mode = 'stored';
                 break;
               default: // delete
                 db_delete('log_filter')->condition('name', $filter_name, '=')->execute();
@@ -914,13 +911,14 @@ class LogFilter {
                 drupal_set_message(
                     t('Deleted the filter \'!name\'.', array('!name' => $filter_name))
                 );
+                //  Change mode.
+                $submitted['mode'] = $mode = 'default';
             }
           }
           else {
             $load = $save = FALSE;
             //  Change mode.
             $submitted['mode'] = $mode = 'default';
-            $submitted['reset'] = TRUE;
           }
           break;
         default:
@@ -1033,7 +1031,6 @@ class LogFilter {
         }
         else {
           $submitted['mode'] = $mode = 'default';
-          $submitted['reset'] = TRUE;
         }
       }
 

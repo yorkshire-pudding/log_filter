@@ -1,6 +1,7 @@
 log_filter 7.x-1.0.x, 2012-01-05
 --------------------------------
 * Declared menu items now optionally hide default dblog viewer/remover page.
+* Frontend modes seem fully resolved.
 
 log_filter 7.x-1.0.x, 2012-01-04
 --------------------------------
