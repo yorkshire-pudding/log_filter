@@ -1,4 +1,10 @@
 
+
+body.page-admin-reports-dblog-log-filter #page {
+  position: fixed;
+  left: 0;
+}
+
 form#log-filter-form {
 
 }

@@ -1,3 +1,7 @@
+log_filter 7.x-1.0.x, 2012-01-06
+--------------------------------
+* Removed create mode from viewer form, because that mode is handled solely via AJAX.
+
 log_filter 7.x-1.0.x, 2012-01-05
 --------------------------------
 * Declared menu items now optionally hide default dblog viewer/remover page.

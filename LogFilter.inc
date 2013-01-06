@@ -40,6 +40,7 @@ class LogFilter {
           'origin',
           'name_suggest',
           'description',
+          'require_admin',
       ),
       'conditions' => array(
           'time_range',
@@ -113,7 +114,7 @@ class LogFilter {
       //  Get current filter name, if any.
       $filter_name = $submitted ? $submitted['filter']['name'] : '';
 
-      //  Get mode; default | adhoc | stored | create | edit | delete.
+      //  Get mode; default | adhoc | stored | edit | delete.
       $mode = $submitted ? $submitted['mode'] : 'default';
 
       //  Stored mode may degrade to default.
@@ -231,7 +232,6 @@ class LogFilter {
         case 'stored':
           //  Done earlier.
           break;
-        case 'create':
         case 'edit':
         case 'delete':
           throw new Exception('Mode[' . $mode . '] not allowed at form build.');
@@ -557,6 +557,14 @@ class LogFilter {
                   'autocomplete' => 'off',
                ),
           ),
+          'log_filter_require_admin' => array(
+              '#type' => 'checkbox',
+              '#title' => t('Restrict access'),
+              '#default_value' => $filter['require_admin'],
+              '#attributes' => array(
+                  'autocomplete' => 'off',
+               ),
+          ),
           'log_filter_delete' => array(
               '#type' => 'button',
               '#name' => 'log_filter_delete',
@@ -787,6 +795,7 @@ class LogFilter {
               'origin' => '',
               'name_suggest' => '',
               'description' => '',
+              'require_admin' => $values[$prefix . 'require_admin'],
           ),
       );
 
@@ -801,12 +810,12 @@ class LogFilter {
           $submitted['filter']['origin'] = $values[$prefix . 'origin']; // ~ Hidden field.
           break;
         case 'stored': // Saved filter.
-          //  Just get filter name.
+          //  Just get filter name; in stored mode we do absolutely nothing at submission but establishing the filter's name.
+          //  Whether the filter require_admin and user has that permission will be checked at form build - no reason to check twice.
           if (!($submitted['filter']['name'] = $filter_name = $values[$prefix . 'name'])) {
             throw new Exception('Mode[' . $mode . '], empty name[' . $filter_name . '].');
           }
           break;
-        case 'create':
         case 'edit':
         case 'delete':
           //  Get name.
@@ -819,18 +828,6 @@ class LogFilter {
             $success = FALSE;
             //  Horrible; have to make almost exactly same message, because of shortcomings of the localization regime.
             switch ($mode) {
-              case 'create':
-                watchdog(
-                    'log_filter',
-                    'Won\'t create the filter \'!name\' because user !user doesn\'t have \'log_filter edit filters\' permission.',
-                    array('!name' => $filter_name, '!user' => $GLOBALS['user']->name),
-                    WATCHDOG_WARNING
-                );
-                drupal_set_message(
-                    t('Cannot create the filter \'!name\', because you don\'t have permission to edit log filters.', array('!name' => $filter_name)),
-                    'warning'
-                );
-                break;
               case 'edit':
                 watchdog(
                     'log_filter',
@@ -856,46 +853,30 @@ class LogFilter {
                 );
             }
           }
-
-          if ($mode != 'create') {
-            //  Check if exists, and get require_admin field.
-            if (!($require_admin = db_select('log_filter')
-                ->fields('log_filter', array('require_admin'))
-                ->condition('name', $filter_name, '=')
-                ->execute()->fetchField())
-            ) {
-              if ($require_admin === FALSE) { // Doesn't exist.
-                $success = FALSE;
-                drupal_set_message(
-                    t('The filter \'!name\' doesn\'t exist.', array('!name' => $filter_name)),
-                    'warning'
-                );
-              }
-              //  else... the filter doesnt require admin permission.
-            }
-            elseif (!user_access('log_filter administer')) {
+          //  Check if exists, and get require_admin field.
+          if (!($require_admin = db_select('log_filter')
+              ->fields('log_filter', array('require_admin'))
+              ->condition('name', $filter_name, '=')
+              ->execute()->fetchField())
+          ) {
+            if ($require_admin === FALSE) { // Doesn't exist.
               $success = FALSE;
+              drupal_set_message(
+                  t('The filter \'!name\' doesn\'t exist.', array('!name' => $filter_name)),
+                  'warning'
+              );
             }
+            //  else... the filter doesnt require admin permission.
           }
-
+          elseif (!user_access('log_filter administer')) {
+            $success = FALSE;
+          }
           if ($success) {
             switch ($mode) {
-              case 'create':
-                //  Get specs from form, and save to database.
-
-
-                //  We shall never see this mode backend, because we create using AJAX.
-
-
-                $load = TRUE;
-                $save = 'insert';
-                $submitted['filter']['name_suggest'] = $values[$prefix . 'name_suggest'];
-                $submitted['filter']['description'] = $values[$prefix . 'description'];
-                break;
               case 'edit':
                 //  Get specs from form, and save to database.
                 $load = TRUE;
-                $save = 'update';
+                $save = TRUE;
                 $submitted['filter']['description'] = $values[$prefix . 'description'];
                 //  Change mode.
                 $submitted['mode'] = $mode = 'stored';
@@ -1015,15 +996,9 @@ class LogFilter {
         }
       }
 
-      if ($save) {
+      if ($save) { // edit mode.
         $success = TRUE;
-        if ($save == 'edit') {
 
-        }
-        else { // create
-
-          $submitted['filter']['name_suggest'] = '';
-        }
 
         //  Change mode.
         if ($success) {
