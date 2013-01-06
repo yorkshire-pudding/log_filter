@@ -333,6 +333,11 @@ class LogFilter {
               '#default_value' => $filter['origin'],
               '#attributes' => array('autocomplete' => 'off'),
           ),
+          'log_filter_delete_logs' => array(
+              '#type' => 'hidden',
+              '#default_value' => '', //$filter['origin'],
+              '#attributes' => array('autocomplete' => 'off'),
+          ),
           //  Conditions.
           //  Time.
           'log_filter_time_range' => array(
@@ -573,7 +578,7 @@ class LogFilter {
           'log_filter_delete' => array(
               '#type' => 'button',
               '#name' => 'log_filter_delete',
-              '#value' => t('Delete'),
+              '#value' => t('Delete filter'),
               '#button_type' => 'button', // Doesnt work; still type:submit.
               '#attributes' => array(
                   'type' => 'button', // Doesnt work; still type:submit.
@@ -620,7 +625,7 @@ class LogFilter {
                   'type' => 'button', // Doesnt work; still type:submit.
                   'class' => array('form-submit', 'edit-delete', 'theme-' . $theme),
               ),
-              '#prefix' => '<div id="log_filter_box_delete_by_filter"><div class="log-filter-button log-filter-delete-by-filter">',
+              '#prefix' => '<div id="log_filter_box_delete_by_filter" style="visibility:hidden"><div class="log-filter-button log-filter-delete-by-filter">',
               '#suffix' => '</div></div></div></div>',
           ),
       );
@@ -628,9 +633,9 @@ class LogFilter {
       if (!$user_admin_permission) {
         unset( $form['log_filter_filter_edit']['log_filter_require_admin'] );
       }
-
+      //  Remove delete_logs and delete_by_filter if missing permission.
       if (!user_access('log_filter remove logs')) {
-        unset( $form['log_filter_filter_edit']['log_filter_delete_by_filter'] );
+        unset( $form['log_filter_filter_edit']['log_filter_delete_logs'], $form['log_filter_filter_edit']['log_filter_delete_by_filter'] );
       }
 
       $title_cache = t('Easier on performance, despite translated logs are being cached.');

@@ -84,7 +84,8 @@ var LogFilter = function($) {
       origin: "input[name='log_filter_origin']", // Hidden.
       name_suggest: "input[name='log_filter_name_suggest']",
       description: "textarea[name='log_filter_description']",
-      require_admin: "input[name='log_filter_require_admin']" // May not exist.
+      require_admin: "input[name='log_filter_require_admin']", // May not exist.
+      delete_logs: "input[name='log_filter_delete_logs']" // May not exist.
     },
     conditions: {
       time_range: "input[name='log_filter_time_range']",
@@ -113,7 +114,8 @@ var LogFilter = function($) {
       edit: "input[name='log_filter_edit']",
       del: "input[name='log_filter_delete']",
       cancel: "input[name='log_filter_cancel']",
-      save: "input[name='log_filter_save']"
+      save: "input[name='log_filter_save']",
+      delete_by_filter: "input[name='log_filter_delete_by_filter']"
     },
     misc: {
       title: "#log_filter_title_display"
@@ -742,6 +744,9 @@ var LogFilter = function($) {
                 oElms.crud.push(elm);
                 jq.click(_crudRelay); // Set our common button handler.
                 break;
+              case "delete_by_filter": // Dont put in .crud array, because we have to show/hide this using visibility instead of display.
+                jq.click(_crudRelay); // Set our common button handler.
+                break
               case "reset":
                 jq.click(_resetCriteria);
                 break
@@ -801,6 +806,7 @@ var LogFilter = function($) {
           (elm = _elements.buttons.create).value = self.local("saveAs");
           $(elm).show();
           $(_elements.settings.onlyOwn.parentNode).show(); // Show only_own checkbox.
+          $(_elements.buttons.delete_by_filter.parentNode.parentNode).css("visibility", "hidden");
           break;
         case "adhoc":
           if(!initially) {
@@ -829,7 +835,8 @@ var LogFilter = function($) {
             _elements.filter.description.parentNode
           ]).hide();
           _buttonEnable(_elements.buttons.submit);
-          $(_elements.settings.onlyOwn.parentNode).show(); // Show only_own checkbox.
+          $(_elements.settings.onlyOwn.parentNode).show();
+          $(_elements.buttons.delete_by_filter.parentNode.parentNode).css("visibility", "visible");
           break;
         case "stored": // stored mode may only appear on page load and after cancelling create.
           if(!initially) {
@@ -853,6 +860,7 @@ var LogFilter = function($) {
             _elements.buttons.del
           ]).show();
           $(_elements.settings.onlyOwn.parentNode).show(); // Show only_own checkbox.
+          $(_elements.buttons.delete_by_filter.parentNode.parentNode).css("visibility", "visible");
           break;
         case "create":
           _selectDisable(_elements.filter.filter);
@@ -883,10 +891,15 @@ var LogFilter = function($) {
           ]).show();
           _buttonDisable(_elements.buttons.submit);
           $(_elements.settings.onlyOwn.parentNode).hide(); // Hide only_own checkbox.
+          $(_elements.buttons.delete_by_filter.parentNode.parentNode).css("visibility", "hidden");
           break;
         case "edit":
           if(fromMode === "create") {
             //  If going from create to edit: memorize mode right before create, to prevent ending up having (useless) create as previous mode.
+
+            //  NB: This is not sufficient: sometimes mode gets wrong and name get empty when is shouldnt.
+            //  Test it by doing create, cancel, create, cancel...
+
             fromMode = _.modePrevious;
             $("option[value='']", _elements.filter.filter).html(_.name);
           }
@@ -902,6 +915,7 @@ var LogFilter = function($) {
           $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // Hide name_suggest.
           _buttonDisable(_elements.buttons.submit);
           $(_elements.settings.onlyOwn.parentNode).hide(); // Hide only_own checkbox.
+          $(_elements.buttons.delete_by_filter.parentNode.parentNode).css("visibility", "hidden");
           break;
         case "delete": // Pop confirm(), and submit upon positive confirmation.
           _jqOverlay.addClass("log-filter-overlay-opaque").show();
@@ -1077,6 +1091,10 @@ var LogFilter = function($) {
           }
           break;
         case "log_filter_save":
+          break;
+        case "log_filter_delete_by_filter":
+          _elements.filter.delete_logs.value = "1";
+          _submit();
           break;
         default:
           throw new Error("Unsupported button name[" + nm + "].");

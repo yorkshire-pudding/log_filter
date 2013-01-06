@@ -340,7 +340,7 @@ form#log-filter-form fieldset#edit-filter-filter-edit input.form-submit.edit-del
           }
       form#log-filter-form div#log_filter_filters > div#log_filter_box_delete_by_filter {
         visibility: hidden;
-        background-color: #AAA;
+        /*background-color: #AAA;*/
         padding: 6px 15px 0 0;
       }
       form#log-filter-form div#log_filter_filters.narrow > div#log_filter_box_delete_by_filter {
@@ -353,7 +353,7 @@ form#log-filter-form fieldset#edit-filter-filter-edit input.form-submit.edit-del
           float: right;
         }
           form#log-filter-form div#log_filter_filters > div#log_filter_box_delete_by_filter div input.form-button {
-            margin: 4px 0 10px;
+            margin: 0px 0 14px;
           }
           form#log-filter-form div#log_filter_filters.narrow > div#log_filter_box_delete_by_filter div input.form-button {
             margin: 12px 0 15px;
