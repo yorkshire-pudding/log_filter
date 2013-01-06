@@ -83,7 +83,8 @@ var LogFilter = function($) {
       name: "input[name='log_filter_name']", // Hidden.
       origin: "input[name='log_filter_origin']", // Hidden.
       name_suggest: "input[name='log_filter_name_suggest']",
-      description: "textarea[name='log_filter_description']"
+      description: "textarea[name='log_filter_description']",
+      require_admin: "input[name='log_filter_require_admin']" // May not exist.
     },
     conditions: {
       time_range: "input[name='log_filter_time_range']",
@@ -91,16 +92,8 @@ var LogFilter = function($) {
       time_from_proxy: "input[name='log_filter_time_from_proxy']",
       time_to: "input[name='log_filter_time_to']",
       time_to_proxy: "input[name='log_filter_time_to_proxy']",
-      /*severity: {
-        all: "input[name='log_filter_severity[-1]']",
-        some: "div#edit-log-filter-severity input:not([name='log_filter_severity[-1]'])"
-      },*/
       severity_any: "input[name='log_filter_severity[-1]']",
       severity_some: "div#edit-log-filter-severity input:not([name='log_filter_severity[-1]'])", // More elements.
-      /*type: {
-        all: "input[name='log_filter_type_wildcard']",
-        some: "textarea[name='log_filter_type']"
-      },*/
       type_any: "input[name='log_filter_type_wildcard']",
       type_some: "textarea[name='log_filter_type']", // Single element.
       uid: "input[name='log_filter_uid']",
@@ -140,7 +133,8 @@ var LogFilter = function($) {
 
   //  Declare private methods, to make IDEs list them
   _errorHandler, _o, _innerWidth, _innerHeight, _dateFromFormat, _selectValue, _submit, _resize, _overlayResize,
-  _ajax, _crudRelay, _prepareForm, _resetCriteria, _changedCriterion, _setMode, _buttonDisable, _buttonEnable;
+  _ajax, _crudRelay, _prepareForm, _resetCriteria, _changedCriterion, _setMode, _onFilterCreated,
+  _textareaRemoveWrapper, _buttonDisable, _buttonEnable, _selectDisable, _selectEnable, _machineNameConvert, _machineNameValidate, _toLeading, _toAscii;
   /**
    * @ignore
    * @private
@@ -333,7 +327,10 @@ var LogFilter = function($) {
    * @return {void}
    */
   _submit = function() {
-    $(_elements.buttons.submit).trigger("click");
+    //  Delay; otherwise it may in some situations not submit, presumably because _buttonEnable() hasnt finished it's job yet(?).
+    setTimeout(function() {
+      $(_elements.buttons.submit).trigger("click");
+    }, 100);
   };
   /**
    * @param {element} elm
@@ -400,6 +397,20 @@ var LogFilter = function($) {
     return set;
   };
   /**
+   * Removes parent form-textarea-wrapper div from (non-resizable) textarea, for easier (standard) DOM access.
+   *
+   * @param {element} elm
+   * @return {void}
+   */
+  _textareaRemoveWrapper = function(elm) {
+    var jq;
+    if ((jq = $(elm.parentNode)).hasClass("form-textarea-wrapper")) {
+      jq.after( $(elm).remove() );
+      jq.remove();
+    }
+  };
+  /**
+   * @param {element} elm
    * @return {void}
    */
   _buttonDisable = function(elm) {
@@ -407,12 +418,133 @@ var LogFilter = function($) {
     $(elm).addClass("form-button-disabled");
   };
   /**
+   * @param {element} elm
    * @return {void}
    */
   _buttonEnable = function(elm) {
     elm.disabled = false;
     $(elm).removeClass("form-button-disabled");
   };
+  /**
+   * @param {element} elm
+   * @return {void}
+   */
+  _selectDisable = function(elm) {
+    elm.disabled = "disabled";
+    $(elm).css("cursor", "not-allowed");
+  };
+  /**
+   * @param {element} elm
+   * @return {void}
+   */
+  _selectEnable = function(elm) {
+    elm.disabled = false;
+    $(elm).css("cursor", "pointer");
+  };
+  /**
+   * @return {void}
+   */
+  _machineNameConvert = function() {
+    var v = this.value, rgx = /^[a-z\d_]$/;
+    if(v.length > 1 && !rgx.test(v)) {
+      if(!rgx.test(v = v.toLowerCase())) {
+        if(!rgx.test(v = v.replace(/[\ \-]/g, "_"))) {
+          if(!rgx.test(v = _toAscii(v))) {
+            v = v.replace(/[^a-z\d_]/g, "_");
+          }
+        }
+      }
+      this.value = v;
+    }
+  };
+  /**
+   * @param {element} elm
+   * @return {void}
+   */
+  _machineNameValidate = function(elm) {
+    var v = elm.value, le = v.length;
+    if(le < 2 || le > 32 || !/[a-z_]/.test(v.charAt(0)) || !/[a-z\d_]/.test(v)) {
+      alert( self.local("machineName") ) ;
+      return false;
+    }
+    return true;
+  };
+  /**
+   * Prepends zeroes until arg length length.
+   *
+   * @param {string|integer} u
+   * @param {integer} [length]
+   *  - default: 1
+   * @return {string}
+   */
+  _toLeading = function(u, length) {
+    var le = length || 1, s = "" + u;
+    while(s.length < le) {
+      s = "0" + s;
+    }
+    return s;
+  };
+  _toAscii = function(s) {
+    var ndl = _toAscii.needles, rpl = _toAscii.replacers, le = ndl.length, i, u;
+    if(typeof ndl[0] === "string") { // First time called.
+      u = ndl.concat();
+      for(i = 0; i < le; i++) {
+          ndl[i] = new RegExp("\\u" + _toLeading(u[i].charCodeAt(0).toString(16), 4), "g");
+      }
+    }
+    for(i = 0; i < le; i++) {
+        s = s.replace(ndl[i], rpl[i]);
+    }
+    return s;
+  };
+  _toAscii.needles = [
+    //  iso-8859-1
+//JSLINT_IGNORE--- jslint unsafe chars, but _toAscii() starts out converting them to \uNNNN regexes.
+    "Ä","Æ",
+    "ä","æ",
+    "Ö","Ø",
+    "ö","ø",
+    "Ü", "ü", "ß", "Å", "å",
+    "À","Á","Â","Ã",
+    "à","á","â","ã",
+    "Ç", "ç", "Ð", "ð",
+    "È","É","Ê","Ë",
+    "è","é","ê","ë",
+    "Ì","Í","Î","Ï",
+    "ì","í","î","ï",
+    "Ñ", "ñ",
+    "Ò","Ó","Ô","Õ",
+    "ò","ó","ô","õ",
+    "Ù","Ú","Û",
+    "ù","ú","û",
+    "Ý",
+    "ý","ÿ",
+    "Þ", "þ"
+//---JSLINT_IGNORE
+  ];
+  _toAscii.replacers = [
+    //  iso-8859-1
+    "Ae","Ae",
+    "ae","ae",
+    "Oe","Oe",
+    "oe","oe",
+    "Ue", "ue", "ss", "Aa", "aa",
+    "A","A","A","A",
+    "a","a","a","a",
+    "C", "c", "D", "d",
+    "E","E","E","E",
+    "e","e","e","e",
+    "I","I","I","I",
+    "i","i","i","i",
+    "N", "n",
+    "O","O","O","O",
+    "o","o","o","o",
+    "U","U","U",
+    "u","u","u",
+    "Y",
+    "y","y",
+    "Th", "th"
+  ];
   /**
    * @return {void}
    */
@@ -429,11 +561,24 @@ var LogFilter = function($) {
             case "filter":
               //  Selecting a stored filter - or default filter - means submit form.
               jq.change(function() { // Submit if user checks filter_only_own.
-                var v = _selectValue(this);
-                _elements.filter.name.value = v;
+                var v;
+                switch(_.mode) {
+                  case "create":
+                  case "edit":
+                    //  Not allowed, user must use the cancel button.
+                    return;
+                }
+                _elements.filter.name.value = v = _selectValue(this);
                 _elements.settings.mode.value = v ? "stored" : "default";
+                _buttonEnable(_elements.buttons.submit);
                 _submit();
               });
+              break;
+            case "name_suggest":
+              jq.keyup(_machineNameConvert);
+              break;
+            case "description":
+              _textareaRemoveWrapper(elm); // Remove parent form-textarea-wrapper.
               break;
           }
         }
@@ -463,6 +608,7 @@ var LogFilter = function($) {
                     _elements.filter.origin.value = _.name; // Pass name to origin.
                     _elements.filter.name.value = "";
                   }
+                  _buttonEnable(_elements.buttons.submit);
                   _submit();
                 }
               });
@@ -640,9 +786,16 @@ var LogFilter = function($) {
           $("option[value='']", _elements.filter.filter).html( self.local("default") ); // Set visual value of filter selector's empty option.
           $(_elements.misc.title).html(self.local("default"));
           if(!initially) {
-            _selectValue(_elements.filter.filter, "");
+            _selectEnable(elm = _elements.filter.filter);
+            _selectValue(elm, "");
             _elements.filter.name.value = _.name = _elements.filter.origin.value = _.origin = "";
-            $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // Hide name_suggest.
+            $([
+              _elements.filter.name_suggest.parentNode.parentNode,
+              _elements.filter.description.parentNode
+            ]).hide();
+            if ((elm = _elements.filter.require_admin)) {
+              $(elm.parentNode).hide();
+            }
             _buttonEnable(_elements.buttons.submit);
           }
           (elm = _elements.buttons.create).value = self.local("saveAs");
@@ -651,7 +804,11 @@ var LogFilter = function($) {
           break;
         case "adhoc":
           if(!initially) {
-            _selectValue(_elements.filter.filter, "");
+            _selectEnable(elm = _elements.filter.filter);
+            _selectValue(elm, "");
+            if ((elm = _elements.filter.require_admin)) {
+              $(elm.parentNode).hide();
+            }
             _buttonEnable(_elements.buttons.submit);
           }
           if(fromMode === "stored") {
@@ -668,18 +825,25 @@ var LogFilter = function($) {
           (elm = _elements.buttons.create).value = self.local("saveAs");
           $(elm).show();
           $([
-            _elements.filter.name_suggest.parentNode.parentNode, // Hide name_suggest.
-            //_elements.buttons.cancel
+            _elements.filter.name_suggest.parentNode.parentNode,
+            _elements.filter.description.parentNode
           ]).hide();
           _buttonEnable(_elements.buttons.submit);
           $(_elements.settings.onlyOwn.parentNode).show(); // Show only_own checkbox.
           break;
         case "stored": // stored mode may only appear on page load and after cancelling create.
           if(!initially) {
-            _selectValue(_elements.filter.filter, nm = _.name);
+            _selectEnable(elm = _elements.filter.filter);
+            _selectValue(elm, nm = _.name);
             $("option[value='']", _elements.filter.filter).html( self.local("default") ); // Set visual value of filter selector's empty option.
             $(_elements.misc.title).html( nm );
-            $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // Hide name_suggest.
+            $([
+              _elements.filter.name_suggest.parentNode.parentNode,
+              _elements.filter.description.parentNode
+            ]).hide();
+            if ((elm = _elements.filter.require_admin)) {
+              $(elm.parentNode).hide();
+            }
             _buttonEnable(_elements.buttons.submit);
           }
           (elm = _elements.buttons.create).value = self.local("saveAsNew");
@@ -691,6 +855,7 @@ var LogFilter = function($) {
           $(_elements.settings.onlyOwn.parentNode).show(); // Show only_own checkbox.
           break;
         case "create":
+          _selectDisable(_elements.filter.filter);
           switch(fromMode) {
             case "default":
             case "adhoc":
@@ -708,6 +873,9 @@ var LogFilter = function($) {
             default:
               throw new Error("Cant create from mode[" + fromMode + "].");
           }
+          if ((elm = _elements.filter.require_admin)) {
+            $(elm.parentNode).hide();
+          }
           $([
             _elements.filter.name_suggest.parentNode.parentNode, // Show name_suggest.
             _elements.buttons.set_name,
@@ -717,15 +885,20 @@ var LogFilter = function($) {
           $(_elements.settings.onlyOwn.parentNode).hide(); // Hide only_own checkbox.
           break;
         case "edit":
-          //  If going from create to edit: memorize mode right before create, to prevent ending up having (useless) create as previous mode.
           if(fromMode === "create") {
+            //  If going from create to edit: memorize mode right before create, to prevent ending up having (useless) create as previous mode.
             fromMode = _.modePrevious;
+            $("option[value='']", _elements.filter.filter).html(_.name);
           }
+          _selectDisable(_elements.filter.filter);
           $([
             _elements.filter.description.parentNode, // Show description.
             _elements.buttons.cancel,
             _elements.buttons.save
           ]).show();
+          if ((elm = _elements.filter.require_admin)) {
+            $(elm.parentNode).show();
+          }
           $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // Hide name_suggest.
           _buttonDisable(_elements.buttons.submit);
           $(_elements.settings.onlyOwn.parentNode).hide(); // Hide only_own checkbox.
@@ -839,6 +1012,16 @@ var LogFilter = function($) {
   };
 
   /**
+   * @param {object} oResp
+   * @return {void}
+   */
+  _onFilterCreated = function(oResp) {
+    _elements.filter.origin = _.origin = _.name;
+    _elements.filter.name = _.name = oResp.name;
+    _jqOverlay.hide().get(0).setAttribute("title", self.local("wait"));
+    _setMode("edit");
+  };
+  /**
    * Common handler for all CRUD buttons.
    *
    * @return {void}
@@ -854,8 +1037,16 @@ var LogFilter = function($) {
           _setMode("create");
           break;
         case "log_filter_set_name":
-          //  If successfully saved filter by that name in database, via AJAX.
-          _setMode("edit");
+          if(!_machineNameValidate(_elements.filter.name_suggest)) {
+            return false; // false for IE<9's sake.
+          }
+          _jqOverlay.show().get(0).setAttribute("title", self.local("waitCreate"));
+
+          //  ...if successfully saved filter by that name in database, call _onFilterCreated() at response...
+          setTimeout(function() {
+            _onFilterCreated({ name: _elements.filter.name_suggest.value }); // the argument must of course be the response object; this is just dummy.
+          }, 500);
+
           break;
         case "log_filter_edit":
           _setMode("edit");
@@ -894,7 +1085,7 @@ var LogFilter = function($) {
     catch(er) {
       _errorHandler(er, _name + "._crudRelay()");
     }
-    return false; // For IE<9's sake.
+    return false; // false for IE<9's sake.
   };
 
   /**
@@ -1022,6 +1213,15 @@ var LogFilter = function($) {
           //  {"!date": v, "!format": _.dateFormat}
           s = Drupal.t("The date '!date' is not valid\n- please use the format: !format", replacers);
           break;
+        case "machineName":
+          _local[nm] = s = Drupal.t("The filter name:\n- must be 2 to 32 characters long\n- must only consist of the characters a-z, letters, and underscore (_)\n- cannot start with a number");
+          break;
+        case "wait":
+          _local[nm] = s = Drupal.t("Please wait a sec...");
+          break;
+        case "waitCreate":
+          _local[nm] = s = Drupal.t("Creating new filter. Please wait a sec...");
+          break;
         default:
           s = "[LOCAL: " + nm + "]";
       }
@@ -1037,7 +1237,7 @@ var LogFilter = function($) {
     this.init = function() {};
     //	Create overlay, to prevent user from doing anything before page load and after form submission.
 		$("body").append(
-			"<div id=\"log_filter_overlay\" tabindex=\"10000\">&nbsp;</div>"
+			"<div id=\"log_filter_overlay\" tabindex=\"10000\" title=\"" + self.local("wait") + "\">&nbsp;</div>"
 		);
 		_jqOverlay = $("div#log_filter_overlay");
     _overlayResize();

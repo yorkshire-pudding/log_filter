@@ -114,6 +114,9 @@ class LogFilter {
       //  Get current filter name, if any.
       $filter_name = $submitted ? $submitted['filter']['name'] : '';
 
+      $require_admin = $submitted ? $submitted['filter']['require_admin'] : FALSE;
+      $user_admin_permission = user_access('log_filter administer');
+
       //  Get mode; default | adhoc | stored | edit | delete.
       $mode = $submitted ? $submitted['mode'] : 'default';
 
@@ -134,7 +137,7 @@ class LogFilter {
               'warning'
           );
         }
-        elseif ($stored_filter['require_admin'] && !user_access('log_filter administer')) {
+        elseif ($stored_filter['require_admin'] && !$user_admin_permission) {
           $success = FALSE;
         }
         if ($success) {
@@ -199,6 +202,7 @@ class LogFilter {
           $filter = array(
               'origin' => '',
               'description' => '',
+              'require_admin' => FALSE,
           );
           $fields_conditions =& self::$_fields['conditions'];
           $conditions = array();
@@ -304,7 +308,7 @@ class LogFilter {
       $theme = $GLOBALS['theme'];
 
       //  Build form.
-      $form['filter'] = array(
+      $form['log_filter_filter_edit'] = array(
           '#type' => 'fieldset',
           '#title' => t('Filter') . ': <span id="log_filter_title_display">' . $title . '</span>',
           '#collapsible' => TRUE,
@@ -488,7 +492,7 @@ class LogFilter {
               '#attributes' => array(
                   'autocomplete' => 'off',
                ),
-              '#prefix' => '<div id="log_filter_filters">',
+              '#prefix' => '<div id="log_filter_filters"><div id="log_filter_box_filter">',
           ),
           'log_filter_only_own' => array(
               '#type' => 'checkbox',
@@ -546,6 +550,14 @@ class LogFilter {
               '#prefix' => '<div class="log-filter-button">',
               '#suffix' => '</div></div>',
           ),
+          'log_filter_require_admin' => array(
+              '#type' => 'checkbox',
+              '#title' => t('Restrict access') . '<span>?</span>',
+              '#default_value' => $require_admin,
+              '#attributes' => array(
+                  'autocomplete' => 'off',
+               ),
+          ),
           'log_filter_description' => array(
               '#type' => 'textarea',
               '#title' => t('Description'),
@@ -555,14 +567,7 @@ class LogFilter {
               '#resizable' => FALSE, // Otherwise styling too complicated, and browsers support it natively.
               '#attributes' => array(
                   'autocomplete' => 'off',
-               ),
-          ),
-          'log_filter_require_admin' => array(
-              '#type' => 'checkbox',
-              '#title' => t('Restrict access'),
-              '#default_value' => $filter['require_admin'],
-              '#attributes' => array(
-                  'autocomplete' => 'off',
+                  'title' => ($title_require_admin = t('Require the \'Administer log filtering\' permission.')),
                ),
           ),
           'log_filter_delete' => array(
@@ -585,7 +590,7 @@ class LogFilter {
               '#button_type' => 'button', // Doesnt work; still type:submit.
               '#attributes' => array(
                   'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit', 'theme-' . $theme),
+                  'class' => array('form-submit', 'edit-cancel', 'theme-' . $theme),
                   'style' => 'display:none;',
               ),
               '#prefix' => '<div class="log-filter-cancel-save'
@@ -606,13 +611,31 @@ class LogFilter {
               '#prefix' => '<div class="log-filter-button log-filter-save">',
               '#suffix' => '</div></div></div>',
           ),
+          'log_filter_delete_by_filter' => array(
+              '#type' => 'button',
+              '#name' => 'log_filter_delete_by_filter',
+              '#value' => t('Delete matching logs'),
+              '#button_type' => 'button', // Doesnt work; still type:submit.
+              '#attributes' => array(
+                  'type' => 'button', // Doesnt work; still type:submit.
+                  'class' => array('form-submit', 'edit-delete', 'theme-' . $theme),
+              ),
+              '#prefix' => '<div id="log_filter_box_delete_by_filter"><div class="log-filter-button log-filter-delete-by-filter">',
+              '#suffix' => '</div></div></div></div>',
+          ),
       );
+      //  Remove require_admin field, if user doesnt have that permission.
+      if (!$user_admin_permission) {
+        unset( $form['log_filter_filter_edit']['log_filter_require_admin'] );
+      }
 
-
+      if (!user_access('log_filter remove logs')) {
+        unset( $form['log_filter_filter_edit']['log_filter_delete_by_filter'] );
+      }
 
       $title_cache = t('Easier on performance, despite translated logs are being cached.');
 
-      $form['log_filter_footer'] = array(
+      $form['log_filter_list_controls'] = array(
           'frontend_setup' => array(
               '#type' => 'markup',
               '#markup' => '<script type="text/javascript">
@@ -621,8 +644,12 @@ class LogFilter {
     return;
   }
   $(document).bind("ready", function() {
-    //  Set hover title on cache checkboxs label.
+    var elm;
+    //  Set hover title on some field labels.
     $("div.form-item-log-filter-cache label").get(0).setAttribute("title", "' . str_replace(array("\n", "\r", '"'), '', $title_cache) . '");
+    if((elm = $("div.form-item-log-filter-require-admin label").get(0))) {
+      elm.setAttribute("title", "' . str_replace(array("\n", "\r", '"'), '', $title_require_admin) . '");
+    }
     //  Go.
     LogFilter.setup();
   } );
@@ -638,7 +665,7 @@ class LogFilter {
               ),
           ),
           'footer_fields' => array(
-              '#prefix' => '<div id="log_filter_footer_fields">',
+              '#prefix' => '<div id="log_filter_list_fields">',
               '#suffix' => '</div>',
               'log_filter_pager_range' => array(
                 '#type' => 'textfield',
@@ -654,7 +681,7 @@ class LogFilter {
               //  Translate and cache messages.
               'log_filter_cache' => array(
                   '#type' => 'checkbox',
-                  '#title' => t('Don\'t translate messages'),
+                  '#title' => t('Don\'t translate messages') . '<span>?</span>',
                   '#default_value' => $settings && array_key_exists('cache', $settings) ? !$settings['cache'] : FALSE, // Reverse the value;
                   '#attributes' => array(
                       'autocomplete' => 'off',
@@ -662,7 +689,7 @@ class LogFilter {
                   ),
               ),
           ),
-          '#prefix' => '<span id="log_filter_footer">',
+          '#prefix' => '<span id="log_filter_list_controls">',
           '#suffix' => '</span>',
       );
       //  Add our submit form;

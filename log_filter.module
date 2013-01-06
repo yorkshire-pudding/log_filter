@@ -118,6 +118,15 @@ function log_filter_admin_form_submit($form, &$form_state) {
   _log_filter_admin_form_submit($form, $form_state);
 }
 
+function log_filter_form_field_after_build($element) {
+  if (!empty($element['#type']) && $element['#type'] == 'textarea'
+      && isset($element['#resizable']) && !$element['#resizable'] // Do NOT wrap textarea if it isnt resizable (too annoying when finding in frontend).
+  ) {
+    unset($element['#theme_wrappers']);
+  }
+  return $element;
+}
+
 /**
  * Expects (requires) POST vars: require_admin (action:create).
  *
