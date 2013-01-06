@@ -632,7 +632,19 @@ var LogFilter = function($) {
               oElms[nm] = jq.get();
               //  Un-check severity:any upon change in list of severity.
               jq.change(function() {
-                _elements.conditions.severity_any.checked = false;
+                var a, le, i;
+                if(this.checked) {
+                  _elements.conditions.severity_any.checked = false;
+                }
+                else {
+                  le = (a = _elements.conditions.severity_some).length;
+                  for(i = 0; i < le; i++) {
+                    if(a[i].checked) {
+                      return;
+                    }
+                  }
+                  _elements.conditions.severity_any.checked = "checked";
+                }
               });
               jq.change(_changedCriterion); // Criterion change handler.
               break;
@@ -754,6 +766,12 @@ var LogFilter = function($) {
           }
         }
       }
+
+      //  Prevent click on hover title label span from resulting in checking/unchecking checkbox.
+      $("label span").click(function(evt) {
+        evt.stopPropagation();
+        return false;
+      });
     }
     catch(er) {
       _errorHandler(er, _name + "._prepareForm()");
@@ -922,7 +940,7 @@ var LogFilter = function($) {
           if (_elements.filter.name.value) {
             if(!confirm( self.local(
               "confirmDelete",
-              { "!filter": _elements.filter.name.value }
+              {"!filter": _elements.filter.name.value}
             ))) {
               _jqOverlay.removeClass("log-filter-overlay-opaque").hide();
               return;
@@ -1058,7 +1076,7 @@ var LogFilter = function($) {
 
           //  ...if successfully saved filter by that name in database, call _onFilterCreated() at response...
           setTimeout(function() {
-            _onFilterCreated({ name: _elements.filter.name_suggest.value }); // the argument must of course be the response object; this is just dummy.
+            _onFilterCreated({name: _elements.filter.name_suggest.value}); // the argument must of course be the response object; this is just dummy.
           }, 500);
 
           break;
