@@ -75,6 +75,11 @@ function log_filter_schema() {
                   'not null' => TRUE,
                   'default' => 0,
               ),
+              'role' => array(
+                  'type' => 'int',
+                  'not null' => TRUE,
+                  'default' => -1,
+              ),
               'uid' => array(
                   'type' => 'int',
                   'not null' => TRUE,
@@ -102,16 +107,23 @@ function log_filter_schema() {
                   'type' => 'varchar',
                   'length' => 255,
                   'not null' => TRUE,
-                  'default' => '',
+                  'default' => 'time:DESC',
+                  'description' => 'Comma-separated list.',
               ),
               'editor' => array(
                   'type' => 'int',
                   'not null' => TRUE,
-                  'description' => 'The user.uid that most recently changed the filter.',
+                  'description' => 'The user.uid that most recently changed (or created) the filter.',
+              ),
+              'created' => array(
+                  'type' => 'int',
+                  'not null' => TRUE,
+                  'description' => 'The Unix timestamp when the filter was created.',
               ),
               'changed' => array(
                   'type' => 'int',
                   'not null' => TRUE,
+                  'default' => 0,
                   'description' => 'The Unix timestamp when the filter was most recently saved.',
               ),
           ),

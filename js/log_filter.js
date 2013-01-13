@@ -37,7 +37,17 @@ var LogFilter = function($) {
     mode: "default", // default | adhoc | stored | create | edit | delete
     modePrevious: "default",
     name: "",
-    origin: ""
+    origin: "",
+    crudFilters: false,
+    delLogs: false,
+    recordedValues: { // For some fields (having pattern validation) we have to record last value to safely detect change.
+      time_range: "",
+      uid: "",
+      hostname: "",
+      location: "",
+      referer: "",
+      orderBy: []
+    }
   },
   /**
    * @private
@@ -58,7 +68,11 @@ var LogFilter = function($) {
    * @private
    * @type {bool|undefined}
    */
-  _submitted,
+  _submitted,/**
+   * @private
+   * @type {bool|undefined}
+   */
+  _ajaxRequestingBlocking,
   /**
    * List of previously used localized labels/messages.
    *
@@ -76,6 +90,7 @@ var LogFilter = function($) {
     settings: {
       mode: "input[name='log_filter_mode']",
       onlyOwn: "input[name='log_filter_only_own']",
+      delete_logs_max: "input[name='log_filter_delete_logs_max']", // May not exist.
       cache: "input[name='log_filter_cache']"
     },
     filter: {
@@ -88,15 +103,16 @@ var LogFilter = function($) {
       delete_logs: "input[name='log_filter_delete_logs']" // May not exist.
     },
     conditions: {
-      time_range: "input[name='log_filter_time_range']",
+      time_range: "input[name='log_filter_time_range']", // For iteration: must go before the other time fields.
       time_from: "input[name='log_filter_time_from']",
       time_from_proxy: "input[name='log_filter_time_from_proxy']",
       time_to: "input[name='log_filter_time_to']",
       time_to_proxy: "input[name='log_filter_time_to_proxy']",
-      severity_any: "input[name='log_filter_severity[-1]']",
+      severity_any: "input[name='log_filter_severity[-1]']", // For iteration: must go before severity_some.
       severity_some: "div#edit-log-filter-severity input:not([name='log_filter_severity[-1]'])", // More elements.
-      type_any: "input[name='log_filter_type_wildcard']",
+      type_any: "input[name='log_filter_type_wildcard']", // For iteration: must go before type_some.
       type_some: "textarea[name='log_filter_type']", // Single element.
+      role: "select[name='log_filter_role']", // For iteration: must go before uid.
       uid: "input[name='log_filter_uid']",
       hostname: "input[name='log_filter_hostname']",
       location: "input[name='log_filter_location']",
@@ -127,16 +143,20 @@ var LogFilter = function($) {
     conditions: {},
     orderBy: [], // Array.
     buttons: {
-      crud: [] // create, edit, del, cancel, save.
+      crudFilters: [] // create, edit, del, cancel, save.
     },
     misc: {}
   },
   _initialTypes = "",
+  _filters = [],
 
   //  Declare private methods, to make IDEs list them
-  _errorHandler, _o, _innerWidth, _innerHeight, _dateFromFormat, _selectValue, _submit, _resize, _overlayResize,
-  _ajax, _crudRelay, _prepareForm, _resetCriteria, _changedCriterion, _setMode, _onFilterCreated,
-  _textareaRemoveWrapper, _buttonDisable, _buttonEnable, _selectDisable, _selectEnable, _machineNameConvert, _machineNameValidate, _toLeading, _toAscii;
+  _errorHandler, _oGet, _toLeading, _toAscii, _innerWidth, _innerHeight, _dateFromFormat,
+  _selectValue, _textareaRemoveWrapper, _disable, _enable, _readOnly, _readWrite,
+  _machineNameConvert, _machineNameValidate,
+  _resize, _overlayResize, _overlayDisplay,
+  _submit, _prepareForm, _setMode, _crudRelay, _changedCriterion, _resetCriteria, _getCriteria, _deleteLogs,
+  _ajaxResponse, _ajaxRequest;
   /**
    * @ignore
    * @private
@@ -162,12 +182,40 @@ var LogFilter = function($) {
    * @return {mixed}
    *  - undefined: o not object, or o doesnt have property k0, or the value of o[k1] is undefined; and the same goes if arg k1 is used
    */
-  _o = function(o, k0, k1) {
+  _oGet = function(o, k0, k1) {
     var t = typeof o;
     return o && (t === "object" || t === "function") && o.hasOwnProperty(k0) ?
         (k1 === undefined ? o[k0] : (
             (o = o[k0]) && ((t = typeof o) === "object" || t === "function") && o.hasOwnProperty(k1) ? o[k1] : undefined
         ) ) : undefined;
+  };
+  /**
+   * Prepends zeroes until arg length length.
+   *
+   * @param {string|integer} u
+   * @param {integer} [length]
+   *  - default: 1
+   * @return {string}
+   */
+  _toLeading = function(u, length) {
+    var le = length || 1, s = "" + u;
+    while(s.length < le) {
+      s = "0" + s;
+    }
+    return s;
+  };
+  _toAscii = function(s) {
+    var ndl = _toAscii.needles, rpl = _toAscii.replacers, le = ndl.length, i, u;
+    if(typeof ndl[0] === "string") { // First time called.
+      u = ndl.concat();
+      for(i = 0; i < le; i++) {
+          ndl[i] = new RegExp("\\u" + _toLeading(u[i].charCodeAt(0).toString(16), 4), "g");
+      }
+    }
+    for(i = 0; i < le; i++) {
+        s = s.replace(ndl[i], rpl[i]);
+    }
+    return s;
   };
   /**
 	 * Nicked from Judy.
@@ -304,36 +352,6 @@ var LogFilter = function($) {
     dt.setMilliseconds(1);
     return dt;
   };
-	/**
-	 * @return {void}
-	 */
-	_resize = function() {
-		var w = window, d = document.documentElement, dW, dD,
-      wW = (dD = _innerWidth(d)) > (dW = _innerWidth(w)) ? dD : dW,
-      hW = (dD = _innerHeight(d)) > (dW = _innerHeight(w)) ? dD : dW;
-    //
-    $("div#log_filter_filters")[ wW < 1400 ? "addClass" : "removeClass" ]("narrow");
-	};
-  /**
-   * Resizes custom overlay to fill whole window/document; handler for window resize event.
-	 * @return {void}
-	 */
-	_overlayResize = function() {
-		var w = window, d = document.documentElement, dW, dD;
-		_jqOverlay.css({
-			width: ((dD = _innerWidth(d)) > (dW = _innerWidth(w)) ? dD : dW) + "px",
-			height: ((dD = _innerHeight(d)) > (dW = _innerHeight(w)) ? dD : dW) + "px"
-		});
-	};
-  /**
-   * @return {void}
-   */
-  _submit = function() {
-    //  Delay; otherwise it may in some situations not submit, presumably because _buttonEnable() hasnt finished it's job yet(?).
-    setTimeout(function() {
-      $(_elements.buttons.submit).trigger("click");
-    }, 100);
-  };
   /**
    * @param {element} elm
    * @param {string|undefined} [val]
@@ -413,91 +431,102 @@ var LogFilter = function($) {
   };
   /**
    * @param {element} elm
-   * @return {void}
+   * @param {string|falsy} [hoverTitle]
+   *  - string: update the element's (hover) title attribute
    */
-  _buttonDisable = function(elm) {
+  _disable = function(elm, hoverTitle) {
     elm.disabled = "disabled";
-    $(elm).addClass("form-button-disabled");
+    if(typeof hoverTitle === "string") {
+      elm.setAttribute("title", hoverTitle);
+    }
+    if(elm.tagName.toLowerCase() === "input") {
+      switch(elm.getAttribute("type")) {
+        case "checkbox":
+          $(elm).bind("click.LogFilter.disabled", function() {
+            return false;
+          });
+          break;
+        case "button":
+        case "submit":
+        case "reset":
+          $(elm).addClass("form-button-disabled");
+          break;
+      }
+    }
   };
   /**
    * @param {element} elm
-   * @return {void}
+   * @param {string|falsy} [hoverTitle]
+   *  - string: update the element's (hover) title attribute
    */
-  _buttonEnable = function(elm) {
+  _enable = function(elm, hoverTitle) {
     elm.disabled = false;
-    $(elm).removeClass("form-button-disabled");
+    if(typeof hoverTitle === "string") {
+      elm.setAttribute("title", hoverTitle);
+    }
+    if(elm.tagName.toLowerCase() === "input") {
+      switch(elm.getAttribute("type")) {
+        case "checkbox":
+          $(elm).unbind("click.LogFilter.disabled");
+          break;
+        case "button":
+        case "submit":
+        case "reset":
+          $(elm).removeClass("form-button-disabled");
+          break;
+      }
+    }
   };
   /**
    * @param {element} elm
-   * @return {void}
+   * @param {string|falsy} [hoverTitle]
+   *  - string: update the element's (hover) title attribute
    */
-  _selectDisable = function(elm) {
-    elm.disabled = "disabled";
-    $(elm).css("cursor", "not-allowed");
-  };
-  /**
-   * @param {element} elm
-   * @return {void}
-   */
-  _selectEnable = function(elm) {
-    elm.disabled = false;
-    $(elm).css("cursor", "pointer");
-  };
-  /**
-   * @return {void}
-   */
-  _machineNameConvert = function() {
-    var v = this.value, rgx = /^[a-z\d_]$/;
-    if(v.length > 1 && !rgx.test(v)) {
-      if(!rgx.test(v = v.toLowerCase())) {
-        if(!rgx.test(v = v.replace(/[\ \-]/g, "_"))) {
-          if(!rgx.test(v = _toAscii(v))) {
-            v = v.replace(/[^a-z\d_]/g, "_");
-          }
+  _readOnly = function(elm, hoverTitle) {
+    elm.readOnly = true;
+    if(typeof hoverTitle === "string") {
+      elm.setAttribute("title", hoverTitle);
+    }
+    switch(elm.tagName.toLowerCase()) {
+      case "input":
+        if(elm.getAttribute("type") === "checkbox") {
+          $(elm).bind("click.readonly", function() {
+            return false;
+          });
         }
-      }
-      this.value = v;
+        break;
+      case "select":
+        $(elm).bind("focus.readonly", function(evt) {
+          this.setAttribute("before_change_value", _selectValue(this));
+          inspect(evt.type)
+        }).bind("change.readonly", function() {
+          _selectValue(this, this.getAttribute("before_change_value") || ""); // "" to prevent nasty undefined errors.
+        });
+        break;
     }
+    $(elm).addClass("form-item-readonly");
   };
   /**
    * @param {element} elm
-   * @return {void}
+   * @param {string|falsy} [hoverTitle]
+   *  - string: update the element's (hover) title attribute
    */
-  _machineNameValidate = function(elm) {
-    var v = elm.value, le = v.length;
-    if(le < 2 || le > 32 || !/[a-z_]/.test(v.charAt(0)) || !/[a-z\d_]/.test(v)) {
-      alert( self.local("machineName") ) ;
-      return false;
+  _readWrite = function(elm, hoverTitle) {
+    elm.readOnly = false;
+    if(typeof hoverTitle === "string") {
+      elm.setAttribute("title", hoverTitle);
     }
-    return true;
-  };
-  /**
-   * Prepends zeroes until arg length length.
-   *
-   * @param {string|integer} u
-   * @param {integer} [length]
-   *  - default: 1
-   * @return {string}
-   */
-  _toLeading = function(u, length) {
-    var le = length || 1, s = "" + u;
-    while(s.length < le) {
-      s = "0" + s;
+    switch(elm.tagName.toLowerCase()) {
+      case "input":
+        if(elm.getAttribute("type") === "checkbox") {
+          $(elm).unbind("click.readonly");
+        }
+        break;
+      case "select":
+        $(elm).unbind("focus.readonly change.readonly");
+        break;
     }
-    return s;
-  };
-  _toAscii = function(s) {
-    var ndl = _toAscii.needles, rpl = _toAscii.replacers, le = ndl.length, i, u;
-    if(typeof ndl[0] === "string") { // First time called.
-      u = ndl.concat();
-      for(i = 0; i < le; i++) {
-          ndl[i] = new RegExp("\\u" + _toLeading(u[i].charCodeAt(0).toString(16), 4), "g");
-      }
-    }
-    for(i = 0; i < le; i++) {
-        s = s.replace(ndl[i], rpl[i]);
-    }
-    return s;
+    $(elm).removeClass("form-item-readonly");
   };
   _toAscii.needles = [
     //  iso-8859-1
@@ -550,8 +579,93 @@ var LogFilter = function($) {
   /**
    * @return {void}
    */
+  _machineNameConvert = function() {
+    var v = this.value, rgx = /^[a-z\d_]$/;
+    if(v.length > 1 && !rgx.test(v)) {
+      if(!rgx.test(v = v.toLowerCase())) {
+        if(!rgx.test(v = v.replace(/[\ \-]/g, "_"))) {
+          if(!rgx.test(v = _toAscii(v))) {
+            v = v.replace(/[^a-z\d_]/g, "_");
+          }
+        }
+      }
+      this.value = v;
+    }
+  };
+  /**
+   * @param {Event|falsy} evt
+   *  - default: falsy (~ use arg elm)
+   * @param {element} [elm]
+   *  - default: falsy (~ use arg value)
+   * @param {string} [value]
+   * @return {void}
+   */
+  _machineNameValidate = function(evt, elm, value) {
+    var v = evt ? this.value : (elm ? elm.value : value), le = v.length;
+    if(le < 2 || le > 32 || !/[a-z_]/.test(v.charAt(0)) || !/[a-z\d_]/.test(v)) {
+      alert( self.local("machineName") );
+      return false;
+    }
+    return true;
+  };
+	/**
+	 * @return {void}
+	 */
+	_resize = function() {
+		var w = window, d = document.documentElement, dW, dD,
+      wW = (dD = _innerWidth(d)) > (dW = _innerWidth(w)) ? dD : dW,
+      hW = (dD = _innerHeight(d)) > (dW = _innerHeight(w)) ? dD : dW;
+    //
+    $("div#log_filter_filters")[ wW < 1400 ? "addClass" : "removeClass" ]("narrow");
+	};
+  /**
+   * Resizes custom overlay to fill whole window/document; handler for window resize event.
+	 * @return {void}
+	 */
+	_overlayResize = function() {
+		var w = window, d = document.documentElement, dW, dD;
+		_jqOverlay.css({
+			width: ((dD = _innerWidth(d)) > (dW = _innerWidth(w)) ? dD : dW) + "px",
+			height: ((dD = _innerHeight(d)) > (dW = _innerHeight(w)) ? dD : dW) + "px"
+		});
+	};
+  /**
+   * @param {boolean} [show]
+   *  - default: falsy (~ hide)
+   * @param {boolean|falsy} [opaque]
+   *  - default: non-boolean (~ dont change opacity)
+   * @param {string|falsy} [hoverTitle]
+   *  - string: update the overlay's (hover) title attribute
+   */
+  _overlayDisplay = function(show, opaque, hoverTitle) {
+    var jq = _jqOverlay, c = opaque;
+    if(!show) {
+      jq.hide();
+    }
+    if(c === true || c === false) {
+      jq[ c ? "addClass" : "removeClass" ]("log-filter-overlay-opaque");
+    }
+    if(typeof hoverTitle === "string") {
+      jq.get(0).setAttribute("title", hoverTitle);
+    }
+    if(show) {
+      jq.show();
+    }
+  },
+  /**
+   * @return {void}
+   */
+  _submit = function() {
+    //  Delay; otherwise it may in some situations not submit, presumably because _enable() hasnt finished it's job yet(?).
+    setTimeout(function() {
+      $(_elements.buttons.submit).trigger("click");
+    }, 100);
+  };
+  /**
+   * @return {void}
+   */
   _prepareForm = function() {
-    var oSels, oElms, nm, jq, elm, aElms, le, i, v;
+    var oSels, oElms, nm, jq, elm, aElms, le, i, v, nOrderBy;
     try {
       //  Filter; do first because we need references to name and origin.
       oSels = _selectors.filter;
@@ -561,25 +675,28 @@ var LogFilter = function($) {
           oElms[nm] = elm;
           switch(nm) {
             case "filter":
-              //  Selecting a stored filter - or default filter - means submit form.
+              //  Selecting a filter (whether stored or default/ad hoc) means submit form.
               jq.change(function() { // Submit if user checks filter_only_own.
                 var v;
                 switch(_.mode) {
                   case "create":
                   case "edit":
                     //  Not allowed, user must use the cancel button.
+                    alert(self.local("filterChangeIllegal"));
+                    _selectValue(this, _.name); // Reset to previous value.
                     return;
                 }
                 _elements.filter.name.value = v = _selectValue(this);
                 _elements.settings.mode.value = v ? "stored" : "default";
-                _buttonEnable(_elements.buttons.submit);
+                _enable(_elements.buttons.submit);
                 _submit();
               });
               break;
-            case "name_suggest":
+            case "name_suggest": // May not exist.
               jq.keyup(_machineNameConvert);
               break;
-            case "description":
+            case "description": // May not exist.
+              _.crudFilters = true;
               _textareaRemoveWrapper(elm); // Remove parent form-textarea-wrapper.
               break;
           }
@@ -587,7 +704,6 @@ var LogFilter = function($) {
       }
       _.name = _elements.filter.name.value;
       _.origin = _elements.filter.origin.value;
-
       //  Fields; get element references, and fix some issues.
       //  Settings.
       oSels = _selectors.settings;
@@ -600,7 +716,7 @@ var LogFilter = function($) {
               //  Get mode.
               _.mode = elm.value;
               break;
-            case "onlyOwn":
+            case "onlyOwn": // May not exist.
               //  Submit if user checks filter_only_own.
               jq.change(function() {
                 if(this.checked) {
@@ -610,8 +726,19 @@ var LogFilter = function($) {
                     _elements.filter.origin.value = _.name; // Pass name to origin.
                     _elements.filter.name.value = "";
                   }
-                  _buttonEnable(_elements.buttons.submit);
+                  _enable(_elements.buttons.submit);
                   _submit();
+                }
+              });
+              break;
+            case "delete_logs_max": // May not exist.
+              jq.change(function() {
+                var v = this.value;
+                if(v !== "") {
+                  if((v = $.trim(v)) !== "" && !/^[1-9]\d*$/.test(v)) {
+                    v = "";
+                  }
+                  this.value = v;
                 }
               });
               break;
@@ -624,9 +751,86 @@ var LogFilter = function($) {
       for(nm in oSels) {
         if(oSels.hasOwnProperty(nm) && (elm = (jq = $(oSels[nm])).get(0))) {
           switch(nm) {
+            case "time_range":
+              oElms[nm] = elm;
+              _.recordedValues[nm] = elm.value;
+              //  Clear time_to and time_from when setting a time_range.
+              jq.change(function() {
+                var v = this.value, o;
+                if(v !== "") {
+                  this.value = v = $.trim(v);
+                }
+                if(v !== "") {
+                  if(v === "0" || !/^[1-9]\d*$/.test(v)) {
+                    this.value = v = "";
+                  }
+                  else {
+                    (o = _elements.conditions).time_from.value =
+                        o.time_from_proxy.value =
+                        o.time_to.value =
+                        o.time_to_proxy.value = "";
+                  }
+                }
+                if(v !== _.recordedValues.time_range) {
+                  _.recordedValues.time_range = v;
+                  _changedCriterion();
+                }
+              });
+              break;
             case "time_from": // Hidden fields.
             case "time_to":
               oElms[nm] = elm;
+              break;
+            case "time_from_proxy":
+            case "time_to_proxy":
+              oElms[nm] = elm;
+              //  Put jQuery UI datepicker on time fields.
+              jq.datepicker({
+                dateFormat: _.dateFormat_datepicker
+              });
+              if((v = _elements.conditions[ nm === "time_from_proxy" ? "time_from" : "time_to" ].value) && (v = parseInt(v, 10))) {
+                jq.datepicker("setDate", new Date(v * 1000));
+              }
+              jq.change(function() {
+                var v, d, r = $("input[name=\'" + this.name.replace(/_proxy$/, "") + "\']").get(0);
+                if((v = $.trim(this.value)).length) {
+                  if((d = _dateFromFormat(v, _.dateFormat))) {
+                    r.value = Math.floor(d.getTime() / 1000);
+                    _.recordedValues.time_range = _elements.conditions.time_range.value = ""; // Clear time_range.
+                  }
+                  else {
+                    alert( self.local("invalid_date", {"!date": v, "!format": _.dateFormat}) );
+                    r.value = "";
+                    return; // No change, skip _changedCriterion()
+                  }
+                }
+                _changedCriterion();
+              });
+              break;
+            case "severity_any":
+              oElms[nm] = elm;
+              //  Un-check specific severities upon checking severity:any.
+              jq.change(function() {
+                var a = _elements.conditions.severity_some, le = a.length, i, v;
+                if(this.checked) { // Un-check all severity_some.
+                  for(i = 0; i < le; i++) {
+                    a[i].checked = false;
+                  }
+                }
+                else { // If no severity_some, re-check severity_any.
+                  for(i = 0; i < le; i++) {
+                    if(a[i].checked) {
+                      v = true;
+                      break;
+                    }
+                  }
+                  if(!v) {
+                    this.checked = "checked";
+                    return; // No change.
+                  }
+                }
+                _changedCriterion();
+              });
               break;
             case "severity_some": // More elements.
               oElms[nm] = jq.get();
@@ -645,78 +849,133 @@ var LogFilter = function($) {
                   }
                   _elements.conditions.severity_any.checked = "checked";
                 }
+                _changedCriterion();
               });
-              jq.change(_changedCriterion); // Criterion change handler.
+              break;
+            case "type_some":
+              oElms[nm] = elm;
+              //  Un-check type_any upon change in list of types (and fix formatting of the list).
+              jq.change(function() {
+                var v = this.value;
+                _elements.conditions.type_any.checked = false;
+                if(v && (v = $.trim(v))) {
+                  //  Remove carriage return, comma and quotes. And trim every line.
+                  this.value = v.replace(/[\r\,\"\']/g, "").replace(/[\ \n]+\n/g, "\n").replace(/\n[\ \n]+/g, "\n");
+                }
+                _changedCriterion();
+              });
+              //  Memorize initial list of types.
+              _initialTypes = elm.value;
+              break;
+            case "role":
+              oElms[nm] = elm;
+              //  Clear uid when selecting a role.
+              jq.change(function() {
+                if(_selectValue(this)) {
+                  _elements.conditions.uid.value = "";
+                }
+                _changedCriterion();
+              });
+              break;
+            case "uid":
+              oElms[nm] = elm;
+              _.recordedValues[nm] = elm.value;
+              //  Clear role when setting a uid.
+              jq.change(function() {
+                var v = this.value;
+                if(v !== "") {
+                  this.value = v = $.trim(v);
+                }
+                if(v !== "") {
+                  if(v === "0" || !/^[1-9]\d*$/.test(v)) {
+                    if(v !== "0") {
+                      alert(self.local("invalid_uid"));
+                    }
+                    this.value = v = "";
+                  }
+                  else {
+                    _selectValue(_elements.conditions.role, ""); // Clear role when setting a uid.
+                  }
+                }
+                if(v !== _.recordedValues.uid) {
+                  _.recordedValues.uid = v;
+                  _changedCriterion();
+                }
+              });
+              break;
+            case "hostname":
+              oElms[nm] = elm;
+              _.recordedValues[nm] = elm.value;
+              jq.change(function() {
+                var v = this.value;
+                if(v !== "") {
+                  this.value = v = $.trim(v);
+                }
+                if(v !== _.recordedValues.hostname) {
+                  _.recordedValues.hostname = v;
+                  _changedCriterion();
+                }
+              });
+              break;
+            case "location":
+            case "referer":
+              oElms[nm] = elm;
+              _.recordedValues[nm]= elm.value;
+              //  Check for url pattern.
+              jq.change(function() {
+                var v = this.value, nm = this.name === "log_filter_location" ? "location" : "referer"; // Not the same nm as iteration nm ;-)
+                if(v !== "") {
+                  this.value = v = $.trim(v);
+                }
+                if(v !== "" && !/^https?\:\/\/.+$/.test(v)) {
+                  alert(self.local(nm === "location" ? "invalid_location" : "invalid_referer"));
+                  this.value = v = "";
+                }
+                if(v !== _.recordedValues[nm]) {
+                  _.recordedValues[nm] = v;
+                  _changedCriterion();
+                }
+              });
               break;
             default:
               oElms[nm] = elm;
               jq.change(_changedCriterion); // Criterion change handler.
-              switch(nm) {
-                case "time_from_proxy":
-                case "time_to_proxy":
-                  //  Put jQuery UI datepicker on time fields.
-                  jq.datepicker({
-                    dateFormat: _.dateFormat_datepicker
-                  });
-                  if((v = _elements.conditions[ nm === "time_from_proxy" ? "time_from" : "time_to" ].value) && (v = parseInt(v, 10))) {
-                    jq.datepicker("setDate", new Date(v * 1000));
-                  }
-                  jq.change(function() {
-                    var v, d, r = $("input[name=\'" + this.name.replace(/_proxy$/, "") + "\']").get(0);
-                    if((v = $.trim(this.value)).length) {
-                      if((d = _dateFromFormat(v, _.dateFormat))) {
-                        r.value = Math.floor(d.getTime() / 1000);
-                      }
-                      else {
-                        r.value = "";
-                        alert( self.local("invalidDate", {"!date": v, "!format": _.dateFormat}) );
-                      }
-                    }
-                  });
-                  break;
-                case "severity_any":
-                  //  Un-check specific severities upon checking severity:any.
-                  jq.change(function() {
-                    var a, le, i;
-                    if(this.checked) {
-                      le = (a = _elements.conditions.severity_some).length;
-                      for(i = 0; i < le; i++) {
-                        a[i].checked = false;
-                      }
-                    }
-                  });
-                  break;
-                case "type_some":
-                  //  Un-check type_any upon change in list of types (and fix formatting of the list).
-                  jq.change(function() {
-                    var v = this.value;
-                    _elements.conditions.type_any.checked = false;
-                    if(v && (v = $.trim(v))) {
-                      this.value = v.replace(/[\r\,\"\']/g, "").replace(/[\ \n]+\n/g, "\n").replace(/\n[\ \n]+/g, "\n");
-                    }
-                  });
-                  //  Memorize initial list of types.
-                  _initialTypes = elm.value;
-                  break;
-              }
           }
         }
       }
       //  Order by.
       oElms = _elements.orderBy; // Array.
-      if((le = (aElms = (jq = $(_selectors.orderBy.options)).get()).length)) {
-        for(i = 0; i < le; i++) {
+      if((nOrderBy = (aElms = $(_selectors.orderBy.options).get()).length)) {
+        for(i = 0; i < nOrderBy; i++) {
           oElms.push(
             [ elm = aElms[i] ]
           );
-          $(elm).change(_changedCriterion); // Criterion change handler.
+          _.recordedValues.orderBy.push(_selectValue(elm));
+          //  There can't be two orderBys having same value.
+          $(elm).change(function() {
+            var v, index, i, a;
+            if((v = _selectValue(this)) && v !== "_none") {
+              index = parseInt(this.name.replace(/^log_filter_orderby_/, ""), 10) - 1;
+              a = _elements.orderBy;
+              for(i = 0; i < nOrderBy; i++) {
+                if(i !== index && _selectValue(a[i][0]) === v) {
+                  _selectValue(this, v = "");
+                  break;
+                }
+              }
+            }
+            if(v !== _.recordedValues.orderBy[index]) {
+              _.recordedValues.orderBy[index] = v;
+              _changedCriterion();
+            }
+          });
         }
-        if((le = (aElms = (jq = $(_selectors.orderBy.bools)).get()).length)) {
+        if((le = (aElms = $(_selectors.orderBy.bools).get()).length)) {
           for(i = 0; i < le; i++) {
             oElms[i].push(
               elm = aElms[i]
             );
-            $(elm).change(_changedCriterion); // Criterion change handler.
+            $(elm).change(_changedCriterion);
           }
         }
       }
@@ -739,7 +998,7 @@ var LogFilter = function($) {
             oElms[nm] = elm;
             jq.click(function() {
               _submitted = true;
-              _jqOverlay.show();
+              _overlayDisplay(1);
             });
           }
           else {
@@ -753,10 +1012,13 @@ var LogFilter = function($) {
               case "del":
               case "cancel":
               case "save":
-                oElms.crud.push(elm);
-                jq.click(_crudRelay); // Set our common button handler.
+                if(_.crudFilters) {
+                  oElms.crudFilters.push(elm);
+                  jq.click(_crudRelay); // Set our common button handler.
+                }
                 break;
-              case "delete_by_filter": // Dont put in .crud array, because we have to show/hide this using visibility instead of display.
+              case "delete_by_filter":
+                _.delLogs = true;
                 jq.click(_crudRelay); // Set our common button handler.
                 break
               case "reset":
@@ -795,45 +1057,58 @@ var LogFilter = function($) {
    * @return {void}
    */
   _setMode = function(mode, submit, initially) {
-    var fromMode = _.mode, doSubmit, elm, nm, v;
+    var fromMode = _.mode, doSubmit, elm, nm;
     try {
       if(_submitted) {
         return;
       }
       //  Hide all filter buttons.
       if(!submit && !initially && mode !== "delete") {
-        $(_elements.buttons.crud).hide();
+        $(_elements.buttons.crudFilters).hide();
+      }
+      if(!initially && _.delLogs) {
+        _disable(_elements.buttons.delete_by_filter, self.local("deleteLogs_prohibit"));
       }
       switch(mode) {
         case "default":
           $("option[value='']", _elements.filter.filter).html( self.local("default") ); // Set visual value of filter selector's empty option.
           $(_elements.misc.title).html(self.local("default"));
           if(!initially) {
-            _selectEnable(elm = _elements.filter.filter);
-            _selectValue(elm, "");
+            _selectValue(_elements.filter.filter, "");
             _elements.filter.name.value = _.name = _elements.filter.origin.value = _.origin = "";
-            $([
-              _elements.filter.name_suggest.parentNode.parentNode,
-              _elements.filter.description.parentNode
-            ]).hide();
-            if ((elm = _elements.filter.require_admin)) {
-              $(elm.parentNode).hide();
+            if(_.crudFilters) {
+              $([
+                _elements.filter.name_suggest.parentNode.parentNode,
+                _elements.filter.description.parentNode
+              ]).hide();
+              if ((elm = _elements.filter.require_admin)) {
+                $(elm.parentNode).hide();
+              }
             }
-            _buttonEnable(_elements.buttons.submit);
+            _enable(_elements.buttons.submit);
           }
-          (elm = _elements.buttons.create).value = self.local("saveAs");
-          $(elm).show();
-          $(_elements.settings.onlyOwn.parentNode).show(); // Show only_own checkbox.
-          $(_elements.buttons.delete_by_filter.parentNode.parentNode).css("visibility", "hidden");
+          if(_.crudFilters) {
+            (elm = _elements.buttons.create).value = self.local("saveAs");
+            $(elm).show();
+            $(_elements.settings.onlyOwn.parentNode).show(); // Show only_own checkbox.
+          }
+          if(_.delLogs) {
+            $([
+              _elements.buttons.delete_by_filter,
+              _elements.settings.delete_logs_max.parentNode,
+            ]).show();
+          }
+          if(fromMode === "create") {
+            fromMode = ""; // Dont keep 'create' as _.modePrevious.
+          }
           break;
         case "adhoc":
           if(!initially) {
-            _selectEnable(elm = _elements.filter.filter);
-            _selectValue(elm, "");
-            if ((elm = _elements.filter.require_admin)) {
+            _selectValue(_elements.filter.filter, "");
+            if(_.crudFilters && (elm = _elements.filter.require_admin)) {
               $(elm.parentNode).hide();
             }
-            _buttonEnable(_elements.buttons.submit);
+            _enable(_elements.buttons.submit);
           }
           if(fromMode === "stored") {
             //  Pass current name to origin field.
@@ -843,45 +1118,73 @@ var LogFilter = function($) {
             $(_elements.misc.title).html( self.local("adhocForOrigin", {"!origin": nm} ) );
           }
           else {
+            fromMode = ""; // Dont keep 'create' as _.modePrevious.
             $("option[value='']", _elements.filter.filter).html(self.local("adhoc")); // Set visual value of filter selector's empty option.
             $(_elements.misc.title).html(self.local("adhoc"));
           }
-          (elm = _elements.buttons.create).value = self.local("saveAs");
-          $(elm).show();
-          $([
-            _elements.filter.name_suggest.parentNode.parentNode,
-            _elements.filter.description.parentNode
-          ]).hide();
-          _buttonEnable(_elements.buttons.submit);
-          $(_elements.settings.onlyOwn.parentNode).show();
-          $(_elements.buttons.delete_by_filter.parentNode.parentNode).css("visibility", "visible");
-          break;
-        case "stored": // stored mode may only appear on page load and after cancelling create.
-          if(!initially) {
-            _selectEnable(elm = _elements.filter.filter);
-            _selectValue(elm, nm = _.name);
-            $("option[value='']", _elements.filter.filter).html( self.local("default") ); // Set visual value of filter selector's empty option.
-            $(_elements.misc.title).html( nm );
+          if(_.crudFilters) {
+            (elm = _elements.buttons.create).value = self.local("saveAs");
+            $(elm).show();
             $([
               _elements.filter.name_suggest.parentNode.parentNode,
               _elements.filter.description.parentNode
             ]).hide();
-            if ((elm = _elements.filter.require_admin)) {
-              $(elm.parentNode).hide();
-            }
-            _buttonEnable(_elements.buttons.submit);
+            $(_elements.settings.onlyOwn.parentNode).show();
           }
-          (elm = _elements.buttons.create).value = self.local("saveAsNew");
-          $([
-            _elements.buttons.edit,
-            elm,
-            _elements.buttons.del
-          ]).show();
-          $(_elements.settings.onlyOwn.parentNode).show(); // Show only_own checkbox.
-          $(_elements.buttons.delete_by_filter.parentNode.parentNode).css("visibility", "visible");
+          _enable(_elements.buttons.submit);
+          if(_.delLogs) {
+            $([
+              _elements.buttons.delete_by_filter,
+              _elements.settings.delete_logs_max.parentNode,
+            ]).show();
+          }
+          break;
+        case "stored": // stored mode may only appear on page load and after cancelling create.
+          if(!initially) {
+            if(fromMode === "create") {
+              _elements.filter.name.value = _.name = _.origin;
+              _elements.filter.origin.value = _.origin = "";
+            }
+            _selectValue(elm = _elements.filter.filter, nm = _.name);
+            $("option[value='']", elm).html( self.local("default") ); // Set visual value of filter selector's empty option.
+            $(_elements.misc.title).html( nm );
+            if(_.crudFilters) {
+              $([
+                _elements.filter.name_suggest.parentNode.parentNode,
+                _elements.filter.description.parentNode
+              ]).hide();
+              if ((elm = _elements.filter.require_admin)) {
+                $(elm.parentNode).hide();
+              }
+            }
+            _enable(_elements.buttons.submit);
+          }
+          if(_.crudFilters) {
+            (elm = _elements.buttons.create).value = self.local("saveAsNew");
+            $([
+              _elements.buttons.edit,
+              elm,
+              _elements.buttons.del
+            ]).show();
+            $(_elements.settings.onlyOwn.parentNode).show(); // Show only_own checkbox.
+          }
+          if(_.delLogs) {
+            $([
+              _elements.buttons.delete_by_filter,
+              _elements.settings.delete_logs_max.parentNode,
+            ]).show();
+          }
+          switch(fromMode) {
+            case "create":
+            case "edit":
+              fromMode = "stored"; // Dont keep 'create' as _.modePrevious.
+              break;
+          }
           break;
         case "create":
-          _selectDisable(_elements.filter.filter);
+          if(!_.crudFilters) {
+            throw new Error("Mode[" + mode + "] not allowed.");
+          }
           switch(fromMode) {
             case "default":
             case "adhoc":
@@ -907,21 +1210,28 @@ var LogFilter = function($) {
             _elements.buttons.set_name,
             _elements.buttons.cancel
           ]).show();
-          _buttonDisable(_elements.buttons.submit);
+          _disable(_elements.buttons.submit);
           $(_elements.settings.onlyOwn.parentNode).hide(); // Hide only_own checkbox.
-          $(_elements.buttons.delete_by_filter.parentNode.parentNode).css("visibility", "hidden");
+          if(_.delLogs) {
+            $([
+              _elements.buttons.delete_by_filter,
+              _elements.settings.delete_logs_max.parentNode,
+            ]).hide();
+          }
           break;
         case "edit":
+          if(!_.crudFilters) {
+            throw new Error("Mode[" + mode + "] not allowed.");
+          }
           if(fromMode === "create") {
             //  If going from create to edit: memorize mode right before create, to prevent ending up having (useless) create as previous mode.
-
-            //  NB: This is not sufficient: sometimes mode gets wrong and name get empty when is shouldnt.
-            //  Test it by doing create, cancel, create, cancel...
-
             fromMode = _.modePrevious;
-            $("option[value='']", _elements.filter.filter).html(_.name);
+            $("option[value='']", elm = _elements.filter.filter).after(
+              "<option value=\"" + (nm = _.name) + "\">" + nm + "</option>"
+            );
+            $("option[value='']", elm).html( self.local("default") );
+            _selectValue(elm, nm);
           }
-          _selectDisable(_elements.filter.filter);
           $([
             _elements.filter.description.parentNode, // Show description.
             _elements.buttons.cancel,
@@ -931,22 +1241,30 @@ var LogFilter = function($) {
             $(elm.parentNode).show();
           }
           $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // Hide name_suggest.
-          _buttonDisable(_elements.buttons.submit);
+          _disable(_elements.buttons.submit);
           $(_elements.settings.onlyOwn.parentNode).hide(); // Hide only_own checkbox.
-          $(_elements.buttons.delete_by_filter.parentNode.parentNode).css("visibility", "hidden");
+          if(_.delLogs) {
+            $([
+              _elements.buttons.delete_by_filter,
+              _elements.settings.delete_logs_max.parentNode,
+            ]).hide();
+          }
           break;
         case "delete": // Pop confirm(), and submit upon positive confirmation.
-          _jqOverlay.addClass("log-filter-overlay-opaque").show();
+          if(!_.crudFilters) {
+            throw new Error("Mode[" + mode + "] not allowed.");
+          }
+          _overlayDisplay(1, true); // Opaque.
           if (_elements.filter.name.value) {
             if(!confirm( self.local(
               "confirmDelete",
               {"!filter": _elements.filter.name.value}
             ))) {
-              _jqOverlay.removeClass("log-filter-overlay-opaque").hide();
+              _overlayDisplay(0, false); // Transparent.
               return;
             }
             doSubmit = true;
-            _jqOverlay.removeClass("log-filter-overlay-opaque");
+            _overlayDisplay(1, false); // Transparent.
           }
           else {
             throw new Error("Cant delete filter having empty name[" + _elements.filter.name.value + "].");
@@ -966,6 +1284,86 @@ var LogFilter = function($) {
     }
   };
   /**
+   * Common handler for all CRUD buttons.
+   *
+   * @return {void}
+   */
+  _crudRelay = function() {
+    var nm = this.name, o;
+    try {
+      switch(nm) {
+        case "log_filter_reset":
+          _resetCriteria();
+          break;
+        case "log_filter_create":
+          _setMode("create");
+          break;
+        case "log_filter_set_name":
+          var elm = _elements.filter.name_suggest, v = elm.value;
+          if(_ajaxRequestingBlocking) { // Prevent double-click.
+            return false; // false for IE<9's sake.
+          }
+          //  No reason to trim(), because change handler (_machineNameChange()) replaces spaces with underscores.
+          if(!v.length || !_machineNameValidate(null, null, v)) {
+            return false; // false for IE<9's sake.
+          }
+          if($.inArray(v, _filters) > -1) {
+            alert(self.local("filterNameDupe", {"!name": v}));
+            return false; // false for IE<9's sake.
+          }
+          _overlayDisplay(1, null, self.local("waitCreate"));
+          _ajaxRequestingBlocking = true;
+          _ajaxRequest("create", {
+            name: v,
+            require_admin: _elements.filter.require_admin ? 1 : 0 // Create with require_admin if the element exists (the user has the permission).
+          });
+          break;
+        case "log_filter_edit":
+          _setMode("edit");
+          break;
+        case "log_filter_delete":
+          _setMode("delete");
+          break;
+        case "log_filter_cancel":
+          switch(_.mode) {
+            case "create":
+            case "edit":
+              switch(_.modePrevious) {
+                case "default":
+                case "adhoc":
+                  break;
+                case "stored":
+                  break;
+                default:
+                  throw new Error("Previous mode[" + _.modePrevious + "] not supported when cancelling.");
+              }
+              _setMode(_.modePrevious);
+              break;
+            default:
+              throw new Error("Cant cancel in mode[" + _.mode + "].");
+          }
+          break;
+        case "log_filter_save":
+          break;
+        case "log_filter_delete_by_filter":
+          if(_.delLogs) {
+            _overlayDisplay(1, false);
+            setTimeout(_deleteLogs, 200);
+          }
+          else {
+            throw new Error("Button name[" + nm + "] not allowed.");
+          }
+          break;
+        default:
+          throw new Error("Unsupported button name[" + nm + "].");
+      }
+    }
+    catch(er) {
+      _errorHandler(er, _name + "._crudRelay()");
+    }
+    return false; // false for IE<9's sake.
+  };
+  /**
    * Change handler for all condition and orderBy fields.
    *
    * @return {void}
@@ -977,6 +1375,9 @@ var LogFilter = function($) {
           _setMode("adhoc");
           break;
         case "adhoc":
+          if(_.delLogs) {
+            _disable(_elements.buttons.delete_by_filter, self.local("deleteLogs_prohibit")); // Because we don't _setMode(), which does that.
+          }
           break;
         case "stored":
           _setMode("adhoc");
@@ -984,8 +1385,6 @@ var LogFilter = function($) {
         case "create":
           break;
         case "edit":
-          //_elements.buttons.save.disabled = false;
-          //_buttonEnable(_elements.buttons.save);
           break;
         case "delete":
           break;
@@ -1042,159 +1441,245 @@ var LogFilter = function($) {
       _setMode("adhoc");
     }
   };
-
   /**
-   * @param {object} oResp
-   * @return {void}
-   */
-  _onFilterCreated = function(oResp) {
-    _elements.filter.origin = _.origin = _.name;
-    _elements.filter.name = _.name = oResp.name;
-    _jqOverlay.hide().get(0).setAttribute("title", self.local("wait"));
-    _setMode("edit");
-  };
-  /**
-   * Common handler for all CRUD buttons.
+   * For querying backend.
    *
-   * @return {void}
+   * Must be called delayed (after displaying overlay) to secure that validation (set-up in _prepareForm()) has done it's job.
+   *
+   * @return {object}
    */
-  _crudRelay = function() {
-    var nm = this.name;
+  _getCriteria = function() {
+    var n = 0, conditions = {}, order_by = [], oElms = _elements.conditions, nm, r, v, le, i;
     try {
-      switch(nm) {
-        case "log_filter_reset":
-          _resetCriteria();
-          break;
-        case "log_filter_create":
-          _setMode("create");
-          break;
-        case "log_filter_set_name":
-          if(!_machineNameValidate(_elements.filter.name_suggest)) {
-            return false; // false for IE<9's sake.
-          }
-          _jqOverlay.show().get(0).setAttribute("title", self.local("waitCreate"));
-
-          //  ...if successfully saved filter by that name in database, call _onFilterCreated() at response...
-          setTimeout(function() {
-            _onFilterCreated({name: _elements.filter.name_suggest.value}); // the argument must of course be the response object; this is just dummy.
-          }, 500);
-
-          break;
-        case "log_filter_edit":
-          _setMode("edit");
-          break;
-        case "log_filter_delete":
-          _setMode("delete");
-          break;
-        case "log_filter_cancel":
-          switch(_.mode) {
-            case "create":
-            case "edit":
-              switch(_.modePrevious) {
-                case "default":
-                case "adhoc":
-                  break;
-                case "stored":
-                  //  Revert.
-                  _elements.filter.name = _.name = _.origin;
-                  _elements.filter.origin = _.origin = "";
-                  break;
-                default:
-                  throw new Error("Previous mode[" + _.modePrevious + "] not supported when cancelling.");
+      //  Rely on validation set-up in _prepareForm(), dont do the same thing once over.
+      for(nm in oElms) {
+        if(oElms.hasOwnProperty(nm)) {
+          r = oElms[nm];
+          switch(nm) {
+            case "time_from_proxy":
+            case "time_to_proxy":
+              break;
+            case "time_range":
+            case "time_from":
+            case "time_to":
+            case "uid":
+              if((v = r.value) !== "" && (v = $.trim(v)) && (v = parseInt(v, 10))) {
+                ++n;
+                conditions[nm] = v;
               }
-              _setMode(_.modePrevious);
+              break;
+            case "role":
+              if((v = _selectValue(r)) !== "" && v !== "_none" && (v = $.trim(v)) && (v = parseInt(v, 10))) {
+                ++n;
+                conditions[nm] = v;
+              }
+              break;
+            case "severity_any":
+            case "type_any":
+              //  Check at severity_some/type_some instead.
+              break;
+            case "severity_some":
+              if(!oElms.severity_any.checked) {
+                v = [];
+                le = r.length;
+                for(i = 0; i < le; i++) {
+                  if(r[i].checked) {
+                    v.push(r[i].value);
+                  }
+                }
+                if(v.length) {
+                  ++n;
+                  conditions[nm] = v;
+                }
+              }
+              break;
+            case "type_some":
+              if(!oElms.type_any.checked &&
+                  (v = r.value) !== "" && (v = $.trim(v)) !== "" &&
+                  // Remove carriage return, comma and quotes. And trim every line.
+                  (v = v.replace(/[\r\,\"\']/g, "").replace(/[\ \n]+\n/g, "\n").replace(/\n[\ \n]+/g, "\n")) !== "" &&
+                  v !== "\n"
+              ) {
+                ++n;
+                conditions[nm] = v;
+              }
+              break;
+            case "hostname":
+            case "location":
+            case "referer":
+              if((v = r.value) !== "" && (v = $.trim(v))) {
+                ++n;
+                conditions[nm] = v;
+              }
               break;
             default:
-              throw new Error("Cant cancel in mode[" + _.mode + "].");
+              throw new Error("Condition[" + nm + "] not supported.");
           }
-          break;
-        case "log_filter_save":
-          break;
-        case "log_filter_delete_by_filter":
-          _elements.filter.delete_logs.value = "1";
-          _submit();
-          break;
-        default:
-          throw new Error("Unsupported button name[" + nm + "].");
+        }
+      }
+      le = (oElms = _elements.orderBy).length;
+      for(i = 0; i < le; i++) {
+        if((v = _selectValue(oElms[i][0])) && v !== "_none" && (v = $.trim(v))) {
+          order_by.push([
+            v,
+            oElms[i][1].checked ? "DESC" : "ASC"
+          ]);
+        }
       }
     }
     catch(er) {
-      _errorHandler(er, _name + "._crudRelay()");
+      _errorHandler(er, _name + "._getCriteria()");
     }
-    return false; // false for IE<9's sake.
+    return {
+      nConditions: n,
+      conditions: conditions,
+      order_by: order_by
+    };
   };
-
   /**
-   * @param {str} act
    * @return {void}
    */
-  _ajax = function(act) {
+  _deleteLogs = function() {
+    var o = _getCriteria(), v, max = (v = _elements.settings.delete_logs_max.value) !== "" ? v : 0;
+
+    //  @todo: have to use jQuery UI dialog instead of confirm(), because in Firefox those dialogs arent draggable,
+    //  thus the user cannot inspect the filter while the confirm() is up.
+
+    //  Actual deletion is performed via an ordinary page request; the backend submit method deletes the logs (if the field delete_logs is on).
+
+    if(!o.nConditions) { // Even stored filters go here; if a stored filter has no conditions, than THAT is the important thing.
+      if(!max) {
+        if(!confirm( self.local("deleteLogs_all") )) {
+          _overlayDisplay(0, false);
+          return;
+        }
+      }
+      else if(!confirm( self.local("deleteLogs_noConditions", { "!number": v }) )) {
+        _overlayDisplay(0, false);
+        return;
+      }
+    }
+    else if(_.mode === "stored") {
+      if(!max) {
+        if(!confirm( self.local("deleteLogs_storedNoMax", { "!name": _.name }) )) {
+          _overlayDisplay(0, false);
+          return;
+        }
+      }
+      else if(!confirm( self.local("deleteLogs_stored", { "!name": _.name, "!number": v }) )) {
+        _overlayDisplay(0, false);
+        return;
+      }
+    }
+    else if(!max) {
+      if(!confirm( self.local("deleteLogs_adhocNoMax") )) {
+        _overlayDisplay(0, false);
+        return;
+      }
+    }
+    else if(!confirm( self.local("deleteLogs_adhoc", { "!number": v }) )) {
+      _overlayDisplay(0, false);
+      return;
+    }
+    //_elements.filter.delete_logs.value = "1";
+    //_submit();
+  }
+  /**
+   * @type {object}
+   */
+  _ajaxResponse = {
+    create: function(oResp) { // Only saves a default filter with a name; progress to edit mode on success.
+      var nm = oResp.name;
+      if(oResp.success) {
+        _elements.filter.origin.value = _.origin = _.name;
+        _elements.filter.name.value = _.name = nm;
+        _filters.push(nm);
+        _overlayDisplay(0, null, self.local("wait")); // Reset.
+        _setMode("edit");
+      }
+      else {
+        switch(oResp.error_code) {
+          case 10: // Missing permission.
+            alert( self.local("error_noPermission") );
+            _submit();
+            break;
+          case 20: // Filter name already exists.
+            alert( self.local("machineName") );
+            _overlayDisplay(0, null, self.local("wait")); // Reset.
+            break;
+          case 30: // Invalid machine name.
+            alert( self.local("filterNameDupe", {"!name": nm}) );
+            _overlayDisplay(0, null, self.local("wait")); // Reset.
+            break;
+          case 90: // Database error.
+            alert(self.local("error_dbSave"));
+            _submit();
+            break;
+          default: // Unknown error code.
+            _errorHandler(null, "LogFilter._ajaxResponse.create(), :\n" + inspect.get(o));
+            alert( self.local("error_unknown") );
+            _submit();
+        }
+      }
+      _ajaxRequestingBlocking = false;
+    }
+  };
+  /**
+   * @param {string} action
+   * @param {object} oData
+   * @return {void}
+   */
+  _ajaxRequest = function(action, oData) {
     $.ajax({
-      url: "/log_filter/ajax/" + _.x,
+      url: "/log_filter/ajax/" + action,
       type: "POST",
-      data: {
-        action: act
-      },
+      data: oData,
       dataType: "json", // expects json formatted response data
       cache: false,
       /**
         * @return {void}
-        * @param {obj} responseData
-        *  - (str) action
+        * @param {obj} oResp
+        *  - (string) action
         *  - (bool) success
         *  - (string) error
-        *  - (string) message
-        *  - (int|undefined) sessionTimeout
+        *  - (integer) error_code
         * @param {str} textStatus
         * @param {obj} jqXHR
         */
       success: function(oResp, textStatus, jqXHR) {
-        var u, d, t, st, sw, ci, to, to1;
+        var o;
         if(textStatus === "success" && $.type(oResp) === "object") {
-          if(oResp.success) {
-            if(oResp.action === "x") {
-              return;
-            }
-            switch(oResp.action) {
-              case "y":
-
-                break;
-              default: // unknown action
-                try {
-                  throw new Error("Unknown action["+oResp.action+"]")
-                }
-                catch(er) {
-                  inspect.trace(er, "LogFilter._ajax()");
-                }
-                return;
-            }
-          }
-          else {
-            inspect(oResp, "LogFilter._ajax()");
-          }
+          _ajaxResponse[ action ](oResp);
         }
         else {
-          _.errors.push("response: " + textStatus);
-          inspect({
-              textStatus: textStatus,
-              response_data: oResp
-          }, "LogFilter._ajax()");
+          o = {
+            source: "ajax request",
+            action: action,
+            textStatus: textStatus,
+            oResp: oResp
+          };
+          _.errors.push(o);
+          _errorHandler(null, "LogFilter._ajaxRequest():\n" + inspect.get(o));
         }
       },
       error: function(jqXHR, textStatus, errorThrown) {
-        _.errors.push("response: " + textStatus);
-        inspect({
-            textStatus: textStatus,
-            errorThrown: errorThrown
-        }, "LogFilter._ajax()");
+        var o = {
+          source: "ajax request",
+          action: action,
+          textStatus: textStatus,
+          errorThrown: errorThrown
+        };
+        _.errors.push(o);
+        _errorHandler(null, "LogFilter._ajaxRequest():\n" + inspect.get(o));
       }
     });
   };
   /**
+   * @param {string|falsy} [prop]
    * @return {void}
    */
-  this.inspect = function() {
-    inspect(_, "LogFilter");
+  this.inspect = function(prop) {
+    inspect(!prop ? _ : _[prop], "LogFilter" + (!prop ? "" : (" - " + prop)));
   };
   /**
    * @param {string|falsy} [group]
@@ -1213,7 +1698,7 @@ var LogFilter = function($) {
   this.local = function(name, replacers) {
     var nm = name, s;
     //  S.... Drupal.t() doesnt use the 'g' flag when replace()'ing, so Drupal.t() replacement is utterly useless - and nowhere to report the bug :-(
-    if(!(s = _o(_local, nm))) { // English t message overridden?
+    if(!(s = _oGet(_local, nm))) {
       switch(nm) {
         case "default":
           _local[nm] = s = Drupal.t("Default");
@@ -1243,20 +1728,70 @@ var LogFilter = function($) {
           break;
         case "confirmDelete":
           //  { "!filter": _elements.filter.name.value }
-          s = Drupal.t("Are you sure you want to delete the filter\n!filter?", replacers);
+          s = Drupal.t("Are you sure you want to delete the filter!newline!filter?", replacers);
           break;
-        case "dateInvalid":
+        case "invalid_date":
           //  {"!date": v, "!format": _.dateFormat}
-          s = Drupal.t("The date '!date' is not valid\n- please use the format: !format", replacers);
+          s = Drupal.t("The date '!date' is not valid!newline- please use the format: !format", replacers);
+          break;
+        case "invalid_uid":
+          _local[nm] = s = Drupal.t("User ID must be a positive number, or empty");
+          break;
+        case "invalid_location":
+          _local[nm] = s = Drupal.t("Location must be a URL, or empty");
+          break;
+        case "invalid_referer":
+          _local[nm] = s = Drupal.t("Referrer must be a URL, or empty");
+          break;
+        case "filterChangeIllegal":
+          _local[nm] = s = Drupal.t("Press the 'Cancel' button,!newlineif you don't want to create/edit current filter.");
           break;
         case "machineName":
-          _local[nm] = s = Drupal.t("The filter name:\n- must be 2 to 32 characters long\n- must only consist of the characters a-z, letters, and underscore (_)\n- cannot start with a number");
+          _local[nm] = s = Drupal.t("The filter name:!newline- must be 2 to 32 characters long!newline- must only consist of the characters a-z, letters, and underscore (_)!newline- cannot start with a number");
+          break;
+        case "filterNameDupe":
+          //  {"!name": name}
+          s = Drupal.t("There's already a filter named!newline'!name'.", replacers);
           break;
         case "wait":
           _local[nm] = s = Drupal.t("Please wait a sec...");
           break;
         case "waitCreate":
           _local[nm] = s = Drupal.t("Creating new filter. Please wait a sec...");
+          break;
+        case "deleteLogs_prohibit":
+          _local[nm] = s = Drupal.t("Only allowed when the log list is freshly updated,!newlinereflecting current filter - press the 'Update list' button.");
+          break;
+        case "deleteLogs_all":
+          _local[nm] = s = Drupal.t("Do you want to delete!newlineALL logs?");
+          break;
+        case "deleteLogs_noConditions":
+          //  {"!number": integer}
+          s = Drupal.t("Do you want to delete logs!newlinewithout ANY condition!newlineexcept limited by a maximum of !number?", replacers);
+          break;
+        case "deleteLogs_storedNoMax":
+          //  {"!name": name}
+          s = Drupal.t("Do you want to delete all logs matching!newlinethe '!name' filter!newlinelimited by NO maximum?", replacers);
+          break;
+        case "deleteLogs_stored":
+          //  {"!name": name, "!number": integer}
+          s = Drupal.t("Do you want to delete all logs matching!newlinethe '!name' filter!newlinelimited by a maximum of !number?", replacers);
+          break;
+        case "deleteLogs_adhocNoMax":
+          _local[nm] = s = Drupal.t("Do you want to delete all logs!newlinematching current ad hoc filter!newlinelimited by NO maximum?", replacers);
+          break;
+        case "deleteLogs_adhoc":
+          //  {"!number": integer}
+          s = Drupal.t("Do you want to delete all logs!newlinematching current ad hoc filter!newlinelimited by a maximum of !number?", replacers);
+          break;
+        case "error_noPermission":
+          _local[nm] = s = Drupal.t("Sorry, bad error,!newlinebut no loss of data.");
+          break;
+        case "error_dbSave":
+          _local[nm] = s = Drupal.t("Sorry, failed to save data.");
+          break;
+        case "error_unknown":
+          _local[nm] = s = Drupal.t("Sorry, something unexpected happened.");
           break;
         default:
           s = "[LOCAL: " + nm + "]";
@@ -1291,7 +1826,9 @@ var LogFilter = function($) {
    * @param {obj} [options]
    * @return {void}
    */
-  this.setup = function(options) {
+  this.setup = function(filters) {
+    _filters = filters || [];
+
     this.setup = function() {};
 
     _prepareForm();
@@ -1301,7 +1838,7 @@ var LogFilter = function($) {
     _resize();
     $(window).resize(_resize);
 
-    _jqOverlay.hide();
+    _overlayDisplay(0);
   };
 };
 

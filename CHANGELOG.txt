@@ -1,3 +1,13 @@
+log_filter 7.x-1.0.x, 2012-01-13
+--------------------------------
+* Added role condition.
+* Put validation on more condition fields.
+* Create filter done.
+* Apparantly fixed frontend mode bugs.
+* Added delete max. field.
+* Log deletion only allowed upon fresh log list update; the log list must reflect the filter.
+* Made the first steps toward log deletion - establishing current criteria and setting up confirm()s.
+
 log_filter 7.x-1.0.x, 2012-01-06
 --------------------------------
 * Removed create mode from viewer form, because that mode is handled solely via AJAX.
