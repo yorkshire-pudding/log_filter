@@ -67,7 +67,7 @@ function _log_filter_admin_form_submit($form, &$form_state) {
         'log_filter' => array('admin_form_submitted' => TRUE),
     );
   }
-  elseif(!isset($_SESSION['module']['log_filter'])) {
+  elseif (!isset($_SESSION['module']['log_filter'])) {
     $_SESSION['module']['log_filter'] = array('admin_form_submitted' => TRUE);
   }
   else {

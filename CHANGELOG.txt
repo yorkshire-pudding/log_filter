@@ -1,3 +1,8 @@
+log_filter 7.x-1.0.x, 2012-01-27
+--------------------------------
+* Delete logs: don't prompt user for confirmation again if there's a limit, if already prompted for confirmation whilst there was no limit.
+* Create filter: names 'default' and 'adhoc' are illegal.
+
 log_filter 7.x-1.0.x, 2012-01-13
 --------------------------------
 * Added role condition.

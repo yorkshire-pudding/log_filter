@@ -34,7 +34,7 @@ var LogFilter = function($) {
     errors: [],
     dateFormat: "YYYY-MM-DD",
     dateFormat_datepicker: "yy-mm-dd",
-    mode: "default", // default | adhoc | stored | create | edit | delete
+    mode: "default", // default | adhoc | stored | create | edit | delete_filter
     modePrevious: "default",
     name: "",
     origin: "",
@@ -47,7 +47,8 @@ var LogFilter = function($) {
       location: "",
       referer: "",
       orderBy: []
-    }
+    },
+    warnedDeleteNoMax: false
   },
   /**
    * @private
@@ -87,6 +88,7 @@ var LogFilter = function($) {
    * @type {obj}
    */
   _selectors = {
+    form: "form#log-filter-form",
     settings: {
       mode: "input[name='log_filter_mode']",
       onlyOwn: "input[name='log_filter_only_own']",
@@ -131,7 +133,7 @@ var LogFilter = function($) {
       del: "input[name='log_filter_delete']",
       cancel: "input[name='log_filter_cancel']",
       save: "input[name='log_filter_save']",
-      delete_by_filter: "input[name='log_filter_delete_by_filter']"
+      delete_logs_button: "input[name='log_filter_delete_logs_button']"
     },
     misc: {
       title: "#log_filter_title_display"
@@ -153,9 +155,9 @@ var LogFilter = function($) {
   //  Declare private methods, to make IDEs list them
   _errorHandler, _oGet, _toLeading, _toAscii, _innerWidth, _innerHeight, _dateFromFormat,
   _selectValue, _textareaRemoveWrapper, _disable, _enable, _readOnly, _readWrite,
-  _machineNameConvert, _machineNameValidate,
+  _machineNameConvert, _machineNameIllegals, _machineNameValidate,
   _resize, _overlayResize, _overlayDisplay,
-  _submit, _prepareForm, _setMode, _crudRelay, _changedCriterion, _resetCriteria, _getCriteria, _deleteLogs,
+  _setUrlParam, _setFormActionParam, _submit, _prepareForm, _setMode, _crudRelay, _changedCriterion, _resetCriteria, _getCriteria, _deleteLogs,
   _ajaxResponse, _ajaxRequest;
   /**
    * @ignore
@@ -442,7 +444,7 @@ var LogFilter = function($) {
     if(elm.tagName.toLowerCase() === "input") {
       switch(elm.getAttribute("type")) {
         case "checkbox":
-          $(elm).bind("click.LogFilter.disabled", function() {
+          $(elm).bind("click." + _name + ".disabled", function() {
             return false;
           });
           break;
@@ -467,7 +469,7 @@ var LogFilter = function($) {
     if(elm.tagName.toLowerCase() === "input") {
       switch(elm.getAttribute("type")) {
         case "checkbox":
-          $(elm).unbind("click.LogFilter.disabled");
+          $(elm).unbind("click." + _name + ".disabled");
           break;
         case "button":
         case "submit":
@@ -593,6 +595,13 @@ var LogFilter = function($) {
     }
   };
   /**
+   * @type {array}
+   */
+  _machineNameIllegals = [
+    "default",
+    "adhoc"
+  ],
+  /**
    * @param {Event|falsy} evt
    *  - default: falsy (~ use arg elm)
    * @param {element} [elm]
@@ -602,8 +611,8 @@ var LogFilter = function($) {
    */
   _machineNameValidate = function(evt, elm, value) {
     var v = evt ? this.value : (elm ? elm.value : value), le = v.length;
-    if(le < 2 || le > 32 || !/[a-z_]/.test(v.charAt(0)) || !/[a-z\d_]/.test(v)) {
-      alert( self.local("machineName") );
+    if(le < 2 || le > 32 || !/[a-z_]/.test(v.charAt(0)) || !/[a-z\d_]/.test(v) || $.inArray(v.toLowerCase(), _machineNameIllegals) > -1) {
+      alert( self.local("machineName", {"!illegals": _machineNameIllegals.join(", ")}) );
       return false;
     }
     return true;
@@ -653,9 +662,91 @@ var LogFilter = function($) {
     }
   },
   /**
+   * Set url paramater.
+   *
+   * @param {string} url
+   *  - full url, or just url query (window.location.search)
+   * @param {string|object} name
+   * @param {string|number|falsy} [value]
+   *  - ignored if arg name is object
+   *  - falsy and not zero: unsets the parameter
+   * @return {string}
+   */
+  _setUrlParam = function(url, name, value) {
+    var u = url || "", a = u, o = name, oS = {}, p, le, i, k, v;
+    if(u && (p = u.indexOf("?")) > -1) {
+      a = u.substr(p + 1);
+      u = u.substr(0, p);
+    }
+    else {
+      a = "";
+    }
+    if(typeof o !== "object") {
+      o = {};
+      o[name] = value;
+    }
+    if(a) {
+      le = (a = a.split(/&/g)).length;
+      for(i = 0; i < le; i++) {
+        if((p = a[i].indexOf("=")) > 0) {
+          oS[ a[i].substr(0, p) ] = a[i].substr(p + 1);
+        }
+        else if(p) { // Dont use it if starts with =.
+          oS[ a[i] ] = "";
+        }
+      }
+    }
+    a = [];
+    for(k in oS) {
+      if(oS.hasOwnProperty(k)) {
+        if(o.hasOwnProperty(k)) {
+          if((v = o[k]) || v === 0) { // Falsy and not zero: unsets the parameter.
+            a.push(k + "=" + encodeURIComponent(v));
+          }
+          delete o[k];
+        }
+        else {
+          a.push(k + "=" + oS[k]);
+        }
+      }
+    }
+    for(k in o) {
+      if(o.hasOwnProperty(k) && (v = o[k]) || v === 0) {
+        a.push(k + "=" + v);
+      }
+    }
+    return u + (a.length ? ("?" + a.join("&")) : "");
+  };
+  /**
+   * @param {string|object} name
+   * @param {string|number|falsy} [value]
+   *  - ignored if arg name is object
+   *  - falsy and not zero: unsets the parameter
+   * @return [void}
+   */
+  _setFormActionParam = function(name, value) {
+    _elements.form.setAttribute(
+        "action",
+        _setUrlParam(_elements.form.getAttribute("action", name, value))
+    );
+  };
+  /**
    * @return {void}
    */
   _submit = function() {
+    var nm = "";
+    switch(_.mode) {
+      case "adhoc":
+        nm = "adhoc";
+        break;
+      case "stored":
+        nm = _.name;
+        break;
+    }
+    _elements.form.setAttribute(
+        "action",
+        _setUrlParam(_elements.form.getAttribute("action"), "log_filter", nm)
+    );
     //  Delay; otherwise it may in some situations not submit, presumably because _enable() hasnt finished it's job yet(?).
     setTimeout(function() {
       $(_elements.buttons.submit).trigger("click");
@@ -667,6 +758,7 @@ var LogFilter = function($) {
   _prepareForm = function() {
     var oSels, oElms, nm, jq, elm, aElms, le, i, v, nOrderBy;
     try {
+      _elements.form = $(_selectors.form).get(0);
       //  Filter; do first because we need references to name and origin.
       oSels = _selectors.filter;
       oElms = _elements.filter;
@@ -686,8 +778,8 @@ var LogFilter = function($) {
                     _selectValue(this, _.name); // Reset to previous value.
                     return;
                 }
-                _elements.filter.name.value = v = _selectValue(this);
-                _elements.settings.mode.value = v ? "stored" : "default";
+                _elements.filter.name.value = _.name = v = _selectValue(this);
+                _elements.settings.mode.value = _.mode = v ? "stored" : "default";
                 _enable(_elements.buttons.submit);
                 _submit();
               });
@@ -1017,7 +1109,7 @@ var LogFilter = function($) {
                   jq.click(_crudRelay); // Set our common button handler.
                 }
                 break;
-              case "delete_by_filter":
+              case "delete_logs_button":
                 _.delLogs = true;
                 jq.click(_crudRelay); // Set our common button handler.
                 break
@@ -1062,12 +1154,14 @@ var LogFilter = function($) {
       if(_submitted) {
         return;
       }
-      //  Hide all filter buttons.
-      if(!submit && !initially && mode !== "delete") {
-        $(_elements.buttons.crudFilters).hide();
-      }
-      if(!initially && _.delLogs) {
-        _disable(_elements.buttons.delete_by_filter, self.local("deleteLogs_prohibit"));
+      if(!initially && mode !== "delete_filter") {
+        if(!submit) {
+          //  Hide all filter buttons.
+          $(_elements.buttons.crudFilters).hide();
+        }
+        if(_.delLogs) {
+          _disable(_elements.buttons.delete_logs_button, self.local("deleteLogs_prohibit"));
+        }
       }
       switch(mode) {
         case "default":
@@ -1077,10 +1171,8 @@ var LogFilter = function($) {
             _selectValue(_elements.filter.filter, "");
             _elements.filter.name.value = _.name = _elements.filter.origin.value = _.origin = "";
             if(_.crudFilters) {
-              $([
-                _elements.filter.name_suggest.parentNode.parentNode,
-                _elements.filter.description.parentNode
-              ]).hide();
+              $(_elements.filter.name_suggest.parentNode.parentNode).hide();
+              $(_elements.filter.description.parentNode).hide();
               if ((elm = _elements.filter.require_admin)) {
                 $(elm.parentNode).hide();
               }
@@ -1093,10 +1185,8 @@ var LogFilter = function($) {
             $(_elements.settings.onlyOwn.parentNode).show(); // Show only_own checkbox.
           }
           if(_.delLogs) {
-            $([
-              _elements.buttons.delete_by_filter,
-              _elements.settings.delete_logs_max.parentNode,
-            ]).show();
+            $(_elements.buttons.delete_logs_button).show();
+            $(_elements.settings.delete_logs_max.parentNode).show();
           }
           if(fromMode === "create") {
             fromMode = ""; // Dont keep 'create' as _.modePrevious.
@@ -1125,18 +1215,14 @@ var LogFilter = function($) {
           if(_.crudFilters) {
             (elm = _elements.buttons.create).value = self.local("saveAs");
             $(elm).show();
-            $([
-              _elements.filter.name_suggest.parentNode.parentNode,
-              _elements.filter.description.parentNode
-            ]).hide();
+            $(_elements.filter.name_suggest.parentNode.parentNode).hide();
+            $(_elements.filter.description.parentNode).hide();
             $(_elements.settings.onlyOwn.parentNode).show();
           }
           _enable(_elements.buttons.submit);
           if(_.delLogs) {
-            $([
-              _elements.buttons.delete_by_filter,
-              _elements.settings.delete_logs_max.parentNode,
-            ]).show();
+            $(_elements.buttons.delete_logs_button).show();
+            $(_elements.settings.delete_logs_max.parentNode).show();
           }
           break;
         case "stored": // stored mode may only appear on page load and after cancelling create.
@@ -1149,10 +1235,8 @@ var LogFilter = function($) {
             $("option[value='']", elm).html( self.local("default") ); // Set visual value of filter selector's empty option.
             $(_elements.misc.title).html( nm );
             if(_.crudFilters) {
-              $([
-                _elements.filter.name_suggest.parentNode.parentNode,
-                _elements.filter.description.parentNode
-              ]).hide();
+              $(_elements.filter.name_suggest.parentNode.parentNode).hide();
+              $(_elements.filter.description.parentNode).hide();
               if ((elm = _elements.filter.require_admin)) {
                 $(elm.parentNode).hide();
               }
@@ -1161,18 +1245,14 @@ var LogFilter = function($) {
           }
           if(_.crudFilters) {
             (elm = _elements.buttons.create).value = self.local("saveAsNew");
-            $([
-              _elements.buttons.edit,
-              elm,
-              _elements.buttons.del
-            ]).show();
+            $(_elements.buttons.edit).show();
+            $(elm).show();
+            $(_elements.buttons.del).show();
             $(_elements.settings.onlyOwn.parentNode).show(); // Show only_own checkbox.
           }
           if(_.delLogs) {
-            $([
-              _elements.buttons.delete_by_filter,
-              _elements.settings.delete_logs_max.parentNode,
-            ]).show();
+            $(_elements.buttons.delete_logs_button).show();
+            $(_elements.settings.delete_logs_max.parentNode).show();
           }
           switch(fromMode) {
             case "create":
@@ -1205,18 +1285,14 @@ var LogFilter = function($) {
           if ((elm = _elements.filter.require_admin)) {
             $(elm.parentNode).hide();
           }
-          $([
-            _elements.filter.name_suggest.parentNode.parentNode, // Show name_suggest.
-            _elements.buttons.set_name,
-            _elements.buttons.cancel
-          ]).show();
+          $(_elements.filter.name_suggest.parentNode.parentNode).show(); // Show name_suggest.
+          $(_elements.buttons.set_name).show();
+          $(_elements.buttons.cancel).show();
           _disable(_elements.buttons.submit);
           $(_elements.settings.onlyOwn.parentNode).hide(); // Hide only_own checkbox.
           if(_.delLogs) {
-            $([
-              _elements.buttons.delete_by_filter,
-              _elements.settings.delete_logs_max.parentNode,
-            ]).hide();
+            $(_elements.buttons.delete_logs_button).show();
+            $(_elements.settings.delete_logs_max.parentNode).hide();
           }
           break;
         case "edit":
@@ -1232,11 +1308,9 @@ var LogFilter = function($) {
             $("option[value='']", elm).html( self.local("default") );
             _selectValue(elm, nm);
           }
-          $([
-            _elements.filter.description.parentNode, // Show description.
-            _elements.buttons.cancel,
-            _elements.buttons.save
-          ]).show();
+          $(_elements.filter.description.parentNode).show(); // Show description.
+          $(_elements.buttons.cancel).show();
+          $(_elements.buttons.save).show();
           if ((elm = _elements.filter.require_admin)) {
             $(elm.parentNode).show();
           }
@@ -1244,13 +1318,11 @@ var LogFilter = function($) {
           _disable(_elements.buttons.submit);
           $(_elements.settings.onlyOwn.parentNode).hide(); // Hide only_own checkbox.
           if(_.delLogs) {
-            $([
-              _elements.buttons.delete_by_filter,
-              _elements.settings.delete_logs_max.parentNode,
-            ]).hide();
+            $(_elements.buttons.delete_logs_button).show();
+            $(_elements.settings.delete_logs_max.parentNode).hide();
           }
           break;
-        case "delete": // Pop confirm(), and submit upon positive confirmation.
+        case "delete_filter": // Pop confirm(), and submit upon positive confirmation.
           if(!_.crudFilters) {
             throw new Error("Mode[" + mode + "] not allowed.");
           }
@@ -1322,7 +1394,7 @@ var LogFilter = function($) {
           _setMode("edit");
           break;
         case "log_filter_delete":
-          _setMode("delete");
+          _setMode("delete_filter");
           break;
         case "log_filter_cancel":
           switch(_.mode) {
@@ -1345,7 +1417,7 @@ var LogFilter = function($) {
           break;
         case "log_filter_save":
           break;
-        case "log_filter_delete_by_filter":
+        case "log_filter_delete_logs_button":
           if(_.delLogs) {
             _overlayDisplay(1, false);
             setTimeout(_deleteLogs, 200);
@@ -1376,7 +1448,7 @@ var LogFilter = function($) {
           break;
         case "adhoc":
           if(_.delLogs) {
-            _disable(_elements.buttons.delete_by_filter, self.local("deleteLogs_prohibit")); // Because we don't _setMode(), which does that.
+            _disable(_elements.buttons.delete_logs_button, self.local("deleteLogs_prohibit")); // Because we don't _setMode(), which does that.
           }
           break;
         case "stored":
@@ -1386,7 +1458,7 @@ var LogFilter = function($) {
           break;
         case "edit":
           break;
-        case "delete":
+        case "delete_filter":
           break;
         default:
           throw new Error("Mode[" + _.mode + "] not supported.");
@@ -1554,30 +1626,32 @@ var LogFilter = function($) {
           return;
         }
       }
-      else if(!confirm( self.local("deleteLogs_noConditions", { "!number": v }) )) {
+      else if(!confirm( self.local("deleteLogs_noConditions", {"!number": v}) )) {
         _overlayDisplay(0, false);
         return;
       }
     }
     else if(_.mode === "stored") {
       if(!max) {
-        if(!confirm( self.local("deleteLogs_storedNoMax", { "!name": _.name }) )) {
+        if(!confirm( self.local("deleteLogs_storedNoMax", {"!name": _.name}) )) {
+          _.warnedDeleteNoMax = true;
           _overlayDisplay(0, false);
           return;
         }
       }
-      else if(!confirm( self.local("deleteLogs_stored", { "!name": _.name, "!number": v }) )) {
+      else if(!_.warnedDeleteNoMax && !confirm( self.local("deleteLogs_stored", {"!name": _.name, "!number": v}) )) {
         _overlayDisplay(0, false);
         return;
       }
     }
     else if(!max) {
       if(!confirm( self.local("deleteLogs_adhocNoMax") )) {
+        _.warnedDeleteNoMax = true;
         _overlayDisplay(0, false);
         return;
       }
     }
-    else if(!confirm( self.local("deleteLogs_adhoc", { "!number": v }) )) {
+    else if(!_.warnedDeleteNoMax && !confirm( self.local("deleteLogs_adhoc", {"!number": v}) )) {
       _overlayDisplay(0, false);
       return;
     }
@@ -1603,11 +1677,11 @@ var LogFilter = function($) {
             alert( self.local("error_noPermission") );
             _submit();
             break;
-          case 20: // Filter name already exists.
+          case 20: // Invalid machine name.
             alert( self.local("machineName") );
             _overlayDisplay(0, null, self.local("wait")); // Reset.
             break;
-          case 30: // Invalid machine name.
+          case 30: // Filter name already exists.
             alert( self.local("filterNameDupe", {"!name": nm}) );
             _overlayDisplay(0, null, self.local("wait")); // Reset.
             break;
@@ -1616,7 +1690,7 @@ var LogFilter = function($) {
             _submit();
             break;
           default: // Unknown error code.
-            _errorHandler(null, "LogFilter._ajaxResponse.create(), :\n" + inspect.get(o));
+            _errorHandler(null, _name + "._ajaxResponse.create(), :\n" + inspect.get(o));
             alert( self.local("error_unknown") );
             _submit();
         }
@@ -1659,7 +1733,7 @@ var LogFilter = function($) {
             oResp: oResp
           };
           _.errors.push(o);
-          _errorHandler(null, "LogFilter._ajaxRequest():\n" + inspect.get(o));
+          _errorHandler(null, _name + "._ajaxRequest():\n" + inspect.get(o));
         }
       },
       error: function(jqXHR, textStatus, errorThrown) {
@@ -1670,7 +1744,7 @@ var LogFilter = function($) {
           errorThrown: errorThrown
         };
         _.errors.push(o);
-        _errorHandler(null, "LogFilter._ajaxRequest():\n" + inspect.get(o));
+        _errorHandler(null, _name + "._ajaxRequest():\n" + inspect.get(o));
       }
     });
   };
@@ -1679,7 +1753,7 @@ var LogFilter = function($) {
    * @return {void}
    */
   this.inspect = function(prop) {
-    inspect(!prop ? _ : _[prop], "LogFilter" + (!prop ? "" : (" - " + prop)));
+    inspect(!prop ? _ : _[prop], _name + (!prop ? "" : (" - " + prop)));
   };
   /**
    * @param {string|falsy} [group]
@@ -1747,7 +1821,8 @@ var LogFilter = function($) {
           _local[nm] = s = Drupal.t("Press the 'Cancel' button,!newlineif you don't want to create/edit current filter.");
           break;
         case "machineName":
-          _local[nm] = s = Drupal.t("The filter name:!newline- must be 2 to 32 characters long!newline- must only consist of the characters a-z, letters, and underscore (_)!newline- cannot start with a number");
+          //  { "!illegals": "default, adhoc" }
+          s = Drupal.t("The filter name:!newline- must be 2 to 32 characters long!newline- must only consist of the characters a-z, letters, and underscore (_)!newline- cannot start with a number!newline- cannot be: !illegals", replacers);
           break;
         case "filterNameDupe":
           //  {"!name": name}

@@ -17,26 +17,26 @@ class LogFilter {
   const PAGER_RANGE_DEFAULT = 100;
 
   /**
-	 * @param Exception $xc
-	 * @param integer $severity
+   * @param Exception $xc
+   * @param integer $severity
    *  - default: WATCHDOG_ERROR
-	 * @return void
-	 */
-	public static function errorHandler($xc, $severity = WATCHDOG_ERROR) {
-		if(!inspect_trace($xc, array('category' => 'log_filter', 'severity' => $severity))) {
-			watchdog(
-				'log_filter',
-				$xc->getMessage(),
-				NULL,
-				WATCHDOG_ERROR
-			);
-		}
-	}
+   * @return void
+   */
+  public static function errorHandler($xc, $severity = WATCHDOG_ERROR) {
+    if (!inspect_trace($xc, array('category' => 'log_filter', 'severity' => $severity))) {
+      watchdog(
+        'log_filter',
+        $xc->getMessage(),
+        NULL,
+        WATCHDOG_ERROR
+      );
+    }
+  }
 
   /**
-	 * @type array
-	 */
-	protected static $_fields = array(
+   * @type array
+   */
+  protected static $_fields = array(
       'settings' => array(
           'only_own',
           'delete_logs_max',
@@ -72,12 +72,12 @@ class LogFilter {
   );
 
   /**
-	 * Defines log viewer form and GUI.
-	 *
-	 * @param array $form
-	 * @param array &$form_state
-	 * @return array
-	 */
+   * Defines log viewer form and GUI.
+   *
+   * @param array $form
+   * @param array &$form_state
+   * @return array
+   */
   public static function viewerForm($form, &$form_state) {
     $path = drupal_get_path('module', 'log_filter');
     //  Get jQuery UI datepicker.
@@ -104,8 +104,8 @@ class LogFilter {
       //  Get submitted vars from session, and remove them (for later form build and submission).
       $session = $settings = $submitted = NULL;
       if (($module_state = module_exists('state'))) {
-        if (($session = State::get('module', 'log_filter')) && array_key_exists('submitted', $session)) {
-          $submitted = State::remove('module', 'log_filter', 'submitted');
+        if (($session = State::sessionGet('module', 'log_filter')) && array_key_exists('submitted', $session)) {
+          $submitted = State::sessionRemove('module', 'log_filter', 'submitted');
         }
       }
       else {
@@ -130,7 +130,7 @@ class LogFilter {
       $require_admin = $submitted ? $submitted['filter']['require_admin'] : FALSE;
       $user_admin_permission = user_access('log_filter administer');
 
-      //  Get mode; default | adhoc | stored | edit | delete.
+      //  Get mode; default | adhoc | stored | edit | delete_filter.
       $mode = $submitted ? $submitted['mode'] : 'default';
 
       //  Stored mode may degrade to default.
@@ -251,7 +251,7 @@ class LogFilter {
           //  Done earlier.
           break;
         case 'edit':
-        case 'delete':
+        case 'delete_filter':
           throw new Exception('Mode[' . $mode . '] not allowed at form build.');
           break;
         default:
@@ -652,7 +652,7 @@ class LogFilter {
                   'style' => 'display:none;',
               ),
               '#prefix' => '<div class="log-filter-cancel-save'
-                  . (strpos(strtolower(PHP_OS), 'win') === 0 ? ' log-filter-reversed-button-sequence' : '') .'">'
+                  . (strpos(strtolower(PHP_OS), 'win') === 0 ? ' log-filter-reversed-button-sequence' : '') . '">'
                   . '<div class="log-filter-button log-filter-cancel">',
               '#suffix' => '</div>',
           ),
@@ -672,13 +672,13 @@ class LogFilter {
               '#prefix' => '<div class="log-filter-button log-filter-save">',
               '#suffix' => '</div></div></div>',
           ),
-          'log_filter_delete_by_filter' => !($allow_delete_by_filter = user_access('log_filter remove logs')) ? array( // (0 open)
+          'log_filter_delete_logs_button' => !($allow_delete_logs = user_access('log_filter remove logs')) ? array( // (0 open)
               '#type' => 'markup',
-              '#markup' => '<div id="log_filter_box_delete_by_filter">&nbsp;</div></div>',
+              '#markup' => '<div id="log_filter_box_delete_logs">&nbsp;</div></div>',
           ) :
           array( // (2 open)
               '#type' => 'button',
-              '#name' => 'log_filter_delete_by_filter',
+              '#name' => 'log_filter_delete_logs_button',
               '#value' => t('Delete logs'),
               '#button_type' => 'button', // Doesnt work; still type:submit.
               '#attributes' => array(
@@ -686,10 +686,10 @@ class LogFilter {
                   'class' => array('form-submit', 'edit-delete', 'theme-' . $theme),
                   'style' => 'display:none;',
               ),
-              '#prefix' => '<div id="log_filter_box_delete_by_filter"><div class="log-filter-button log-filter-delete-by-filter">',
+              '#prefix' => '<div id="log_filter_box_delete_logs"><div class="log-filter-button log-filter-delete-logs-button">',
               '#suffix' => '</div>',
           ),
-          'log_filter_delete_logs_max' => !$allow_delete_by_filter ? array( // (0 open)
+          'log_filter_delete_logs_max' => !$allow_delete_logs ? array( // (0 open)
           ) :
           array( // (2 open)
               '#type' => 'textfield',
@@ -779,7 +779,7 @@ class LogFilter {
       }
 
       if (($nFiltered = $nTotal = db_select('watchdog')
-					->countQuery()->execute()->fetchField())) {
+          ->countQuery()->execute()->fetchField())) {
         //  List of watch ids of logs; by filter.
         $ids = db_select('watchdog')
               ->fields('watchdog', array('wid'));
@@ -796,7 +796,7 @@ class LogFilter {
                 break;
               case 'roles':
                 if (strlen($v)) {
-                  if(($uids = db_select('users_roles')
+                  if (($uids = db_select('users_roles')
                       ->fields('uid')
                       ->condition('rid', $v, 'IN')
                       ->distinct()
@@ -805,7 +805,7 @@ class LogFilter {
                   }
                   else {
                     //  No user exists having any of the selected roles.
-                    drupal_set_message('No user exists having any of the selected roles.', 'warning');
+                    drupal_set_message(t('No user exists having any of the selected roles.'), 'warning');
                     //  Make un-matchable condition, and get out.
                     $ids->condition($k, -1, '=');
                     break 2;
@@ -828,7 +828,7 @@ class LogFilter {
           $logs = array();
 
           //  Fetch all matched cached logs.
-          if(($cached = db_select('log_filter_cache'/*, null, array('fetch' => PDO::FETCH_OBJ)*/)
+          if (($cached = db_select('log_filter_cache'/*, null, array('fetch' => PDO::FETCH_OBJ)*/)
               ->fields('data')
               ->condition('wid', $ids, 'IN')
               ->distinct() // There may be dupes.
@@ -864,20 +864,20 @@ class LogFilter {
     }
     /*
     $arr = db_select('watchdog', null, array('fetch' => PDO::FETCH_OBJ))
-				->fields('watchdog', array('wid'))
+        ->fields('watchdog', array('wid'))
         ->orderBy('timestamp', 'DESC')
         ->range(1, 10)
-				->execute();
+        ->execute();
      */
   }
 
   /**
-	 * Called when log viewer form submits.
-	 *
-	 * @param array $form
-	 * @param array &$form_state
-	 * @return void
-	 */
+   * Called when log viewer form submits.
+   *
+   * @param array $form
+   * @param array &$form_state
+   * @return void
+   */
   public static function viewerFormSubmit($form, &$form_state) {
     try {
       //inspect($form_state['values']);
@@ -921,7 +921,7 @@ class LogFilter {
           }
           break;
         case 'edit':
-        case 'delete':
+        case 'delete_filter':
           //  Get name.
           if (!($submitted['filter']['name'] = $filter_name = $values[$prefix . 'name'])) {
             throw new Exception('Mode[' . $mode . '], empty name[' . $filter_name . '].');
@@ -1011,7 +1011,7 @@ class LogFilter {
       }
 
       //  Load values from form.
-      if($use_form_values) {
+      if ($use_form_values) {
         $fields_conditions =& self::$_fields['conditions'];
         $conditions = array();
         foreach ($fields_conditions as $name) {
@@ -1041,8 +1041,8 @@ class LogFilter {
               $arr = $values[$prefix . $name];
               $vals = array();
               foreach ($arr as $k => $v) {
-                if($v) {
-                  if('' . $k == '-1') {
+                if ($v) {
+                  if ('' . $k == '-1') {
                     $vals = array();
                     break;
                   }
@@ -1127,7 +1127,7 @@ class LogFilter {
 
       //  Pass to session.
       if (module_exists('state')) {
-        State::set('module', 'log_filter', array('settings' => $settings, 'submitted' => $submitted));
+        State::sessionSet('module', 'log_filter', array('settings' => $settings, 'submitted' => $submitted));
       }
       else {
         drupal_session_start();
@@ -1148,12 +1148,12 @@ class LogFilter {
   }
 
   /**
-	 * Defines log removal form and GUI.
-	 *
-	 * @param array $form
-	 * @param array &$form_state
-	 * @return array
-	 */
+   * Defines log removal form and GUI.
+   *
+   * @param array $form
+   * @param array &$form_state
+   * @return array
+   */
   public static function removerForm($form, &$form_state) {
     $path = drupal_get_path('module', 'log_filter');
     drupal_add_css(
@@ -1176,12 +1176,12 @@ class LogFilter {
   }
 
   /**
-	 * Called when log removal form submits.
-	 *
-	 * @param array $form
-	 * @param array &$form_state
-	 * @return void
-	 */
+   * Called when log removal form submits.
+   *
+   * @param array $form
+   * @param array &$form_state
+   * @return void
+   */
   public static function removerFormSubmit($form, &$form_state) {
     try {
       //inspect($form_state['values']);
@@ -1212,7 +1212,7 @@ class LogFilter {
  * @return array
  */
 function log_filter_form($form, &$form_state) {
-	return LogFilter::viewerForm($form, $form_state);
+  return LogFilter::viewerForm($form, $form_state);
 }
 
 /**
@@ -1222,7 +1222,7 @@ function log_filter_form($form, &$form_state) {
  * @param array &$form_state
  * @return void
  */
-function _log_filter_form_submit($form, &$form_state){
+function _log_filter_form_submit($form, &$form_state) {
   LogFilter::viewerFormSubmit($form, $form_state);
 }
 
@@ -1236,7 +1236,7 @@ function _log_filter_form_submit($form, &$form_state){
  * @return array
  */
 function log_filter_remove_form($form, &$form_state) {
-	return LogFilter::removerForm($form, $form_state);
+  return LogFilter::removerForm($form, $form_state);
 }
 
 /**
@@ -1246,6 +1246,6 @@ function log_filter_remove_form($form, &$form_state) {
  * @param array &$form_state
  * @return void
  */
-function _log_filter_remove_form_submit($form, &$form_state){
+function _log_filter_remove_form_submit($form, &$form_state) {
   LogFilter::removerFormSubmit($form, $form_state);
 }

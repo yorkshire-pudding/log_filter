@@ -61,41 +61,41 @@ function log_filter_menu() {
   //  Add two tabs to dblog's default viewer.
   if (!variable_get('log_filter_hidedblog', FALSE)) {
     $items['admin/reports/dblog/dblog'] = array(
-			'type' => MENU_DEFAULT_LOCAL_TASK,
-      'title' => t('Recent log messages'),
+      'type' => MENU_DEFAULT_LOCAL_TASK,
+      'title' => 'Recent log messages',
       'weight' => ++$i,
-		);
+    );
     $items['admin/reports/dblog/log_filter'] = array(
-			'title' => t('Filtered log messages'),
-			'description' => t('View logged events using filters'),
-			'page callback' => 'drupal_get_form', // Hook to implement.
-			'page arguments' => array('log_filter_form'), // Name of implementing function.
-			'access arguments' => array('access site reports'), // Permission required.
-			'file' => 'LogFilter.inc',
-			'type' => MENU_LOCAL_TASK,
+      'title' => 'Filtered log messages',
+      'description' => 'View logged events using filters',
+      'page callback' => 'drupal_get_form', // Hook to implement.
+      'page arguments' => array('log_filter_form'), // Name of implementing function.
+      'access arguments' => array('access site reports'), // Permission required.
+      'file' => 'LogFilter.inc',
+      'type' => MENU_LOCAL_TASK,
       'weight' => ++$i,
-		);
+    );
   }
   //  ... or take over url of dblog's default viewer.
   else {
     $items['admin/reports/dblog'] = array(
       'title' => 'Recent log messages',
-			'description' => t('View logged events using filters'),
-			'page callback' => 'drupal_get_form', // Hook to implement.
-			'page arguments' => array('log_filter_form'), // Name of implementing function.
-			'access arguments' => array('access site reports'), // Permission required.
-			'file' => 'LogFilter.inc',
-			'type' => MENU_NORMAL_ITEM,
+      'description' => 'View logged events using filters',
+      'page callback' => 'drupal_get_form', // Hook to implement.
+      'page arguments' => array('log_filter_form'), // Name of implementing function.
+      'access arguments' => array('access site reports'), // Permission required.
+      'file' => 'LogFilter.inc',
+      'type' => MENU_NORMAL_ITEM,
       'weight' => -1,
     );
     $items['admin/reports/dblog/log_filter'] = array(
-			'type' => MENU_DEFAULT_LOCAL_TASK,
-      'title' => t('Recent log messages'),
+      'type' => MENU_DEFAULT_LOCAL_TASK,
+      'title' => 'Recent log messages',
       'weight' => ++$i,
-		);
+    );
   }
   $items['admin/reports/dblog/log_filter_settings'] = array(
-    'title' => t('Log filter settings'),
+    'title' => 'Log filter settings',
     'description' => 'Configure Log Filtering',
     'page callback' => 'drupal_get_form', // hook to implement
     'page arguments' => array('_log_filter_admin_form'), // name of implementing function
@@ -169,7 +169,7 @@ function log_filter_ajax_callback($action) {
                   . ', thus the user should not be presented with the option of saving a filter.'
           );
         }
-        elseif (!preg_match('/^[a-zA-Z_][a-zA-Z\d_]+$/', $name)) {
+        elseif (!preg_match('/^[a-z_][a-z\d_]+$/', $name) || $name == 'default' || $name == 'adhoc') { // @IDE: var $name is declared.
           $oResp->success = FALSE;
           $oResp->error_code = 20;
           $oResp->error = 'Invalid machine name[' . $name . '].';
