@@ -53,12 +53,13 @@ function log_filter_schema() {
                   'length' => 255,
                   'not null' => TRUE,
                   'default' => '',
+                  'description' => 'Comma-separated list.',
               ),
               'type' => array(
                   'type' => 'text',
                   'not null' => TRUE,
                   //  Text fields don't support default value; at least not MySQL.
-                  'description' => 'Newline-separated list of log types.',
+                  'description' => 'Comma-separated list.',
               ),
               'time_range' => array(
                   'type' => 'int',

@@ -1,7 +1,15 @@
 log_filter 7.x-1.0.x, 2012-01-27
 --------------------------------
+* Filter selector is no longer read-only during create/edit; user is allowed to change filter even in these modes (previous behaviour was too restrictive, instead let the user makes his mistakes and learn).
+* Changing filter to default no longer fires a page refresh.
+* Implemented 2 update list buttons.
+* Lots of visual tweaking.
+
+log_filter 7.x-1.0.x, 2012-01-27
+--------------------------------
 * Delete logs: don't prompt user for confirmation again if there's a limit, if already prompted for confirmation whilst there was no limit.
 * Create filter: names 'default' and 'adhoc' are illegal.
+* Worked on setting filter name as url parameter.
 
 log_filter 7.x-1.0.x, 2012-01-13
 --------------------------------

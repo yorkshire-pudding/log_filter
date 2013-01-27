@@ -88,6 +88,7 @@ var LogFilter = function($) {
    * @type {obj}
    */
   _selectors = {
+    page: "div#page",
     form: "form#log-filter-form",
     settings: {
       mode: "input[name='log_filter_mode']",
@@ -113,7 +114,7 @@ var LogFilter = function($) {
       severity_any: "input[name='log_filter_severity[-1]']", // For iteration: must go before severity_some.
       severity_some: "div#edit-log-filter-severity input:not([name='log_filter_severity[-1]'])", // More elements.
       type_any: "input[name='log_filter_type_wildcard']", // For iteration: must go before type_some.
-      type_some: "textarea[name='log_filter_type']", // Single element.
+      type_some: "div#edit-log-filter-type input", // We only store the first, because we only need one for getting/setting value.
       role: "select[name='log_filter_role']", // For iteration: must go before uid.
       uid: "input[name='log_filter_uid']",
       hostname: "input[name='log_filter_hostname']",
@@ -125,8 +126,12 @@ var LogFilter = function($) {
       bools: "div.filter-orderby input[type='checkbox']"
     },
     buttons: {
-      submit: "input#edit-submit", // Not part of filter dialog.
-      reset: "input[name='log_filter_reset']", // Not part of filter dialog.
+      //  Not part of filter dialog.
+      submit: "input#edit-submit",
+      update_list: "input[name='log_filter_update_list']", // Becomes bucket in _elements.buttons.update_list.
+      update_list_right: "input[name='log_filter_update_list_right']", // Becomes bucket in _elements.buttons.update_list.
+      reset: "input[name='log_filter_reset']",
+      //  Filter dialog.
       create: "input[name='log_filter_create']",
       set_name: "input[name='log_filter_set_name']",
       edit: "input[name='log_filter_edit']",
@@ -145,16 +150,16 @@ var LogFilter = function($) {
     conditions: {},
     orderBy: [], // Array.
     buttons: {
+      update_list: [],
       crudFilters: [] // create, edit, del, cancel, save.
     },
     misc: {}
   },
-  _initialTypes = "",
   _filters = [],
 
   //  Declare private methods, to make IDEs list them
-  _errorHandler, _oGet, _toLeading, _toAscii, _innerWidth, _innerHeight, _dateFromFormat,
-  _selectValue, _textareaRemoveWrapper, _disable, _enable, _readOnly, _readWrite,
+  _errorHandler, _oGet, _toLeading, _toAscii, _innerWidth, _innerHeight, _outerHeight, _dateFromFormat,
+  _selectValue, _checklistValue, _textareaRemoveWrapper, _disable, _enable, _readOnly, _readWrite,
   _machineNameConvert, _machineNameIllegals, _machineNameValidate,
   _resize, _overlayResize, _overlayDisplay,
   _setUrlParam, _setFormActionParam, _submit, _prepareForm, _setMode, _crudRelay, _changedCriterion, _resetCriteria, _getCriteria, _deleteLogs,
@@ -270,6 +275,36 @@ var LogFilter = function($) {
 		return d;
 	};
   /**
+	 * Nicked from Judy.
+	 */
+	_outerHeight = function(elm, val, includeMargin, max) {
+    var dE = document.documentElement, jq, d;
+    if(elm === window) {
+      return (d = window.innerHeight) ? d : dE.clientHeight; // innerHeight includes scrollbar
+    }
+    if(elm === dE || elm === document.body) {
+      return dE.scrollHeight;
+    }
+    if(!(jq = $(elm)).get(0)) {
+      return undefined;
+    }
+    d = jq.outerHeight(includeMargin);
+    if(!val || // if only measuring
+        val === d) { // or dimension correct
+      return d;
+    }
+    d = _innerHeight(elm) + (val - d);
+    if(!max || max === 2) {
+      jq.css("height", d + "px");
+    }
+    if(max) {
+      jq.css("max-height", d + "px");
+    }
+    return val;
+  };
+  /**
+   * Nicked from Judy.
+   *
    * Translate string - like the value of a text field - to Date.
    *
    * Supported formats, dot means any (non-YMD) character:
@@ -355,6 +390,8 @@ var LogFilter = function($) {
     return dt;
   };
   /**
+   * Nicked from Judy.
+   *
    * @param {element} elm
    * @param {string|undefined} [val]
    * @return {string|integer}
@@ -419,6 +456,59 @@ var LogFilter = function($) {
     return set;
   };
   /**
+   * Nicked from Judy.
+   *
+   * @param {element} elm
+   *  - one the checkboxes in the list
+   * @param {arr|str|mixed|undefined} [val]
+   *  - default: undefined (~ get value, dont set)
+   *  - empty string or array or [""] translates to clear all options
+   *  - non-empty string or not array: sets that single value (stringified)
+   * @return {arr|str|int|bool|undefined}
+   *  - array if getting and any option is selected
+   *  - empty string if getting and no option selected
+   *  - true if clearing all options
+   *  - integer if selecting some option(s); zero if none of this/those options exist
+   */
+  _checklistValue = function(elm, val) {
+    var r = elm, par = r.parentNode.parentNode, rOpts, nOpts, nVals, i, v = [], set = 0;
+    nOpts = (rOpts = $("input[type='checkbox']", par).get()).length;
+    //  get ------------------------------------
+    if(val === undefined) {
+      for(i = 0; i < nOpts; i++) {
+        if((r = rOpts[i]).checked) {
+          v.push(r.value);
+        }
+      }
+      return v.length ? v : "";
+    }
+    //  set ------------------------------------
+    //  let empty be undefined, otherwise secure array
+    v = !$.isArray(val) ? (
+            val === "" ? undefined : [val]
+        ) : (
+            !(nVals = val.length) || (nVals === 1 && val[0] === "") ? undefined :
+                val.concat() // do copy array, because we stringify values
+        );
+    if(v === undefined) { // unset all
+      for(i = 0; i < nOpts; i++) {
+        rOpts[i].checked = false;
+      }
+      return true;
+    }
+    for(i = 0; i < nVals; i++) { // stringify all buckets, because field values are always strings (~> comparison)
+      v[i] = "" + v[i];
+    }
+    for(i = 0; i < nOpts; i++) {
+      if( ( (r = rOpts[i]).checked =
+          $.inArray(r.value, v) > -1 ? "checked" : false)
+      ) { // set? and count
+        ++set;
+      }
+    }
+    return set;
+  };
+  /**
    * Removes parent form-textarea-wrapper div from (non-resizable) textarea, for easier (standard) DOM access.
    *
    * @param {element} elm
@@ -432,11 +522,19 @@ var LogFilter = function($) {
     }
   };
   /**
-   * @param {element} elm
+   * @param {element|array} elm
    * @param {string|falsy} [hoverTitle]
    *  - string: update the element's (hover) title attribute
    */
   _disable = function(elm, hoverTitle) {
+    var le, i;
+    if($.isArray(elm)) {
+      le = elm.length;
+      for(i = 0; i < le; i++) {
+        _disable(elm[i], hoverTitle)
+      }
+      return;
+    }
     elm.disabled = "disabled";
     if(typeof hoverTitle === "string") {
       elm.setAttribute("title", hoverTitle);
@@ -457,11 +555,19 @@ var LogFilter = function($) {
     }
   };
   /**
-   * @param {element} elm
+   * @param {element|array} elm
    * @param {string|falsy} [hoverTitle]
    *  - string: update the element's (hover) title attribute
    */
   _enable = function(elm, hoverTitle) {
+    var le, i;
+    if($.isArray(elm)) {
+      le = elm.length;
+      for(i = 0; i < le; i++) {
+        _enable(elm[i], hoverTitle)
+      }
+      return;
+    }
     elm.disabled = false;
     if(typeof hoverTitle === "string") {
       elm.setAttribute("title", hoverTitle);
@@ -618,14 +724,57 @@ var LogFilter = function($) {
     return true;
   };
 	/**
+   * @param {Event} [evt]
+   * @param {bool} [initially]
 	 * @return {void}
 	 */
-	_resize = function() {
-		var w = window, d = document.documentElement, dW, dD,
-      wW = (dD = _innerWidth(d)) > (dW = _innerWidth(w)) ? dD : dW,
-      hW = (dD = _innerHeight(d)) > (dW = _innerHeight(w)) ? dD : dW;
-    //
-    $("div#log_filter_filters")[ wW < 1400 ? "addClass" : "removeClass" ]("narrow");
+	_resize = function(evt, initially) {
+		var wW = _innerWidth(window), h;
+    //  Fix some heights.
+    if(initially) {
+      //  Make type checklist same height as severity ditto.
+      $("div.log-filter-type-container").css({
+        height: (h = (
+            _innerHeight($("div.form-item-log-filter-severity").get(0)) -
+            $("div.form-item-log-filter-type-wildcard").outerHeight(true) - $("div.log-filter-type > label").outerHeight(true)) +
+        "px"),
+        "max-height": h
+      });
+      //  Make time column same height as it's container.
+      _outerHeight($("div.form-item.log-filter-time").get(0), _outerHeight($("div.filter-conditions").get(0), null, true) + 10, true);
+    }
+    //  Adapt to window size.
+    if(wW < 1250) {
+      $(_elements.page).addClass("viewport-sub-1250");
+    }
+    if(wW < 1050) {
+      $("div#log_filter_box_filter").css({
+        height: "auto",
+        "max-height": "none"
+      });
+      if(wW < 900) {
+        $(_elements.page).addClass("viewport-sub-1050 viewport-sub-900");
+      }
+      else {
+        $(_elements.page).addClass("viewport-sub-1050").removeClass("viewport-sub-900");
+      }
+    }
+    else {
+      $(_elements.page).removeClass("viewport-sub-1050 viewport-sub-900");
+      if(wW >= 1250) {
+        $(_elements.page).removeClass("viewport-sub-1250");
+      }
+      _outerHeight($("div#log_filter_box_filter").get(0), _outerHeight($("div.form-item.log-filter-time").get(0), null, false), true);
+    }
+
+    if(initially) {
+      $(_elements.page).css({ // Related to adaption to window size.
+        width: "auto",
+        overflow: "visible"
+      });
+      _overlayDisplay(0);
+      $(window).resize(_resize);
+    }
 	};
   /**
    * Resizes custom overlay to fill whole window/document; handler for window resize event.
@@ -756,8 +905,9 @@ var LogFilter = function($) {
    * @return {void}
    */
   _prepareForm = function() {
-    var oSels, oElms, nm, jq, elm, aElms, le, i, v, nOrderBy;
+    var oSels, oElms, nm, jq, elm, aElms, a, le, i, v, nOrderBy;
     try {
+      _elements.page = $(_selectors.page).get(0);
       _elements.form = $(_selectors.form).get(0);
       //  Filter; do first because we need references to name and origin.
       oSels = _selectors.filter;
@@ -767,20 +917,16 @@ var LogFilter = function($) {
           oElms[nm] = elm;
           switch(nm) {
             case "filter":
-              //  Selecting a filter (whether stored or default/ad hoc) means submit form.
-              jq.change(function() { // Submit if user checks filter_only_own.
+              //  Selecting a stored filter means submit form.
+              jq.change(function() {
                 var v;
-                switch(_.mode) {
-                  case "create":
-                  case "edit":
-                    //  Not allowed, user must use the cancel button.
-                    alert(self.local("filterChangeIllegal"));
-                    _selectValue(this, _.name); // Reset to previous value.
-                    return;
-                }
                 _elements.filter.name.value = _.name = v = _selectValue(this);
                 _elements.settings.mode.value = _.mode = v ? "stored" : "default";
-                _enable(_elements.buttons.submit);
+                if(!v) { // default|adhoc
+                  _resetCriteria(null, "default");
+                  return;
+                }
+                _enable(_elements.buttons.update_list);
                 _submit();
               });
               break;
@@ -818,7 +964,7 @@ var LogFilter = function($) {
                     _elements.filter.origin.value = _.name; // Pass name to origin.
                     _elements.filter.name.value = "";
                   }
-                  _enable(_elements.buttons.submit);
+                  _enable(_elements.buttons.update_list);
                   _submit();
                 }
               });
@@ -944,20 +1090,28 @@ var LogFilter = function($) {
                 _changedCriterion();
               });
               break;
-            case "type_some":
+            case "type_any": // _checklistValue
               oElms[nm] = elm;
-              //  Un-check type_any upon change in list of types (and fix formatting of the list).
               jq.change(function() {
-                var v = this.value;
-                _elements.conditions.type_any.checked = false;
-                if(v && (v = $.trim(v))) {
-                  //  Remove carriage return, comma and quotes. And trim every line.
-                  this.value = v.replace(/[\r\,\"\']/g, "").replace(/[\ \n]+\n/g, "\n").replace(/\n[\ \n]+/g, "\n");
+                var elm;
+                if(this.checked && // Uncheck all of type_some.
+                    (elm = _elements.conditions.type_some) // Doesnt exists if no logs at all.
+                ) {
+                  _checklistValue(elm, "");
                 }
                 _changedCriterion();
               });
-              //  Memorize initial list of types.
-              _initialTypes = elm.value;
+              break;
+            case "type_some": // _checklistValue
+              oElms[nm] = elm;
+              if(elm) { // Doesnt exists if no logs at all.
+                jq.change(function() {
+                  if(this.checked) { // Un-check type_any.
+                    _elements.conditions.type_any.checked = false;
+                  }
+                  _changedCriterion();
+                });
+              }
               break;
             case "role":
               oElms[nm] = elm;
@@ -1086,37 +1240,45 @@ var LogFilter = function($) {
       oElms = _elements.buttons;
       for(nm in oSels) {
         if(oSels.hasOwnProperty(nm) && (elm = (jq = $(oSels[nm])).get(0))) {
-          if(nm === "submit") {
-            oElms[nm] = elm;
-            jq.click(function() {
-              _submitted = true;
-              _overlayDisplay(1);
-            });
-          }
-          else {
-            oElms[nm] = elm;
-            elm.setAttribute("type", "button"); // Fix type (apparant Form API shortcoming).
-            jq.unbind(); // Remove Drupal native button handlers.
-            switch(nm) {
-              case "create":
-              case "set_name":
-              case "edit":
-              case "del":
-              case "cancel":
-              case "save":
-                if(_.crudFilters) {
-                  oElms.crudFilters.push(elm);
+
+          switch(nm) {
+            case "submit":
+              //  Hidden, but we do submit by triggering a click on it anyway, in case Form API sets some javascript behaviour on it.
+              //  ...jQuery behaviour, really. Because a jQuery(elm).trigger("click") apparantly doesnt trigger a real click event(?).
+              oElms[nm] = elm;
+              break;
+            case "update_list":
+            case "update_list_right":
+              oElms.update_list.push(elm);
+              elm.setAttribute("type", "button");
+              jq.unbind(); // Remove Drupal native button handlers.
+              //  AJAX request instead of this...:
+              jq.click(_submit);
+              break;
+            default:
+              oElms[nm] = elm;
+              elm.setAttribute("type", "button"); // Fix type (apparant Form API shortcoming).
+              jq.unbind(); // Remove Drupal native button handlers.
+              switch(nm) {
+                case "create":
+                case "set_name":
+                case "edit":
+                case "del":
+                case "cancel":
+                case "save":
+                  if(_.crudFilters) {
+                    oElms.crudFilters.push(elm);
+                    jq.click(_crudRelay); // Set our common button handler.
+                  }
+                  break;
+                case "delete_logs_button":
+                  _.delLogs = true;
                   jq.click(_crudRelay); // Set our common button handler.
-                }
-                break;
-              case "delete_logs_button":
-                _.delLogs = true;
-                jq.click(_crudRelay); // Set our common button handler.
-                break
-              case "reset":
-                jq.click(_resetCriteria);
-                break
-            }
+                  break
+                case "reset":
+                  jq.click(_resetCriteria);
+                  break
+              }
           }
         }
       }
@@ -1177,7 +1339,7 @@ var LogFilter = function($) {
                 $(elm.parentNode).hide();
               }
             }
-            _enable(_elements.buttons.submit);
+            _enable(_elements.buttons.update_list);
           }
           if(_.crudFilters) {
             (elm = _elements.buttons.create).value = self.local("saveAs");
@@ -1198,7 +1360,7 @@ var LogFilter = function($) {
             if(_.crudFilters && (elm = _elements.filter.require_admin)) {
               $(elm.parentNode).hide();
             }
-            _enable(_elements.buttons.submit);
+            _enable(_elements.buttons.update_list);
           }
           if(fromMode === "stored") {
             //  Pass current name to origin field.
@@ -1219,7 +1381,7 @@ var LogFilter = function($) {
             $(_elements.filter.description.parentNode).hide();
             $(_elements.settings.onlyOwn.parentNode).show();
           }
-          _enable(_elements.buttons.submit);
+          _enable(_elements.buttons.update_list);
           if(_.delLogs) {
             $(_elements.buttons.delete_logs_button).show();
             $(_elements.settings.delete_logs_max.parentNode).show();
@@ -1241,7 +1403,7 @@ var LogFilter = function($) {
                 $(elm.parentNode).hide();
               }
             }
-            _enable(_elements.buttons.submit);
+            _enable(_elements.buttons.update_list);
           }
           if(_.crudFilters) {
             (elm = _elements.buttons.create).value = self.local("saveAsNew");
@@ -1288,7 +1450,7 @@ var LogFilter = function($) {
           $(_elements.filter.name_suggest.parentNode.parentNode).show(); // Show name_suggest.
           $(_elements.buttons.set_name).show();
           $(_elements.buttons.cancel).show();
-          _disable(_elements.buttons.submit);
+          _disable(_elements.buttons.update_list);
           $(_elements.settings.onlyOwn.parentNode).hide(); // Hide only_own checkbox.
           if(_.delLogs) {
             $(_elements.buttons.delete_logs_button).show();
@@ -1315,7 +1477,7 @@ var LogFilter = function($) {
             $(elm.parentNode).show();
           }
           $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // Hide name_suggest.
-          _disable(_elements.buttons.submit);
+          _disable(_elements.buttons.update_list);
           $(_elements.settings.onlyOwn.parentNode).hide(); // Hide only_own checkbox.
           if(_.delLogs) {
             $(_elements.buttons.delete_logs_button).show();
@@ -1372,6 +1534,7 @@ var LogFilter = function($) {
           break;
         case "log_filter_set_name":
           var elm = _elements.filter.name_suggest, v = elm.value;
+inspect(_getCriteria());
           if(_ajaxRequestingBlocking) { // Prevent double-click.
             return false; // false for IE<9's sake.
           }
@@ -1416,6 +1579,10 @@ var LogFilter = function($) {
           }
           break;
         case "log_filter_save":
+
+
+
+
           break;
         case "log_filter_delete_logs_button":
           if(_.delLogs) {
@@ -1471,9 +1638,13 @@ var LogFilter = function($) {
   /**
    * Clear all condition and orderby fields, and set defaults.
    *
+   * @param {Event} [evt]
+   *  - when used as event handler
+   * @param {string|falsy} [mode]
+   *  - set mode to that
    * @return {void}
    */
-  _resetCriteria = function() {
+  _resetCriteria = function(evt, mode) {
     var o = _elements.conditions, nm, r, a, le, i;
     for(nm in o) {
       if(o.hasOwnProperty(nm)) {
@@ -1491,7 +1662,9 @@ var LogFilter = function($) {
             }
             break;
           case "type_some":
-            r.value = _initialTypes;
+            if(r) { // Doesnt exists if no logs at all.
+              _checklistValue(r, "");
+            }
             break;
           default:
             r.value = "";
@@ -1505,10 +1678,12 @@ var LogFilter = function($) {
       a[i][1].checked = i ? false : "checked";
     }
     //  Degrade mode.
-    if(_.mode === "adhoc") {
+    if(mode) {
+      _setMode(mode);
+    }
+    else if(_.mode === "adhoc") {
       _setMode("default");
     }
-    //else if(_.mode === "stored") {
     else {
       _setMode("adhoc");
     }
@@ -1567,10 +1742,8 @@ var LogFilter = function($) {
               break;
             case "type_some":
               if(!oElms.type_any.checked &&
-                  (v = r.value) !== "" && (v = $.trim(v)) !== "" &&
-                  // Remove carriage return, comma and quotes. And trim every line.
-                  (v = v.replace(/[\r\,\"\']/g, "").replace(/[\ \n]+\n/g, "\n").replace(/\n[\ \n]+/g, "\n")) !== "" &&
-                  v !== "\n"
+                  oElms.type_some && // Doesnt exists if no logs at all.
+                  (v = _checklistValue(oElms.type_some))
               ) {
                 ++n;
                 conditions[nm] = v;
@@ -1665,6 +1838,7 @@ var LogFilter = function($) {
     create: function(oResp) { // Only saves a default filter with a name; progress to edit mode on success.
       var nm = oResp.name;
       if(oResp.success) {
+        _elements.filter.name_suggest.value = "";
         _elements.filter.origin.value = _.origin = _.name;
         _elements.filter.name.value = _.name = nm;
         _filters.push(nm);
@@ -1817,9 +1991,6 @@ var LogFilter = function($) {
         case "invalid_referer":
           _local[nm] = s = Drupal.t("Referrer must be a URL, or empty");
           break;
-        case "filterChangeIllegal":
-          _local[nm] = s = Drupal.t("Press the 'Cancel' button,!newlineif you don't want to create/edit current filter.");
-          break;
         case "machineName":
           //  { "!illegals": "default, adhoc" }
           s = Drupal.t("The filter name:!newline- must be 2 to 32 characters long!newline- must only consist of the characters a-z, letters, and underscore (_)!newline- cannot start with a number!newline- cannot be: !illegals", replacers);
@@ -1875,6 +2046,8 @@ var LogFilter = function($) {
     return s.replace(/\!newline/g, "\n");
   };
   /**
+   * Called before page load.
+   *
    * @function
    * @name LogFilter.init
    * @return {void}
@@ -1892,28 +2065,22 @@ var LogFilter = function($) {
 		});
   };
   /**
-   *
+   * Called upon page load.
    *
    *  Options:
    *  - (int) x
    * @function
    * @name LogFilter.setup
-   * @param {obj} [options]
+   * @param {obj} [filters]
    * @return {void}
    */
   this.setup = function(filters) {
+    var h;
     _filters = filters || [];
-
-    this.setup = function() {};
-
     _prepareForm();
-
     _setMode(_.mode, false, true);
-
-    _resize();
-    $(window).resize(_resize);
-
-    _overlayDisplay(0);
+    _resize(null, true);
+    this.setup = function() {};
   };
 };
 
