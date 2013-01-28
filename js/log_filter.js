@@ -730,48 +730,27 @@ var LogFilter = function($) {
 	 */
 	_resize = function(evt, initially) {
 		var wW = _innerWidth(window), h;
-    //  Fix some heights.
-    if(initially) {
-      //  Make type checklist same height as severity ditto.
-      $("div.log-filter-type-container").css({
-        height: (h = (
-            _innerHeight($("div.form-item-log-filter-severity").get(0)) -
-            $("div.form-item-log-filter-type-wildcard").outerHeight(true) - $("div.log-filter-type > label").outerHeight(true)) +
-        "px"),
-        "max-height": h
-      });
-      //  Make time column same height as it's container.
-      _outerHeight($("div.form-item.log-filter-time").get(0), _outerHeight($("div.filter-conditions").get(0), null, true) + 10, true);
-    }
+
     //  Adapt to window size.
     if(wW < 1250) {
       $(_elements.page).addClass("viewport-sub-1250");
     }
-    if(wW < 1050) {
-      $("div#log_filter_box_filter").css({
-        height: "auto",
-        "max-height": "none"
-      });
-      if(wW < 900) {
-        $(_elements.page).addClass("viewport-sub-1050 viewport-sub-900");
+    if(wW < 1100) {
+      if(wW < 970) { // Filter dialog becomes a bar instead of a column.
+        $(_elements.page).addClass("viewport-sub-1100 viewport-sub-970");
       }
       else {
-        $(_elements.page).addClass("viewport-sub-1050").removeClass("viewport-sub-900");
+        $(_elements.page).addClass("viewport-sub-1100").removeClass("viewport-sub-970");
       }
     }
     else {
-      $(_elements.page).removeClass("viewport-sub-1050 viewport-sub-900");
+      $(_elements.page).removeClass("viewport-sub-1100 viewport-sub-970");
       if(wW >= 1250) {
         $(_elements.page).removeClass("viewport-sub-1250");
       }
-      _outerHeight($("div#log_filter_box_filter").get(0), _outerHeight($("div.form-item.log-filter-time").get(0), null, false), true);
     }
 
     if(initially) {
-      $(_elements.page).css({ // Related to adaption to window size.
-        width: "auto",
-        overflow: "visible"
-      });
       _overlayDisplay(0);
       $(window).resize(_resize);
     }
@@ -1027,13 +1006,13 @@ var LogFilter = function($) {
                 dateFormat: _.dateFormat_datepicker
               });
               if((v = _elements.conditions[ nm === "time_from_proxy" ? "time_from" : "time_to" ].value) && (v = parseInt(v, 10))) {
-                jq.datepicker("setDate", new Date(v * 1000));
+                jq.datepicker("setDate", new Date(v * 1100));
               }
               jq.change(function() {
                 var v, d, r = $("input[name=\'" + this.name.replace(/_proxy$/, "") + "\']").get(0);
                 if((v = $.trim(this.value)).length) {
                   if((d = _dateFromFormat(v, _.dateFormat))) {
-                    r.value = Math.floor(d.getTime() / 1000);
+                    r.value = Math.floor(d.getTime() / 1100);
                     _.recordedValues.time_range = _elements.conditions.time_range.value = ""; // Clear time_range.
                   }
                   else {
@@ -2056,7 +2035,7 @@ inspect(_getCriteria());
     this.init = function() {};
     //	Create overlay, to prevent user from doing anything before page load and after form submission.
 		$("body").append(
-			"<div id=\"log_filter_overlay\" tabindex=\"10000\" title=\"" + self.local("wait") + "\">&nbsp;</div>"
+			"<div id=\"log_filter_overlay\" tabindex=\"11000\" title=\"" + self.local("wait") + "\">&nbsp;</div>"
 		);
 		_jqOverlay = $("div#log_filter_overlay");
     _overlayResize();

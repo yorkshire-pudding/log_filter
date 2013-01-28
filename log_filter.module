@@ -131,97 +131,12 @@ function log_filter_form_field_after_build($element) {
  *
  *  Expects (requires) POST vars on actions:
  *  - create: name, require_admin
- *
+ * 
+ * @see LogFilter::ajaxCallback
  * @param string $action
  * @return void
  *  - sends 403 header if the expected POST vars arent set or their sanitized values evaluates to empty
  */
 function log_filter_ajax_callback($action) {
-  if (!user_access('access site reports')
-      || !$action || !($le = strlen($action)) || $le > 32
-  ) {
-    header('HTTP/1.1 403 Forbidden');
-    exit;
-  }
-  $oResp = new stdClass();
-  $oResp->action = $action;
-  $oResp->success = TRUE;
-  $oResp->error_code = 0;
-  $oResp->error = '';
-
-  try {
-    $uid = $GLOBALS['user']->uid;
-    switch ($action) {
-      case 'create':
-        if (
-            !array_key_exists('name', $_POST) || !($le = strlen($name = $_POST['name'])) || $le > 32
-            || !array_key_exists('require_admin', $_POST) || !(($require_admin = (int)$_POST['require_admin']) == 0 || $require_admin == 1)
-        ) {
-          header('HTTP/1.1 403 Forbidden');
-          exit;
-        }
-        if (!user_access('log_filter edit filters')) {
-          $oResp->success = FALSE;
-          $oResp->error_code = 10;
-          $oResp->error = 'Missing permission.';
-          throw new Exception(
-              'Logical error: missing permission \'log_filter edit filters\' for user (' . $uid . ') ' . $GLOBALS['user']->name
-                  . ', thus the user should not be presented with the option of saving a filter.'
-          );
-        }
-        elseif (!preg_match('/^[a-z_][a-z\d_]+$/', $name) || $name == 'default' || $name == 'adhoc') { // @IDE: var $name is declared.
-          $oResp->success = FALSE;
-          $oResp->error_code = 20;
-          $oResp->error = 'Invalid machine name[' . $name . '].';
-          $oResp->name = $name;
-        }
-        else {
-          $oResp->name = $name = strtolower($name);
-          try {
-            db_insert('log_filter')->fields(array(
-              'name' => $name,
-              'creator' => $uid,
-              'require_admin' => $require_admin,
-              'type' => '', // No default because text field.
-              'editor' => $uid,
-              'created' => REQUEST_TIME,
-            ))
-            ->execute();
-          }
-          catch (PDOException $xc) {
-            if ((int)$xc->getCode() == 23000) { // Fair chance that it's a duplicate key error, though 23000 may also (MySQL) mean null error.
-              $oResp->success = FALSE;
-              $oResp->error_code = 30;
-              $oResp->error = 'Filter name[' . $name . '] already exists.';
-              LogFilter::errorHandler($xc);
-            }
-            else {
-              throw $xc;
-            }
-          }
-        }
-        break;
-      default:
-        $oResp->success = FALSE;
-        $oResp->error_code = 1;
-        $oResp->error = 'Unsupported action[' . $action . '].';
-    }
-  }
-  catch (PDOException $xc) {
-    LogFilter::errorHandler($xc);
-    $oResp->success = FALSE;
-    $oResp->error_code = 90;
-  }
-  catch (Exception $xc) {
-    LogFilter::errorHandler($xc);
-    $oResp->success = FALSE;
-  }
-
-  header('Content-Type: application/json; charset=utf-8');
-  header('Cache-Control: private, no-store, no-cache, must-revalidate');
-  header('Expires: Thu, 01 Jan 1970 00:00:01 GMT');
-  //  No reason to use drupal_json_encode(), because we dont send html strings.
-  echo json_encode($oResp);
-  flush();
-  exit;
+  LogFilter::ajaxCallback($action);
 }

@@ -16,23 +16,6 @@ class LogFilter {
    */
   const PAGER_RANGE_DEFAULT = 100;
 
-  /**
-   * @param Exception $xc
-   * @param integer $severity
-   *  - default: WATCHDOG_ERROR
-   * @return void
-   */
-  public static function errorHandler($xc, $severity = WATCHDOG_ERROR) {
-    if (!inspect_trace($xc, array('category' => 'log_filter', 'severity' => $severity))) {
-      watchdog(
-        'log_filter',
-        $xc->getMessage(),
-        NULL,
-        WATCHDOG_ERROR
-      );
-    }
-  }
-
 
   //  @todo: frontend set name must continue to save via AJAX, but it must send criteria (dont simply make a default filter).
   //  Name suggest must use ordinary save button, not that stupid 'set' button.
@@ -898,7 +881,7 @@ class LogFilter {
 
     }
     catch (Exception $xc) {
-      self::errorHandler($xc);
+      self::_errorHandler($xc);
       drupal_set_message($xc->getMessage(), 'error');
       return array();
     }
@@ -1181,7 +1164,7 @@ class LogFilter {
       }
     }
     catch (Exception $xc) {
-      self::errorHandler($xc);
+      self::_errorHandler($xc);
       drupal_set_message($xc->getMessage(), 'error');
     }
   }
@@ -1208,7 +1191,7 @@ class LogFilter {
       return $form;
     }
     catch (Exception $xc) {
-      self::errorHandler($xc);
+      self::_errorHandler($xc);
       drupal_set_message($xc->getMessage(), 'error');
       return array();
     }
@@ -1228,7 +1211,7 @@ class LogFilter {
       $prefix = 'log_filter_';
     }
     catch (Exception $xc) {
-      self::errorHandler($xc);
+      self::_errorHandler($xc);
       drupal_set_message($xc->getMessage(), 'error');
     }
   }
@@ -1238,6 +1221,123 @@ class LogFilter {
     //  @todo: order by time must always be combined with order by log id, otherwise the actual temporal order may get wrong.
   }
 
+  /**
+   * Access permission: 'access site reports'.
+   *
+   *  Expects (requires) POST vars on actions:
+   *  - create: name, require_admin
+   *
+   * @see LogFilter::ajaxCallback
+   * @param string $action
+   * @return void
+   *  - sends 403 header if the expected POST vars arent set or their sanitized values evaluates to empty
+   */
+  public static function ajaxCallback($action) {
+    if (!user_access('access site reports')
+        || !$action || !($le = strlen($action)) || $le > 32
+    ) {
+      header('HTTP/1.1 403 Forbidden');
+      exit;
+    }
+    $oResp = new stdClass();
+    $oResp->action = $action;
+    $oResp->success = TRUE;
+    $oResp->error_code = 0;
+    $oResp->error = '';
+
+    try {
+      $uid = $GLOBALS['user']->uid;
+      switch ($action) {
+        case 'create':
+          if (
+              !array_key_exists('name', $_POST) || !($le = strlen($name = $_POST['name'])) || $le > 32
+              || !array_key_exists('require_admin', $_POST) || !(($require_admin = (int)$_POST['require_admin']) == 0 || $require_admin == 1)
+          ) {
+            header('HTTP/1.1 403 Forbidden');
+            exit;
+          }
+          if (!user_access('log_filter edit filters')) {
+            $oResp->success = FALSE;
+            $oResp->error_code = 10;
+            $oResp->error = 'Missing permission.';
+            throw new Exception(
+                'Logical error: missing permission \'log_filter edit filters\' for user (' . $uid . ') ' . $GLOBALS['user']->name
+                    . ', thus the user should not be presented with the option of saving a filter.'
+            );
+          }
+          elseif (!preg_match('/^[a-z_][a-z\d_]+$/', $name) || $name == 'default' || $name == 'adhoc') { // @IDE: var $name is declared.
+            $oResp->success = FALSE;
+            $oResp->error_code = 20;
+            $oResp->error = 'Invalid machine name[' . $name . '].';
+            $oResp->name = $name;
+          }
+          else {
+            $oResp->name = $name = strtolower($name);
+            try {
+              db_insert('log_filter')->fields(array(
+                'name' => $name,
+                'creator' => $uid,
+                'require_admin' => $require_admin,
+                'type' => '', // No default because text field.
+                'editor' => $uid,
+                'created' => REQUEST_TIME,
+              ))
+              ->execute();
+            }
+            catch (PDOException $xc) {
+              if ((int)$xc->getCode() == 23000) { // Fair chance that it's a duplicate key error, though 23000 may also (MySQL) mean null error.
+                $oResp->success = FALSE;
+                $oResp->error_code = 30;
+                $oResp->error = 'Filter name[' . $name . '] already exists.';
+                LogFilter::_errorHandler($xc);
+              }
+              else {
+                throw $xc;
+              }
+            }
+          }
+          break;
+        default:
+          $oResp->success = FALSE;
+          $oResp->error_code = 1;
+          $oResp->error = 'Unsupported action[' . $action . '].';
+      }
+    }
+    catch (PDOException $xc) {
+      LogFilter::_errorHandler($xc);
+      $oResp->success = FALSE;
+      $oResp->error_code = 90;
+    }
+    catch (Exception $xc) {
+      LogFilter::_errorHandler($xc);
+      $oResp->success = FALSE;
+    }
+
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: private, no-store, no-cache, must-revalidate');
+    header('Expires: Thu, 01 Jan 1970 00:00:01 GMT');
+    //  No reason to use drupal_json_encode(), because we dont send html strings.
+    echo json_encode($oResp);
+    flush();
+    exit;
+  }
+  
+  /**
+   * @param Exception $xc
+   * @param integer $severity
+   *  - default: WATCHDOG_ERROR
+   * @return void
+   */
+  protected static function _errorHandler($xc, $severity = WATCHDOG_ERROR) {
+    if (!inspect_trace($xc, array('category' => 'log_filter', 'severity' => $severity))) {
+      watchdog(
+        'log_filter',
+        $xc->getMessage(),
+        NULL,
+        WATCHDOG_ERROR
+      );
+    }
+  }
 }
 
 

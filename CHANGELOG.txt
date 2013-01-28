@@ -1,3 +1,7 @@
+log_filter 7.x-1.0.x, 2012-01-28
+--------------------------------
+* em-styling to get rid of naseously complex javascript resizing.
+
 log_filter 7.x-1.0.x, 2012-01-27
 --------------------------------
 * Filter selector is no longer read-only during create/edit; user is allowed to change filter even in these modes (previous behaviour was too restrictive, instead let the user makes his mistakes and learn).
