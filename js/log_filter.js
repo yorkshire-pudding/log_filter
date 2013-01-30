@@ -133,7 +133,6 @@ var LogFilter = function($) {
       reset: "input[name='log_filter_reset']",
       //  Filter dialog.
       create: "input[name='log_filter_create']",
-      set_name: "input[name='log_filter_set_name']",
       edit: "input[name='log_filter_edit']",
       del: "input[name='log_filter_delete']",
       cancel: "input[name='log_filter_cancel']",
@@ -1219,7 +1218,6 @@ var LogFilter = function($) {
       oElms = _elements.buttons;
       for(nm in oSels) {
         if(oSels.hasOwnProperty(nm) && (elm = (jq = $(oSels[nm])).get(0))) {
-
           switch(nm) {
             case "submit":
               //  Hidden, but we do submit by triggering a click on it anyway, in case Form API sets some javascript behaviour on it.
@@ -1240,7 +1238,6 @@ var LogFilter = function($) {
               jq.unbind(); // Remove Drupal native button handlers.
               switch(nm) {
                 case "create":
-                case "set_name":
                 case "edit":
                 case "del":
                 case "cancel":
@@ -1312,10 +1309,10 @@ var LogFilter = function($) {
             _selectValue(_elements.filter.filter, "");
             _elements.filter.name.value = _.name = _elements.filter.origin.value = _.origin = "";
             if(_.crudFilters) {
-              $(_elements.filter.name_suggest.parentNode.parentNode).hide();
+              $(_elements.filter.name_suggest.parentNode).hide();
               $(_elements.filter.description.parentNode).hide();
               if ((elm = _elements.filter.require_admin)) {
-                $(elm.parentNode).hide();
+                $(elm).hide();
               }
             }
             _enable(_elements.buttons.update_list);
@@ -1323,11 +1320,11 @@ var LogFilter = function($) {
           if(_.crudFilters) {
             (elm = _elements.buttons.create).value = self.local("saveAs");
             $(elm).show();
-            $(_elements.settings.onlyOwn.parentNode).show(); // Show only_own checkbox.
+            $(_elements.settings.onlyOwn.parentNode).show();
           }
           if(_.delLogs) {
             $(_elements.buttons.delete_logs_button).show();
-            $(_elements.settings.delete_logs_max.parentNode).show();
+            $(_elements.settings.delete_logs_max).show();
           }
           if(fromMode === "create") {
             fromMode = ""; // Dont keep 'create' as _.modePrevious.
@@ -1337,7 +1334,7 @@ var LogFilter = function($) {
           if(!initially) {
             _selectValue(_elements.filter.filter, "");
             if(_.crudFilters && (elm = _elements.filter.require_admin)) {
-              $(elm.parentNode).hide();
+              $(elm).hide();
             }
             _enable(_elements.buttons.update_list);
           }
@@ -1356,14 +1353,14 @@ var LogFilter = function($) {
           if(_.crudFilters) {
             (elm = _elements.buttons.create).value = self.local("saveAs");
             $(elm).show();
-            $(_elements.filter.name_suggest.parentNode.parentNode).hide();
+            $(_elements.filter.name_suggest.parentNode).hide();
             $(_elements.filter.description.parentNode).hide();
             $(_elements.settings.onlyOwn.parentNode).show();
           }
           _enable(_elements.buttons.update_list);
           if(_.delLogs) {
             $(_elements.buttons.delete_logs_button).show();
-            $(_elements.settings.delete_logs_max.parentNode).show();
+            $(_elements.settings.delete_logs_max).show();
           }
           break;
         case "stored": // stored mode may only appear on page load and after cancelling create.
@@ -1376,10 +1373,10 @@ var LogFilter = function($) {
             $("option[value='']", elm).html( self.local("default") ); // Set visual value of filter selector's empty option.
             $(_elements.misc.title).html( nm );
             if(_.crudFilters) {
-              $(_elements.filter.name_suggest.parentNode.parentNode).hide();
+              $(_elements.filter.name_suggest.parentNode).hide();
               $(_elements.filter.description.parentNode).hide();
               if ((elm = _elements.filter.require_admin)) {
-                $(elm.parentNode).hide();
+                $(elm).hide();
               }
             }
             _enable(_elements.buttons.update_list);
@@ -1389,11 +1386,11 @@ var LogFilter = function($) {
             $(_elements.buttons.edit).show();
             $(elm).show();
             $(_elements.buttons.del).show();
-            $(_elements.settings.onlyOwn.parentNode).show(); // Show only_own checkbox.
+            $(_elements.settings.onlyOwn.parentNode).show();
           }
           if(_.delLogs) {
             $(_elements.buttons.delete_logs_button).show();
-            $(_elements.settings.delete_logs_max.parentNode).show();
+            $(_elements.settings.delete_logs_max).show();
           }
           switch(fromMode) {
             case "create":
@@ -1424,16 +1421,16 @@ var LogFilter = function($) {
               throw new Error("Cant create from mode[" + fromMode + "].");
           }
           if ((elm = _elements.filter.require_admin)) {
-            $(elm.parentNode).hide();
+            $(elm).hide();
           }
-          $(_elements.filter.name_suggest.parentNode.parentNode).show(); // Show name_suggest.
-          $(_elements.buttons.set_name).show();
+          $(_elements.filter.name_suggest.parentNode).show();
+          $(_elements.buttons.save).show();
           $(_elements.buttons.cancel).show();
           _disable(_elements.buttons.update_list);
-          $(_elements.settings.onlyOwn.parentNode).hide(); // Hide only_own checkbox.
+          $(_elements.settings.onlyOwn.parentNode).hide();
           if(_.delLogs) {
             $(_elements.buttons.delete_logs_button).show();
-            $(_elements.settings.delete_logs_max.parentNode).hide();
+            $(_elements.settings.delete_logs_max).hide();
           }
           break;
         case "edit":
@@ -1449,18 +1446,18 @@ var LogFilter = function($) {
             $("option[value='']", elm).html( self.local("default") );
             _selectValue(elm, nm);
           }
-          $(_elements.filter.description.parentNode).show(); // Show description.
+          $(_elements.filter.description.parentNode).show();
           $(_elements.buttons.cancel).show();
           $(_elements.buttons.save).show();
           if ((elm = _elements.filter.require_admin)) {
-            $(elm.parentNode).show();
+            $(elm).show();
           }
-          $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // Hide name_suggest.
+          $(_elements.filter.name_suggest.parentNode).hide();
           _disable(_elements.buttons.update_list);
-          $(_elements.settings.onlyOwn.parentNode).hide(); // Hide only_own checkbox.
+          $(_elements.settings.onlyOwn.parentNode).hide();
           if(_.delLogs) {
             $(_elements.buttons.delete_logs_button).show();
-            $(_elements.settings.delete_logs_max.parentNode).hide();
+            $(_elements.settings.delete_logs_max).hide();
           }
           break;
         case "delete_filter": // Pop confirm(), and submit upon positive confirmation.
@@ -1502,7 +1499,7 @@ var LogFilter = function($) {
    * @return {void}
    */
   _crudRelay = function() {
-    var nm = this.name, o;
+    var nm = this.name, elm, v;
     try {
       switch(nm) {
         case "log_filter_reset":
@@ -1510,27 +1507,6 @@ var LogFilter = function($) {
           break;
         case "log_filter_create":
           _setMode("create");
-          break;
-        case "log_filter_set_name":
-          var elm = _elements.filter.name_suggest, v = elm.value;
-inspect(_getCriteria());
-          if(_ajaxRequestingBlocking) { // Prevent double-click.
-            return false; // false for IE<9's sake.
-          }
-          //  No reason to trim(), because change handler (_machineNameChange()) replaces spaces with underscores.
-          if(!v.length || !_machineNameValidate(null, null, v)) {
-            return false; // false for IE<9's sake.
-          }
-          if($.inArray(v, _filters) > -1) {
-            alert(self.local("filterNameDupe", {"!name": v}));
-            return false; // false for IE<9's sake.
-          }
-          _overlayDisplay(1, null, self.local("waitCreate"));
-          _ajaxRequestingBlocking = true;
-          _ajaxRequest("create", {
-            name: v,
-            require_admin: _elements.filter.require_admin ? 1 : 0 // Create with require_admin if the element exists (the user has the permission).
-          });
           break;
         case "log_filter_edit":
           _setMode("edit");
@@ -1558,10 +1534,31 @@ inspect(_getCriteria());
           }
           break;
         case "log_filter_save":
+          if(mode === "create") {
+            elm = _elements.filter.name_suggest;
+            v = elm.value;
+  inspect(_getCriteria());
+            if(_ajaxRequestingBlocking) { // Prevent double-click.
+              return false; // false for IE<9's sake.
+            }
+            //  No reason to trim(), because change handler (_machineNameChange()) replaces spaces with underscores.
+            if(!v.length || !_machineNameValidate(null, null, v)) {
+              return false; // false for IE<9's sake.
+            }
+            if($.inArray(v, _filters) > -1) {
+              alert(self.local("filterNameDupe", {"!name": v}));
+              return false; // false for IE<9's sake.
+            }
+            _overlayDisplay(1, null, self.local("waitCreate"));
+            _ajaxRequestingBlocking = true;
+            _ajaxRequest("create", {
+              name: v,
+              require_admin: _elements.filter.require_admin ? 1 : 0 // Create with require_admin if the element exists (the user has the permission).
+            });
+          }
+          else { // mode:edit
 
-
-
-
+          }
           break;
         case "log_filter_delete_logs_button":
           if(_.delLogs) {

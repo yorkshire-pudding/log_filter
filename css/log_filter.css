@@ -40,7 +40,9 @@ div#log_filter_overlay.log-filter-overlay-opaque {
   opacity:0.5; -ms-filter:'progid:DXImageTransform.Microsoft.Alpha(Opacity=50)'; filter:alpha(opacity=50);
 }
 
-form#log-filter-form label {
+form#log-filter-form .form-item label {
+  margin: 0;
+  padding: 0;
   font-size: 1em;
 }
 
@@ -80,6 +82,7 @@ form#log-filter-form .form-item {
 
 form#log-filter-form input.form-button {
   margin: 0;
+  min-width: 5em;
 }
 form#log-filter-form input.form-button-disabled,
 form#log-filter-form input.form-button-disabled:hover,
@@ -242,14 +245,11 @@ form#log-filter-form fieldset#edit-filter-filter-edit input.form-submit.edit-del
           overflow: auto;
           border: 1px dotted #999;
           border-width: 1px 0;
-          width: 18em; max-width: 18em;
+          width: 17em; max-width: 17em;
           height: 12.5em; max-height: 12.5em;
         }
-        #page.viewport-sub-1100 form#log-filter-form div#log_filter_criteria div.filter-conditions div div.log-filter-type-container {
-          width: 17em; max-width: 17em;
-        }
         form#log-filter-form div#log_filter_criteria div.filter-conditions div div.log-filter-user {
-          padding: 0px 0 10px 0;
+          padding-bottom: 1em;
           border-bottom: 1px dotted #999;
         }
           form#log-filter-form div#log_filter_criteria div.filter-conditions div div.log-filter-user:after {
@@ -257,53 +257,34 @@ form#log-filter-form fieldset#edit-filter-filter-edit input.form-submit.edit-del
           }
           form#log-filter-form div#log_filter_criteria div.filter-conditions div div.log-filter-user > div {
             float: left;
-            padding-top: 0;
-            margin-right: 15px;
           }
             form#log-filter-form div#log_filter_criteria div.filter-conditions div div.log-filter-user div.form-item-log-filter-role select {
               max-width: 11em;
             }
-            #page.viewport-sub-1100 form#log-filter-form div#log_filter_criteria div.filter-conditions div div.log-filter-user div.form-item-log-filter-role select {
-              max-width: 10em;
-            }
           form#log-filter-form div#log_filter_criteria div.filter-conditions div div.log-filter-user div.log-filter-role-or {
-            margin-top: 18px;
+            margin: 1.6em 1em 0 1em;
           }
           form#log-filter-form div#log_filter_criteria div.filter-conditions div div div.form-item.form-item-log-filter-uid {
-            margin-right: 0;
           }
             form#log-filter-form div#log_filter_criteria div.filter-conditions div div div.form-item.form-item-log-filter-uid input {
               text-align: right;
-              max-width: 5em;
-            }
-            #page.viewport-sub-1100 form#log-filter-form div#log_filter_criteria div.filter-conditions div div div.form-item.form-item-log-filter-uid input {
               max-width: 4em;
             }
         form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-hostname {
-          padding: 8px 0 4px 0;
+          padding: 0.8em 0 0.2em 0;
         }
         form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-location,
         form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-referer {
-          padding: 2px 0;
+          padding: 0.2em 0;
         }
           form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-hostname label,
           form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-location label,
           form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-referer label {
             font-size: 0.92em;
           }
-          form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-hostname input {
-            width: 18em;
-          }
+          form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-hostname input,
           form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-location input,
           form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-referer input {
-            width: 320px;
-          }
-          #page.viewport-sub-1250 form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-location input,
-          #page.viewport-sub-1250 form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-referer input {
-            width: 280px;
-          }
-          #page.viewport-sub-1100 form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-location input,
-          #page.viewport-sub-1100 form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-referer input {
             width: 18em;
           }
 
@@ -369,44 +350,25 @@ form#log-filter-form fieldset#edit-filter-filter-edit input.form-submit.edit-del
 
     /* filter */
     form#log-filter-form div#log_filter_filters {
-      margin: 2px 0 0 0;
-      min-width: none;  /*min-height: 262px;*/
+      margin-top: 0.1em;
+      max-width: 19.5em;
       background-color: #E2E2E2;
     }
-    #page.viewport-sub-970 form#log-filter-form div#log_filter_filters {
-      min-width: 100%;  min-height: auto;
-    }
-      #page.viewport-sub-970 form#log-filter-form div#log_filter_filters:after { /* for small screens */
-        /* clearfix */ clear:both; content:"."; display:block; height:0; visibility:hidden; font-size:0;
-      }
-      #page.viewport-sub-970 form#log-filter-form div#log_filter_filters > div {
-        float: left;
-      }
       form#log-filter-form div#log_filter_filters > div#log_filter_box_filter {
-        padding: 8px 15px 0px 0;
         height: 17em; min-height: 17em;
       }
-      #page.viewport-sub-970 form#log-filter-form div#log_filter_filters > div#log_filter_box_filter {
-        padding-right: 0;
-        height: auto; min-height: auto;
-      }
-        #page.viewport-sub-970 form#log-filter-form  div#log_filter_filters > div:after {
+        form#log-filter-form  div#log_filter_filters > div:after {
           /* clearfix */ clear:both; content:"."; display:block; height:0; visibility:hidden; font-size:0;
         }
-        #page.viewport-sub-970 form#log-filter-form  div#log_filter_filters > div > div {
-          float: left;
-        }
-        #page.viewport-sub-970 form#log-filter-form  div#log_filter_filters > div > div.log-filter-delete-logs-button {
-          float: right;
-        }
         form#log-filter-form div#log_filter_filters > div > div {
+          float: left;
+          padding: 1em 1.3em 0 1.3em;
         }
         form#log-filter-form div#log_filter_filters > div div.form-item-log-filter-filter {
-          padding: 0 0 9px 15px;
-          margin: 0;
+
         }
           form#log-filter-form div#log_filter_filters > div div.form-item-log-filter-filter label {
-            padding-bottom: 3px;
+            padding-bottom: 0.2em;
           }
           form#log-filter-form div#log_filter_filters > div div.form-item-log-filter-filter select {
             width: 16em; max-width: 16em;
@@ -420,116 +382,58 @@ form#log-filter-form fieldset#edit-filter-filter-edit input.form-submit.edit-del
             form#log-filter-form div#log_filter_filters > div div.form-item-log-filter-filter option:selected {
               font-size: 1.05em;  font-weight: bold; /* doesnt work; setting directly on select work */
             }
-        form#log-filter-form div#log_filter_filters > div > div.log-filter-button,
-        form#log-filter-form div#log_filter_filters > div > div.log-filter-edit-create > div.log-filter-button,
-        form#log-filter-form div#log_filter_filters > div > div.log-filter-cancel-save > div.log-filter-button,
-        form#log-filter-form div#log_filter_filters > div > div.form-item-log-filter-only-own,
-        form#log-filter-form div#log_filter_filters > div > div.log-filter-set-name,
-        form#log-filter-form div#log_filter_filters > div > div.form-item-log-filter-description,
-        form#log-filter-form div#log_filter_filters > div > div.form-item-log-filter-require-admin {
-          padding: 0 0 0 15px;
-          margin: 0;
-        }
         form#log-filter-form div#log_filter_filters > div div.form-item-log-filter-only-own {
           display: none;
-          margin-bottom: 15px;
         }
-        #page.viewport-sub-970 form#log-filter-form div#log_filter_filters > div div.form-item-log-filter-only-own {
-          margin: 13px 0 0;
+        form#log-filter-form div#log_filter_filters > div div.form-item-log-filter-only-own label {
+          font-weight: bold;
         }
-          form#log-filter-form div#log_filter_filters > div div.form-item-log-filter-only-own label {
-            font-weight: bold;
-          }
-            form#log-filter-form div#log_filter_filters > div > div.log-filter-edit-create input.form-button,
-            form#log-filter-form div#log_filter_filters > div > div.log-filter-set-name input.form-button,
-            form#log-filter-form div#log_filter_filters > div > div.log-filter-button.log-filter-delete input.form-button {
-              margin-top: 6px; margin-bottom: 8px;
-            }
-            form#log-filter-form div#log_filter_filters > div > div.log-filter-cancel-save input.form-button {
-              margin-top: 15px;
-            }
-            #page.viewport-sub-970 form#log-filter-form  div#log_filter_filters > div > div.log-filter-edit-create input.form-button,
-            #page.viewport-sub-970 form#log-filter-form  div#log_filter_filters > div > div.log-filter-cancel-save input.form-button,
-            #page.viewport-sub-970 form#log-filter-form  div#log_filter_filters > div > div.log-filter-button.log-filter-delete input.form-button,
-            #page.viewport-sub-970 form#log-filter-form  div#log_filter_filters > div > div.log-filter-set-name input.form-button {
-              margin-top: 12px; margin-bottom: 15px;
-            }
         form#log-filter-form div#log_filter_filters > div > div.log-filter-edit-create {
+          width: 16.5em;
         }
           form#log-filter-form div#log_filter_filters > div > div.log-filter-edit-create:after {
             /* clearfix */ clear:both; content:"."; display:block; height:0; visibility:hidden; font-size:0;
           }
-          form#log-filter-form div#log_filter_filters > div > div.log-filter-edit-create > div.log-filter-button.log-filter-edit {
+          form#log-filter-form div#log_filter_filters > div > div.log-filter-edit-create input[name="log_filter_edit"] {
+            display: block;
             float: left;
           }
-            form#log-filter-form div#log_filter_filters > div > div.log-filter-edit-create > div.log-filter-button.log-filter-edit input {
-              min-width: 70px;
-              margin-right: 10px;
-            }
-          form#log-filter-form div#log_filter_filters > div > div.log-filter-edit-create > div.log-filter-button.log-filter-create {
+          form#log-filter-form div#log_filter_filters > div > div.log-filter-edit-create input[name="log_filter_create"] {
+            display: block;
             float: right;
           }
+        form#log-filter-form div#log_filter_filters > div > div.form-item-log-filter-name-suggest {
+          display: none;
+        }
+          form#log-filter-form div#log_filter_filters > div > div.form-item-log-filter-name-suggest input {
+            width: 16em;
+          }
         form#log-filter-form div#log_filter_filters > div > div.log-filter-cancel-save {
+          width: 16.5em;
         }
           form#log-filter-form div#log_filter_filters > div > div.log-filter-cancel-save:after {
             /* clearfix */ clear:both; content:"."; display:block; height:0; visibility:hidden; font-size:0;
           }
-          form#log-filter-form div#log_filter_filters > div > div.log-filter-cancel-save > div.log-filter-button.log-filter-cancel {
+          form#log-filter-form div#log_filter_filters > div > div.log-filter-cancel-save > input[name="log_filter_cancel"] {
+            display: block;
             float: left;
           }
-          form#log-filter-form div#log_filter_filters > div > div.log-filter-cancel-save > div.log-filter-button.log-filter-save {
+          form#log-filter-form div#log_filter_filters > div > div.log-filter-cancel-save > input[name="log_filter_save"] {
+            display: block;
             float: right;
           }
-            form#log-filter-form div#log_filter_filters > div > div.log-filter-cancel-save > div.log-filter-button.log-filter-save input {
-              min-width: 70px;
-            }
-          form#log-filter-form div#log_filter_filters > div > div.log-filter-cancel-save.log-filter-reversed-button-sequence > div.log-filter-button.log-filter-cancel {
+          form#log-filter-form div#log_filter_filters > div > div.log-filter-cancel-save.log-filter-reversed-button-sequence > input[name="log_filter_cancel"] {
             float: right;
           }
-          form#log-filter-form div#log_filter_filters > div > div.log-filter-cancel-save.log-filter-reversed-button-sequence > div.log-filter-button.log-filter-save {
+          form#log-filter-form div#log_filter_filters > div > div.log-filter-cancel-save.log-filter-reversed-button-sequence > input[name="log_filter_save"] {
             float: left;
-          }
-
-        form#log-filter-form div#log_filter_filters > div > div.log-filter-set-name {
-          display: none;
-          max-width: 205px; /* otherwise chrome makes it too wide, for no apparant reason */
-        }
-          form#log-filter-form div#log_filter_filters > div > div.log-filter-set-name:after {
-            /* clearfix */ clear:both; content:"."; display:block; height:0; visibility:hidden; font-size:0;
-          }
-          form#log-filter-form div#log_filter_filters > div > div.log-filter-set-name > label {
-            float: left;
-          }
-          form#log-filter-form div#log_filter_filters > div > div.log-filter-set-name > div.form-item-log-filter-name-suggest {
-            float: left;
-            clear: left;
-            padding: 0;
-            margin: 0;
-          }
-          form#log-filter-form div#log_filter_filters > div > div.log-filter-set-name input.form-button {
-            margin: 0 0 15px 0;
-          }
-            form#log-filter-form div#log_filter_filters > div > div.log-filter-set-name > div.form-item-log-filter-name-suggest input[type="text"] {
-              width: 150px;
-            }
-          form#log-filter-form div#log_filter_filters > div > div.log-filter-set-name > div.log-filter-button {
-            float: left;
-            position: relative;  top: -1px;
           }
         form#log-filter-form div#log_filter_filters > div div.form-item-log-filter-description {
           display: none;
         }
           form#log-filter-form div#log_filter_filters > div div.form-item-log-filter-description textarea {
-            width: 195px;
-            max-height: 40px; /* gecko always adds an extra row to textarea */
-          }
-        form#log-filter-form div#log_filter_filters > div div.log-filter-button.log-filter-delete {
-        }
-          form#log-filter-form div#log_filter_filters > div div.log-filter-button.log-filter-delete:after {
-            /* clearfix */ clear:both; content:"."; display:block; height:0; visibility:hidden; font-size:0;
-          }
-          form#log-filter-form div#log_filter_filters > div div.log-filter-button.log-filter-delete input {
-            float: right;
+            width: 16em;
+            max-height: 3em; /* gecko always adds an extra row to textarea */
           }
         form#log-filter-form div#log_filter_filters > div div.form-item-log-filter-require-admin {
           display: none;
@@ -630,6 +534,9 @@ form#log-filter-form div#log_filter_list_controls {
     form#log-filter-form div#log_filter_list_controls > div.form-item-log-filter-pager-range input {
       display: block;
       float: left;
+    }
+    form#log-filter-form div#log_filter_list_controls > div.form-item-log-filter-pager-range label {
+      margin-right: 0.5em;
     }
   form#log-filter-form div#log_filter_list_controls > div.form-item-log-filter-cache {
 

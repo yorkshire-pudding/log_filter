@@ -568,8 +568,7 @@ class LogFilter {
                   'class' => array('form-submit', 'theme-' . $theme),
                   'style' => 'display:none;',
               ),
-              '#prefix' => '<div class="log-filter-edit-create"><div class="log-filter-button log-filter-edit">',
-              '#suffix' => '</div>',
+              '#prefix' => '<div class="log-filter-edit-create">',
           ),
           'log_filter_create' => !$allow_filter_edit ? array() : // (2 open)
           array( // End: log-filter-edit (2 open)
@@ -582,32 +581,18 @@ class LogFilter {
                   'class' => array('form-submit', 'theme-' . $theme),
                   'style' => 'display:none;',
               ),
-              '#prefix' => '<div class="log-filter-button log-filter-create">',
-              '#suffix' => '</div></div>',
+              '#suffix' => '</div>',
           ),
           'log_filter_name_suggest' => !$allow_filter_edit ? array() : // (2 open)
-          array( // (3 open)
+          array( // (2 open)
               '#type' => 'textfield',
+              '#title' => t('Name'),
               '#default_value' => '', // Only used frontend.
               '#size' => 32,
               '#attributes' => array(
                   'maxlength' => 32,
                   'autocomplete' => 'off',
                ),
-               '#prefix' => '<div class="log-filter-set-name"><label>' . t('Name') . '</label>',
-          ),
-          'log_filter_set_name' => !$allow_filter_edit ? array() : // (2 open)
-          array( // End: log-filter-set-name (2 open).
-              '#type' => 'button',
-              '#name' => 'log_filter_set_name',
-              '#value' => t('Set'),
-              '#button_type' => 'button', // Doesnt work; still type:submit.
-              '#attributes' => array(
-                  'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit', 'theme-' . $theme),
-              ),
-              '#prefix' => '<div class="log-filter-button">',
-              '#suffix' => '</div></div>',
           ),
           'log_filter_require_admin' => !$allow_filter_edit || !$user_admin_permission ? array() : // (2 open)
           array( // (2 open)
@@ -631,20 +616,6 @@ class LogFilter {
                   'title' => ($title_require_admin = t('Require the \'Administer log filtering\' permission.')),
                ),
           ),
-          'log_filter_delete' => !$allow_filter_edit ? array() : // (2 open)
-          array( // (2 open)
-              '#type' => 'button',
-              '#name' => 'log_filter_delete',
-              '#value' => t('Delete filter'),
-              '#button_type' => 'button', // Doesnt work; still type:submit.
-              '#attributes' => array(
-                  'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit', 'edit-delete', 'theme-' . $theme),
-                  'style' => 'display:none;',
-              ),
-              '#prefix' => '<div class="log-filter-button log-filter-delete">',
-              '#suffix' => '</div>',
-          ),
           'log_filter_cancel' => !$allow_filter_edit ? array() : // (2 open)
           array( // (3 open)
               '#type' => 'button',
@@ -657,14 +628,12 @@ class LogFilter {
                   'style' => 'display:none;',
               ),
               '#prefix' => '<div class="log-filter-cancel-save'
-                  . (strpos(strtolower(PHP_OS), 'win') === 0 ? ' log-filter-reversed-button-sequence' : '') . '">'
-                  . '<div class="log-filter-button log-filter-cancel">',
-              '#suffix' => '</div>',
+                  . (strpos(strtolower(PHP_OS), 'win') === 0 ? ' log-filter-reversed-button-sequence' : '') . '">',
           ),
           'log_filter_save' => !$allow_filter_edit ? array( // End: log_filter_box_filter (1 open)
               '#type' => 'markup',
               '#markup' => '</div>',
-          ) : array( // End: log_filter_box_filter (1 open)
+          ) : array( // End: log_filter_box_filter (2 open)
               '#type' => 'button',
               '#name' => 'log_filter_save',
               '#value' => t('Save'),
@@ -674,8 +643,20 @@ class LogFilter {
                   'class' => array('form-submit', 'theme-' . $theme),
                   'style' => 'display:none;',
               ),
-              '#prefix' => '<div class="log-filter-button log-filter-save">',
-              '#suffix' => '</div></div></div>',
+              '#suffix' => '</div>',
+          ),
+          'log_filter_delete' => !$allow_filter_edit ? array() : // (2 open)
+          array( // (1 open)
+              '#type' => 'button',
+              '#name' => 'log_filter_delete',
+              '#value' => t('Delete filter'),
+              '#button_type' => 'button', // Doesnt work; still type:submit.
+              '#attributes' => array(
+                  'type' => 'button', // Doesnt work; still type:submit.
+                  'class' => array('form-submit', 'edit-delete', 'theme-' . $theme),
+                  'style' => 'display:none;',
+              ),
+              '#suffix' => '</div>',
           ),
           'log_filter_delete_logs_button' => !($allow_delete_logs = user_access('log_filter remove logs')) ? array( // (0 open)
               '#type' => 'markup',
@@ -1321,7 +1302,7 @@ class LogFilter {
     flush();
     exit;
   }
-  
+
   /**
    * @param Exception $xc
    * @param integer $severity
