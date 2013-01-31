@@ -183,4 +183,5 @@ function log_filter_install() {
 function log_filter_uninstall() {
   variable_del('log_filter_hidedblog');
   variable_del('log_filter_trnct');
+  variable_del('log_filter_css');
 }

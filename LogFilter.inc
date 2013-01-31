@@ -79,10 +79,12 @@ class LogFilter {
     //  Get jQuery UI dialog - because gecko's confirm()-dialog isnt draggable :-(
     drupal_add_library("system", "ui.dialog");
 
-    drupal_add_css(
-        $path . '/css/log_filter.css',
-        array('type' => 'file', 'group' => CSS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
-    );
+    if (variable_get('log_filter_css', TRUE)) {
+      drupal_add_css(
+          $path . '/css/log_filter.css',
+          array('type' => 'file', 'group' => CSS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
+      );
+    }
     drupal_add_js(
         $path . '/js/log_filter.js',
         array('type' => 'file', 'group' => JS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
@@ -571,7 +573,7 @@ class LogFilter {
               '#prefix' => '<div class="log-filter-edit-create">',
           ),
           'log_filter_create' => !$allow_filter_edit ? array() : // (2 open)
-          array( // End: log-filter-edit (2 open)
+          array( // (2 open)
               '#type' => 'button',
               '#name' => 'log_filter_create',
               '#value' => t('Save as...'),
@@ -672,8 +674,7 @@ class LogFilter {
                   'class' => array('form-submit', 'edit-delete', 'theme-' . $theme),
                   'style' => 'display:none;',
               ),
-              '#prefix' => '<div id="log_filter_box_delete_logs"><div class="log-filter-button log-filter-delete-logs-button">',
-              '#suffix' => '</div>',
+              '#prefix' => '<div id="log_filter_box_delete_logs">',
           ),
           'log_filter_delete_logs_max' => !$allow_delete_logs ? array( // (0 open)
           ) :
@@ -1150,54 +1151,6 @@ class LogFilter {
     }
   }
 
-  /**
-   * Defines log removal form and GUI.
-   *
-   * @param array $form
-   * @param array &$form_state
-   * @return array
-   */
-  public static function removerForm($form, &$form_state) {
-    $path = drupal_get_path('module', 'log_filter');
-    drupal_add_css(
-        $path . '/css/log_filter.css',
-        array('type' => 'file', 'group' => CSS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
-    );
-
-    try {
-      $form = array();
-
-      //  Add our submit form;
-      $form['#submit'][] = '_log_filter_remove_form_submit';
-      return $form;
-    }
-    catch (Exception $xc) {
-      self::_errorHandler($xc);
-      drupal_set_message($xc->getMessage(), 'error');
-      return array();
-    }
-  }
-
-  /**
-   * Called when log removal form submits.
-   *
-   * @param array $form
-   * @param array &$form_state
-   * @return void
-   */
-  public static function removerFormSubmit($form, &$form_state) {
-    try {
-      //inspect($form_state['values']);
-      $values =& $form_state['values'];
-      $prefix = 'log_filter_';
-    }
-    catch (Exception $xc) {
-      self::_errorHandler($xc);
-      drupal_set_message($xc->getMessage(), 'error');
-    }
-  }
-
-
   protected static function _listLogs() {
     //  @todo: order by time must always be combined with order by log id, otherwise the actual temporal order may get wrong.
   }
@@ -1344,28 +1297,4 @@ function log_filter_form($form, &$form_state) {
  */
 function _log_filter_form_submit($form, &$form_state) {
   LogFilter::viewerFormSubmit($form, $form_state);
-}
-
-/**
- * Defines log removal form and GUI.
- *
- * Function name not underscore prefixed to prevent html form id starting with hyphen (unhealthy naming).
- *
- * @param array $form
- * @param array &$form_state
- * @return array
- */
-function log_filter_remove_form($form, &$form_state) {
-  return LogFilter::removerForm($form, $form_state);
-}
-
-/**
- * Called when log removal form submits.
- *
- * @param array $form
- * @param array &$form_state
- * @return void
- */
-function _log_filter_remove_form_submit($form, &$form_state) {
-  LogFilter::removerFormSubmit($form, $form_state);
 }

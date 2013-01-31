@@ -15,10 +15,12 @@
  *   - the return value of system_settings_form()
  */
 function _log_filter_admin_form($form, &$form_state) {
-  drupal_add_css(
-      ($path = drupal_get_path('module', 'log_filter')) . '/admin/log_filter.admin.css',
-      array('type' => 'file', 'group' => CSS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
-  );
+  if (variable_get('log_filter_css', TRUE)) {
+    drupal_add_css(
+        ($path = drupal_get_path('module', 'log_filter')) . '/admin/log_filter.admin.css',
+        array('type' => 'file', 'group' => CSS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
+    );
+  }
   //  Clear menu cache if just submitted.
   if (!empty($_SESSION) && !empty($_SESSION['module']) && !empty($_SESSION['module']['log_filter'])
       && array_key_exists('admin_form_submitted', $_SESSION['module']['log_filter'])) {
@@ -48,6 +50,13 @@ function _log_filter_admin_form($form, &$form_state) {
           '#default_value' => variable_get('log_filter_trnct', 100),
           '#attributes' => array('autocomplete' => 'off'),
           '#size' => 3,
+      ),
+      'log_filter_css' => array(
+          '#type' => 'checkbox',
+          '#title' => t('Link this module\'s default stylesheet'),
+          '#description' => t('Otherwise, implement styling in the site\'s theme layer.'),
+          '#default_value' => variable_get('log_filter_css', TRUE),
+          '#attributes' => array('autocomplete' => 'off'),
       ),
   );
 
