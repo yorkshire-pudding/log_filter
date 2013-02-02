@@ -120,11 +120,19 @@ form#log-filter-form input.form-submit.theme-seven {
   border-radius: 11px;
   padding: 2px 8px 3px;
 }
+form#log-filter-form input.theme-seven.form-button-disabled,
+form#log-filter-form input.theme-seven.form-button-disabled:hover,
+form#log-filter-form input.theme-seven.form-button-disabled:active {
+  background-color: #EFEFEF;
+  border-color: #EFEFEF;
+  color: #666;
+}
 
 
 
 #page.log-filter-viewport-small form#log-filter-form fieldset#edit-log-filter-filter-edit {
-  max-width: 64em;
+  /* ~ #page.log-filter-viewport-small form#log-filter-form div#log_filter_filters */
+  max-width: 67em;
 }
   form#log-filter-form fieldset#edit-filter-filter-edit .fieldset-legend span {
     text-transform: none;
@@ -164,40 +172,49 @@ form#log-filter-form input.form-submit.theme-seven {
 
         form#log-filter-form div#log_filter_criteria div.filter-conditions div.form-item.log-filter-time {
           overflow: hidden;
+          /* ~ form#log-filter-form div#log_filter_criteria div.filter-orderby > label:first-child */
           padding: 0.8em 1em 0 1.3em;
-          width: 8em; max-width: 8em;
+          width: 11em; max-width: 11em;
+
           height: 17em; max-height: 17em;
           background-color: #E2E2E2;
           border: 0;
         }
           form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-time-range {
-            margin-top: 1em;
+            margin-top: 0.4em;
           }
-            form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-time-range label {
-              display: inline;
-            }
             form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-time-range input {
               display: inline-block;
               width: 2.5em;
               text-align: right;
             }
           form#log-filter-form div#log_filter_criteria div.filter-conditions div div.log-filter-time-or {
-            padding: 0.5em 0 0.4em 0.2em;
+            padding: 0.6em 0 0.5em 0.2em;
           }
           form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-time-to-proxy {
-            margin-top: 0.5em;
+            margin-top: 0.6em;
           }
             form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-time-range label,
             form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-time-from-proxy label,
-            form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-time-to-proxy label {
+            form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-time-to-proxy label,
+            form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-type-wildcard label,
+            form#log-filter-form div#log_filter_criteria div.filter-conditions div#edit-log-filter-severity.form-checkboxes div.form-item:first-child label {
               font-size: 0.92em;
             }
-
+            form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-time-from-proxy input,
+            form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-time-to-proxy input {
+              width: 5.5em;
+            }
+            form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item input[name="log_filter_time_from_time"],
+            form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item input[name="log_filter_time_to_time"] {
+              width: 4em;
+            }
           form#log-filter-form div#log_filter_criteria div.filter-conditions div.form-item.form-type-checkbox {
             padding: 0 0.1em;
           }
           form#log-filter-form div#log_filter_criteria div.filter-conditions div#edit-log-filter-severity.form-checkboxes div.form-item:first-child {
-            margin: 0.3em 0 0.4em;
+            margin-top: 0.4em;
+            margin-bottom: 0.3em;
           }
             form#log-filter-form div#log_filter_criteria div.filter-conditions div#edit-log-filter-severity.form-checkboxes div.form-item:first-child label {
               color: #666;
@@ -211,7 +228,8 @@ form#log-filter-form input.form-submit.theme-seven {
           padding: 0.8em 1.2em 0 1.1em;
         }
           form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-type-wildcard {
-            margin: 0.3em 0 0.4em;
+            margin-top: 0.4em;
+            margin-bottom: 0.3em;
           }
             form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-type-wildcard label {
               color: #666;
@@ -285,9 +303,10 @@ form#log-filter-form input.form-submit.theme-seven {
         background-color: #FFF;
       }
         form#log-filter-form div#log_filter_criteria div.filter-orderby > label:first-child {
+          /* ~ form#log-filter-form div#log_filter_criteria div.filter-conditions div.form-item.log-filter-time */
           padding-left: 1.3em;
           padding-right: 2em;
-          width: 7em; max-width: 7em;
+          width: 10em; max-width: 10em;
           text-align: right;
         }
         form#log-filter-form div#log_filter_criteria div.filter-orderby:after {
@@ -331,7 +350,9 @@ form#log-filter-form input.form-submit.theme-seven {
       background-color: #E2E2E2;
     }
     #page.log-filter-viewport-small form#log-filter-form div#log_filter_filters {
-      width: auto; max-width: none; min-width: 61em;
+      /* ~ #page.log-filter-viewport-small form#log-filter-form fieldset#edit-log-filter-filter-edit */
+      width: auto; max-width: none; min-width: 64em;
+
       height: auto; min-height: auto;
     }
     form#log-filter-form div#log_filter_filters:after {

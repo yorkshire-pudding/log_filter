@@ -48,7 +48,7 @@ var LogFilter = function($) {
       referer: "",
       orderBy: []
     },
-    warnedDeleteNoMax: false
+    warned_deleteNoMax: false
   },
   /**
    * @private
@@ -157,11 +157,12 @@ var LogFilter = function($) {
   _filters = [],
 
   //  Declare private methods, to make IDEs list them
-  _errorHandler, _oGet, _toLeading, _toAscii, _innerWidth, _innerHeight, _outerHeight, _dateFromFormat,
-  _selectValue, _checklistValue, _textareaRemoveWrapper, _disable, _enable, _readOnly, _readWrite,
+  _errorHandler, _oGet, _toLeading, _toAscii, _innerWidth, _innerHeight, _outerHeight, _dateFromFormat, _dateToFormat, _timeFormat,
+  _selectValue, _checklistValue, _textareaRemoveWrapper, _disable, _enable, _readOnly, _readWrite, _focus,
   _machineNameConvert, _machineNameIllegals, _machineNameValidate,
+  _validateTimeSequence,
   _resize, _overlayResize, _overlayDisplay,
-  _setUrlParam, _setFormActionParam, _submit, _prepareForm, _setMode, _crudRelay, _changedCriterion, _resetCriteria, _getCriteria, _deleteLogs,
+  _setUrlParam, _submit, _prepareForm, _setMode, _crudRelay, _changedCriterion, _resetCriteria, _getCriteria, _deleteLogs,
   _ajaxResponse, _ajaxRequest;
   /**
    * @ignore
@@ -312,8 +313,6 @@ var LogFilter = function($) {
    * - DD.MM.YYYY
    *
    * No support for hours etc.
-   * @function
-   * @name judy.dateFromFormat
    * @param {str} s
    * @param {str} [format]
    *  - default: YYYY-MM-DD
@@ -384,9 +383,133 @@ var LogFilter = function($) {
         return null;
     }
     dt.setFullYear(y, m - 1, d );
-    dt.setHours(0, 0, 1);
-    dt.setMilliseconds(1);
+    dt.setHours(0, 0, 0);
+    dt.setMilliseconds(0);
     return dt;
+  };
+  /**
+   * Nicked from Judy.
+   *
+   * Translate a Date into a string - like the value of a text field.
+   *
+   * Supported formats, dot means any (non-YMD) character:
+   * - YYYY.MM.DD [HH][:II][:SS][ mmm]
+   * - MM.DD.YYYY [HH][:II][:SS][ mmm]
+   * - DD.MM.YYYY [HH][:II][:SS][ mmm]
+   *
+   * @param {Date} dt
+   *  - no default, because empty/wrong arg must be detectable
+   * @param {str} [format]
+   *  - default: YYYY-MM-DD, omitting hours etc.
+   * @return {str}
+   *  - empty if arg dt isnt Date object, or unsupported format
+   */
+  _dateToFormat = function(dt, format) {
+    var fmt = format || "YYYY-MM-DD", le, y, m, d, s, a, b;
+    if(!dt || typeof dt !== "object" || !dt.getFullYear) {
+      alert(1);
+      return "";
+    }
+    y = dt.getFullYear();
+    m = _toLeading(dt.getMonth() + 1, 2);
+    d = _toLeading(dt.getDate(), 2);
+    if((a = (s = fmt.substr(0, 10)).replace(/[MDY]/g, "")).length < 2) {
+      return "";
+    }
+    b = a.charAt(1);
+    a = a.charAt(0);
+    switch(s.replace(/[^MDY]/g, "")) {
+      case "YYYYMMDD":
+        s = y + a + m + b + d;
+        break;
+      case "MMDDYYYY":
+        s = m + a + d + b + y;
+        break;
+      case "DDMMYYYY":
+        s = d + a + m + b + y;
+        break;
+      default:
+        return "";
+    }
+    if((le = fmt.length) > 11) {
+      s += " " + _toLeading(dt.getHours(), 2);
+      if(le > 14) {
+        s += ":" + _toLeading(dt.getMinutes(), 2);
+        if(le > 17) {
+          s += ":" + _toLeading(dt.getSeconds(), 2);
+          if(le > 20) {
+            s += " " + _toLeading(dt.getMilliseconds(), 3);
+          }
+        }
+      }
+    }
+    return s;
+  };
+  /**
+   * Modifies a date with evaluated value of a time string, or creates time string based upon the date.
+   *
+   * If hours evaluate to 24:
+   * - if minutes and seconds are zero, then converts to 23:59:59; because 00:00:00 is today, whereas 24:00:00 is tomorrow
+   * - otherwise sets hours as zero
+   *
+   * @param {Date|falsy} [date]
+   *  - default: now
+   * @param {string|falsy} [sTime]
+   *  - default: 00:00:00
+   *  - any kinds of delimiters are supported; only looks for integers
+   *  - N, NN, NNNN and NNNNNN are also supported
+   * @return {string}
+   *  - time NN:NN:NN
+   */
+  _timeFormat = function(date, sTime) {
+    var d = date || new Date(), t = sTime ? $.trim(sTime) : 0, h = 0, i = 0, s = 0, le, v;
+    //  Modify date.
+    if(t) {
+      if(/^\d+$/.test(t)) {
+        h = t.substr(0, 2);
+        if((le = t.length) > 3) {
+          i = t.substr(2, 2);
+          if(le > 5) {
+            s = t.substr(4, 2);
+          }
+        }
+      }
+      else if( (le = (t = t.split(/[^\d]/)).length) ) {
+        h = t[0];
+        if(le > 1) {
+          i = t[1];
+          if(le > 2) {
+            s = t[2];
+          }
+        }
+      }
+      if(h) {
+        h = isFinite(v = parseInt(h, 10)) && v < 25 ? v : 0;
+        if(i) {
+          i = isFinite(v = parseInt(i, 10)) && v < 60 ? v : 0;
+        }
+        if(s) {
+          s = isFinite(v = parseInt(s, 10)) && v < 60 ? v : 0;
+        }
+        if(h === 24) {
+          if(!i && !s) {
+            h = 23;
+            i = s = 59;
+          }
+          else {
+            h = 0;
+          }
+        }
+      }
+      d.setHours(h, i, s);
+    }
+    //  Create time string from date.
+    else {
+      h = d.getHours();
+      i = d.getMinutes();
+      s = d.getSeconds();
+    }
+    return "" + (h < 10 ? "0" : "") + h + ":" + (i < 10 ? "0" : "") + i + ":" + (s < 10 ? "0" : "") + s;
   };
   /**
    * Nicked from Judy.
@@ -524,6 +647,7 @@ var LogFilter = function($) {
    * @param {element|array} elm
    * @param {string|falsy} [hoverTitle]
    *  - string: update the element's (hover) title attribute
+   * @return {void}
    */
   _disable = function(elm, hoverTitle) {
     var le, i;
@@ -557,6 +681,7 @@ var LogFilter = function($) {
    * @param {element|array} elm
    * @param {string|falsy} [hoverTitle]
    *  - string: update the element's (hover) title attribute
+   * @return {void}
    */
   _enable = function(elm, hoverTitle) {
     var le, i;
@@ -588,6 +713,7 @@ var LogFilter = function($) {
    * @param {element} elm
    * @param {string|falsy} [hoverTitle]
    *  - string: update the element's (hover) title attribute
+   * @return {void}
    */
   _readOnly = function(elm, hoverTitle) {
     elm.readOnly = true;
@@ -617,6 +743,7 @@ var LogFilter = function($) {
    * @param {element} elm
    * @param {string|falsy} [hoverTitle]
    *  - string: update the element's (hover) title attribute
+   * @return {void}
    */
   _readWrite = function(elm, hoverTitle) {
     elm.readOnly = false;
@@ -634,6 +761,18 @@ var LogFilter = function($) {
         break;
     }
     $(elm).removeClass("form-item-readonly");
+  };
+  /**
+   * @param {element} elm
+   * @return {void}
+   */
+  _focus = function(elm) {
+    setTimeout(function() {
+      try {
+        elm.focus();
+      }
+      catch(er) {}
+    });
   };
   _toAscii.needles = [
     //  iso-8859-1
@@ -712,15 +851,30 @@ var LogFilter = function($) {
    * @param {element} [elm]
    *  - default: falsy (~ use arg value)
    * @param {string} [value]
+   * @param {bool} [noFeedback]
+   *  - default: false (~ do pop alert upon validation failure)
    * @return {void}
    */
-  _machineNameValidate = function(evt, elm, value) {
+  _machineNameValidate = function(evt, elm, value, noFeedback) {
     var v = evt ? this.value : (elm ? elm.value : value), le = v.length;
     if(le < 2 || le > 32 || !/[a-z_]/.test(v.charAt(0)) || !/[a-z\d_]/.test(v) || $.inArray(v.toLowerCase(), _machineNameIllegals) > -1) {
-      alert( self.local("machineName", {"!illegals": _machineNameIllegals.join(", ")}) );
+      if(!noFeedback) {
+        alert( self.local("machineName", {"!illegals": _machineNameIllegals.join(", ")}) );
+      }
       return false;
     }
     return true;
+  };
+  /**
+   * @param {string} nm
+   * @return {void}
+   */
+  _validateTimeSequence = function(nm) {
+    var o = _elements.conditions, v, from = (v = o.time_from.value) ? parseInt(v, 10) : 0, to;
+    if(from && (to = (v = o.time_to.value) ? parseInt(v, 10) : 0) && from > to) {
+      o[ "time_" + nm ].value = o[ "time_" + nm + "_proxy" ].value = o[ "time_" + nm + "_time" ].value = "";
+      alert(self.local("invalid_timeSequence_" + nm));
+    }
   };
 	/**
    * @param {Event} [evt]
@@ -837,23 +991,15 @@ var LogFilter = function($) {
     return u + (a.length ? ("?" + a.join("&")) : "");
   };
   /**
-   * @param {string|object} name
-   * @param {string|number|falsy} [value]
-   *  - ignored if arg name is object
-   *  - falsy and not zero: unsets the parameter
-   * @return [void}
-   */
-  _setFormActionParam = function(name, value) {
-    _elements.form.setAttribute(
-        "action",
-        _setUrlParam(_elements.form.getAttribute("action", name, value))
-    );
-  };
-  /**
    * @return {void}
    */
   _submit = function() {
     var nm = "";
+    if(_submitted) {
+      return;
+    }
+    _submitted = true;
+    _overlayDisplay(0, null, self.local("wait"));
     switch(_.mode) {
       case "adhoc":
         nm = "adhoc";
@@ -875,7 +1021,7 @@ var LogFilter = function($) {
    * @return {void}
    */
   _prepareForm = function() {
-    var oSels, oElms, nm, jq, elm, aElms, a, le, i, v, nOrderBy;
+    var oSels, oElms, nm, jq, elm, aElms, a, le, i, v, nOrderBy, u, elm2, d;
     try {
       _elements.page = $(_selectors.page).get(0);
       _elements.form = $(_selectors.form).get(0);
@@ -975,8 +1121,10 @@ var LogFilter = function($) {
                   else {
                     (o = _elements.conditions).time_from.value =
                         o.time_from_proxy.value =
+                        o.time_from_time.value =
                         o.time_to.value =
-                        o.time_to_proxy.value = "";
+                        o.time_to_proxy.value =
+                        o.time_to_time.value = "";
                   }
                 }
                 if(v !== _.recordedValues.time_range) {
@@ -992,19 +1140,41 @@ var LogFilter = function($) {
             case "time_from_proxy":
             case "time_to_proxy":
               oElms[nm] = elm;
+              u = nm === "time_from_proxy" ? "from" : "to";
+              //  Create time field.
+              jq.after(
+                "<input class=\"form-text\" type=\"text\" maxlength=\"8\" size=\"8\" value=\"\" name=\"log_filter_time_" + u + "_time\" autocomplete=\"off\" />"
+              );
               //  Put jQuery UI datepicker on time fields.
               jq.datepicker({
                 dateFormat: _.dateFormat_datepicker
               });
-              if((v = _elements.conditions[ nm === "time_from_proxy" ? "time_from" : "time_to" ].value) && (v = parseInt(v, 10))) {
-                jq.datepicker("setDate", new Date(v * 1100));
+              //  Refer time field.
+              oElms[ "time_" + u + "_time" ] = elm2 = $("input[name=\'log_filter_time_" + u + "_time\']").get(0);
+              //  Set datepicker and time field values.
+              if((v = _elements.conditions[ u === "from" ? "time_from" : "time_to" ].value) && (v = parseInt(v, 10))) {
+                jq.datepicker("setDate", d = new Date(v * 1000));
+                elm2.value = _timeFormat(d);
               }
+              //  Date proxy field handler.
               jq.change(function() {
-                var v, d, r = $("input[name=\'" + this.name.replace(/_proxy$/, "") + "\']").get(0);
+                var v, d, nm = this.name.indexOf("from") > 1 ? "from" : "to", r = _elements.conditions[ "time_" + nm ],
+                  rT = _elements.conditions[ "time_" + nm + "_time" ];
                 if((v = $.trim(this.value)).length) {
                   if((d = _dateFromFormat(v, _.dateFormat))) {
-                    r.value = Math.floor(d.getTime() / 1100);
                     _.recordedValues.time_range = _elements.conditions.time_range.value = ""; // Clear time_range.
+                    rT.value = _timeFormat(d, rT.value);
+                    r.value = v = Math.floor(d.getTime() / 1000);
+                    //  If time_to, and same as time_from, and no hours/minutes/seconds: make time_to the end of the day.
+                    if(nm === "to" && ("" + v) === _elements.conditions.time_from.value &&
+                      d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0
+                    ) {
+                      rT.value = _timeFormat(d, "24");
+                      r.value = Math.floor(d.getTime() / 1000);
+                    }
+                    else {
+                      _validateTimeSequence(nm);
+                    }
                   }
                   else {
                     alert( self.local("invalid_date", {"!date": v, "!format": _.dateFormat}) );
@@ -1013,6 +1183,19 @@ var LogFilter = function($) {
                   }
                 }
                 _changedCriterion();
+              });
+              //  Time field handler.
+              $(elm2).change(function() {
+                var nm = this.name.indexOf("from") > -1 ? "from" : "to", rD = _elements.conditions[ "time_" + nm ], d;
+                //  Cant set time when no date.
+                if(!(d = rD.value)) {
+                  this.value = "";
+                  return;
+                }
+                d = new Date(d * 1000);
+                this.value = _timeFormat(d, this.value);
+                rD.value = Math.floor(d / 1000);
+                _validateTimeSequence(nm);
               });
               break;
             case "severity_any":
@@ -1303,9 +1486,9 @@ var LogFilter = function($) {
             _enable(_elements.buttons.update_list);
           }
           if(_.crudFilters) {
+            $(_elements.settings.onlyOwn.parentNode).show();
             (elm = _elements.buttons.create).value = self.local("saveAs");
             $(elm).show();
-            $(_elements.settings.onlyOwn.parentNode).show();
             if ((elm = _elements.filter.require_admin)) {
               $(elm.parentNode).hide();
             }
@@ -1340,9 +1523,9 @@ var LogFilter = function($) {
             $(_elements.misc.title).html(self.local("adhoc"));
           }
           if(_.crudFilters) {
+            $(_elements.settings.onlyOwn.parentNode).show();
             (elm = _elements.buttons.create).value = self.local("saveAs");
             $(elm).show();
-            $(_elements.settings.onlyOwn.parentNode).show();
             if ((elm = _elements.filter.require_admin)) {
               $(elm.parentNode).hide();
             }
@@ -1534,15 +1717,13 @@ var LogFilter = function($) {
           }
           break;
         case "log_filter_save":
-          if(mode === "create") {
-            elm = _elements.filter.name_suggest;
-            v = elm.value;
-  inspect(_getCriteria());
+          if(_.mode === "create") {
             if(_ajaxRequestingBlocking) { // Prevent double-click.
               return false; // false for IE<9's sake.
             }
             //  No reason to trim(), because change handler (_machineNameChange()) replaces spaces with underscores.
-            if(!v.length || !_machineNameValidate(null, null, v)) {
+            if(!_machineNameValidate(null, null, v = (elm = _elements.filter.name_suggest).value)) {
+              _focus(elm);
               return false; // false for IE<9's sake.
             }
             if($.inArray(v, _filters) > -1) {
@@ -1553,11 +1734,13 @@ var LogFilter = function($) {
             _ajaxRequestingBlocking = true;
             _ajaxRequest("create", {
               name: v,
-              require_admin: _elements.filter.require_admin ? 1 : 0 // Create with require_admin if the element exists (the user has the permission).
+              require_admin: _elements.filter.require_admin ? 1 : 0, // Create with require_admin if the element exists (the user has the permission).
+              criteria: _getCriteria(),
+              description: $.trim(_elements.filter.description.value)
             });
           }
           else { // mode:edit
-
+            _submit();
           }
           break;
         case "log_filter_delete_logs_button":
@@ -1769,39 +1952,46 @@ var LogFilter = function($) {
     //  Actual deletion is performed via an ordinary page request; the backend submit method deletes the logs (if the field delete_logs is on).
 
     if(!o.nConditions) { // Even stored filters go here; if a stored filter has no conditions, than THAT is the important thing.
+      //  We warn every time, when no conditions at all.
       if(!max) {
         if(!confirm( self.local("deleteLogs_all") )) {
           _overlayDisplay(0, false);
+          _focus(_elements.settings.delete_logs_max);
           return;
         }
       }
       else if(!confirm( self.local("deleteLogs_noConditions", {"!number": v}) )) {
         _overlayDisplay(0, false);
+        _focus(_elements.settings.delete_logs_max);
         return;
       }
     }
     else if(_.mode === "stored") {
       if(!max) {
         if(!confirm( self.local("deleteLogs_storedNoMax", {"!name": _.name}) )) {
-          _.warnedDeleteNoMax = true;
+          _.warned_deleteNoMax = true;
           _overlayDisplay(0, false);
+          _focus(_elements.settings.delete_logs_max);
           return;
         }
       }
-      else if(!_.warnedDeleteNoMax && !confirm( self.local("deleteLogs_stored", {"!name": _.name, "!number": v}) )) {
+      else if(!_.warned_deleteNoMax && !confirm( self.local("deleteLogs_stored", {"!name": _.name, "!number": v}) )) {
         _overlayDisplay(0, false);
+        _focus(_elements.settings.delete_logs_max);
         return;
       }
     }
     else if(!max) {
       if(!confirm( self.local("deleteLogs_adhocNoMax") )) {
-        _.warnedDeleteNoMax = true;
+        _.warned_deleteNoMax = true;
         _overlayDisplay(0, false);
+        _focus(_elements.settings.delete_logs_max);
         return;
       }
     }
-    else if(!_.warnedDeleteNoMax && !confirm( self.local("deleteLogs_adhoc", {"!number": v}) )) {
+    else if(!_.warned_deleteNoMax && !confirm( self.local("deleteLogs_adhoc", {"!number": v}) )) {
       _overlayDisplay(0, false);
+      _focus(_elements.settings.delete_logs_max);
       return;
     }
     //_elements.filter.delete_logs.value = "1";
@@ -1819,6 +2009,7 @@ var LogFilter = function($) {
         _elements.filter.name.value = _.name = nm;
         _filters.push(nm);
         _overlayDisplay(0, null, self.local("wait")); // Reset.
+        alert(self.local("savedNew"));
         _setMode("edit");
       }
       else {
@@ -1950,6 +2141,9 @@ var LogFilter = function($) {
         case "saveAsNew":
           _local[nm] = s = Drupal.t("Save as new");
           break;
+        case "savedNew":
+          _local[nm] = s = Drupal.t("Saved new filter");
+          break;
         case "confirmDelete":
           //  { "!filter": _elements.filter.name.value }
           s = Drupal.t("Are you sure you want to delete the filter!newline!filter?", replacers);
@@ -1957,6 +2151,12 @@ var LogFilter = function($) {
         case "invalid_date":
           //  {"!date": v, "!format": _.dateFormat}
           s = Drupal.t("The date '!date' is not valid!newline- please use the format: !format", replacers);
+          break;
+        case "invalid_timeSequence_from":
+          _local[nm] = s = Drupal.t("'From' time cannot be later than 'To' time");
+          break;
+        case "invalid_timeSequence_to":
+          _local[nm] = s = Drupal.t("'To' time cannot be earlier than 'From' time");
           break;
         case "invalid_uid":
           _local[nm] = s = Drupal.t("User ID must be a positive number, or empty");
@@ -2032,7 +2232,7 @@ var LogFilter = function($) {
     this.init = function() {};
     //	Create overlay, to prevent user from doing anything before page load and after form submission.
 		$("body").append(
-			"<div id=\"log_filter_overlay\" tabindex=\"11000\" title=\"" + self.local("wait") + "\">&nbsp;</div>"
+			"<div id=\"log_filter_overlay\" tabindex=\"10000\" title=\"" + self.local("wait") + "\">&nbsp;</div>"
 		);
 		_jqOverlay = $("div#log_filter_overlay");
     _overlayResize();

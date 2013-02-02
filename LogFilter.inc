@@ -248,6 +248,7 @@ class LogFilter {
           //  Done earlier.
           break;
         case 'edit':
+          break;
         case 'delete_filter':
           throw new Exception('Mode[' . $mode . '] not allowed at form build.');
           break;
@@ -394,10 +395,12 @@ class LogFilter {
           ),
           'log_filter_time_from_proxy' => array(
               '#type' => 'textfield',
-              '#title' => t('From date'),
+              '#title' => t('From') . '<span>?</span>',
               '#default_value' => '', // Frontend sets it, if non-empty time_from.
               '#size' => 10,
-              '#attributes' => array('autocomplete' => 'off'),
+              '#attributes' => array(
+                  'autocomplete' => 'off',
+               ),
               '#prefix' => '<div class="log-filter-time-or">' . t('or') . '</div>',
           ),
           'log_filter_time_from' => array(
@@ -407,10 +410,12 @@ class LogFilter {
           ),
           'log_filter_time_to_proxy' => array(
               '#type' => 'textfield',
-              '#title' => t('To date'),
+              '#title' => t('To'),
               '#default_value' => '', // Frontend sets it, if non-empty time_to.
               '#size' => 10,
-              '#attributes' => array('autocomplete' => 'off'),
+              '#attributes' => array(
+                  'autocomplete' => 'off',
+               ),
           ),
           'log_filter_time_to' => array( // End: log-filter-time (2 open).
               '#type' => 'hidden',
@@ -579,6 +584,7 @@ class LogFilter {
               '#default_value' => $require_admin,
               '#attributes' => array(
                   'autocomplete' => 'off',
+                  'title' => ($title_require_admin = t('Require the \'Administer log filtering\' permission.')),
                ),
               '#suffix' => '</div>',
           ),
@@ -592,7 +598,6 @@ class LogFilter {
               '#resizable' => FALSE, // Otherwise styling too complicated, and browsers support it natively.
               '#attributes' => array(
                   'autocomplete' => 'off',
-                  'title' => ($title_require_admin = t('Require the \'Administer log filtering\' permission.')),
                ),
           ),
           'log_filter_edit' => !$allow_filter_edit ? array() : // (2 open)
@@ -714,6 +719,8 @@ class LogFilter {
     ('if((elm = $("div.form-item-log-filter-require-admin label").get(0))) {
       elm.setAttribute("title", "' . str_replace(array("\n", "\r", '"'), '', $title_require_admin) . '");
     }')) . '
+    $("div.form-item-log-filter-time-from-proxy label").get(0).setAttribute("title", "'
+      . t('Date format: YYYY-MM-DD!newlineTime formats: N, NN, NNNN, NNNNNN, NN:NN, NN:NN:NN') . '".replace(/\!newline/, "\n"));
     //  Go.
     LogFilter.setup(
       ' . $js_filters . '
@@ -1019,6 +1026,9 @@ class LogFilter {
           throw new Exception('Unsupported mode[' . $mode . '].');
       }
 
+
+      //  @todo: test criteria gotten when creating versus when saving, and implement protection method that can handle both uniformly.
+
       //  Load values from form.
       if ($use_form_values) {
         $fields_conditions =& self::$_fields['conditions'];
@@ -1061,7 +1071,7 @@ class LogFilter {
                 }
               }
               if ($save) {
-                $vals = str_replace('zero', '0', join(',', $vals));
+    //            $vals = str_replace('zero', '0', join(',', $vals));
               }
               $conditions[$name] = $vals;
               break;
@@ -1087,12 +1097,12 @@ class LogFilter {
         for ($i = 1; $i < 10; $i++) {
           if (array_key_exists($key = $prefix . $fields_order_by[0] . $i, $values)) {
             if (($key = $values[ $key ])) {
-              if (!$save) {
+       //       if (!$save) {
                 $order_by[] = array($key, $values[ $prefix . $fields_order_by[1] . $i ]);
-              }
+       /*       }
               else {
                 $order_by[] = $key . ':' . $values[ $prefix . $fields_order_by[1] . $i ] ? 'DESC' : 'ASC';
-              }
+              }*/
             }
           }
           else {
@@ -1100,13 +1110,13 @@ class LogFilter {
           }
         }
         unset($fields_order_by);
-        if (!$save) {
+ //       if (!$save) {
           $submitted['order_by'] =& $order_by;
-        }
+  /*      }
         else {
           $submitted['order_by'] = join(',', $order_by);
           unset($order_by);
-        }
+        }*/
       }
 
       if ($save) { // edit mode.
@@ -1121,7 +1131,7 @@ class LogFilter {
 
         //  Change mode.
         if ($success) {
-          $submitted['mode'] = $mode = 'stored';
+          $submitted['mode'] = $mode = 'edit';
         }
         else {
           $submitted['mode'] = $mode = 'default';
@@ -1163,7 +1173,7 @@ class LogFilter {
    * Access permission: 'access site reports'.
    *
    *  Expects (requires) POST vars on actions:
-   *  - create: name, require_admin
+   *  - create: name, require_admin, criteria, description
    *
    * @see LogFilter::ajaxCallback
    * @param string $action
@@ -1190,10 +1200,15 @@ class LogFilter {
           if (
               !array_key_exists('name', $_POST) || !($le = strlen($name = $_POST['name'])) || $le > 32
               || !array_key_exists('require_admin', $_POST) || !(($require_admin = (int)$_POST['require_admin']) == 0 || $require_admin == 1)
+              || !array_key_exists('criteria', $_POST)
+              || !array_key_exists('description', $_POST)
           ) {
             header('HTTP/1.1 403 Forbidden');
             exit;
           }
+
+          inspect($_POST['criteria'], 'callback');
+
           if (!user_access('log_filter edit filters')) {
             $oResp->success = FALSE;
             $oResp->error_code = 10;
