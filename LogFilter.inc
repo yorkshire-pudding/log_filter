@@ -125,7 +125,7 @@ class LogFilter {
       $user_admin_permission = user_access('log_filter administer');
 
       //  Get mode; default | adhoc | stored | edit | delete_filter.
-      $mode = $submitted ? $submitted['mode'] : 'default';
+      $mode = $submitted ? $submitted['mode'] : ($filter_name ? 'stored' : 'default');
 
       //  Stored mode may degrade to default.
       if ($mode == 'stored') {
@@ -549,7 +549,7 @@ class LogFilter {
               '#attributes' => array(
                   'autocomplete' => 'off',
                ),
-              '#prefix' => '<div id="log_filter_filters"><div id="log_filter_box_filter">',
+              '#prefix' => '<div id="log_filter_filters"><div id="log_filter_box_filter"><div id="log_filter_filters_cell_0">',
           ),
           'log_filter_only_own' => !$allow_filter_edit ? array() : array(
               '#type' => 'checkbox',
@@ -557,6 +557,42 @@ class LogFilter {
               '#default_value' => $value_only_own,
               '#attributes' => array(
                   'autocomplete' => 'off',
+               ),
+              '#suffix' => '</div>',
+          ),
+          'log_filter_name_suggest' => !$allow_filter_edit ? array() : // (2 open)
+          array( // (2 open)
+              '#type' => 'textfield',
+              '#title' => t('Name'),
+              '#default_value' => '', // Only used frontend.
+              '#size' => 32,
+              '#attributes' => array(
+                  'maxlength' => 32,
+                  'autocomplete' => 'off',
+               ),
+              '#prefix' => '<div id="log_filter_filters_cell_1">',
+          ),
+          'log_filter_require_admin' => !$allow_filter_edit || !$user_admin_permission ? array() : // (2 open)
+          array( // (2 open)
+              '#type' => 'checkbox',
+              '#title' => t('Restrict access') . '<span>?</span>',
+              '#default_value' => $require_admin,
+              '#attributes' => array(
+                  'autocomplete' => 'off',
+               ),
+              '#suffix' => '</div>',
+          ),
+          'log_filter_description' => !$allow_filter_edit ? array() : // (2 open)
+          array( // (2 open)
+              '#type' => 'textarea',
+              '#title' => t('Description'),
+              '#default_value' => $filter['description'],
+              '#rows' => 3,
+              '#cols' => 32,
+              '#resizable' => FALSE, // Otherwise styling too complicated, and browsers support it natively.
+              '#attributes' => array(
+                  'autocomplete' => 'off',
+                  'title' => ($title_require_admin = t('Require the \'Administer log filtering\' permission.')),
                ),
           ),
           'log_filter_edit' => !$allow_filter_edit ? array() : // (2 open)
@@ -584,39 +620,6 @@ class LogFilter {
                   'style' => 'display:none;',
               ),
               '#suffix' => '</div>',
-          ),
-          'log_filter_name_suggest' => !$allow_filter_edit ? array() : // (2 open)
-          array( // (2 open)
-              '#type' => 'textfield',
-              '#title' => t('Name'),
-              '#default_value' => '', // Only used frontend.
-              '#size' => 32,
-              '#attributes' => array(
-                  'maxlength' => 32,
-                  'autocomplete' => 'off',
-               ),
-          ),
-          'log_filter_require_admin' => !$allow_filter_edit || !$user_admin_permission ? array() : // (2 open)
-          array( // (2 open)
-              '#type' => 'checkbox',
-              '#title' => t('Restrict access') . '<span>?</span>',
-              '#default_value' => $require_admin,
-              '#attributes' => array(
-                  'autocomplete' => 'off',
-               ),
-          ),
-          'log_filter_description' => !$allow_filter_edit ? array() : // (2 open)
-          array( // (2 open)
-              '#type' => 'textarea',
-              '#title' => t('Description'),
-              '#default_value' => $filter['description'],
-              '#rows' => 3,
-              '#cols' => 32,
-              '#resizable' => FALSE, // Otherwise styling too complicated, and browsers support it natively.
-              '#attributes' => array(
-                  'autocomplete' => 'off',
-                  'title' => ($title_require_admin = t('Require the \'Administer log filtering\' permission.')),
-               ),
           ),
           'log_filter_cancel' => !$allow_filter_edit ? array() : // (2 open)
           array( // (3 open)
@@ -658,7 +661,8 @@ class LogFilter {
                   'class' => array('form-submit', 'edit-delete', 'theme-' . $theme),
                   'style' => 'display:none;',
               ),
-              '#suffix' => '</div>',
+              '#prefix' => '<div class="log-filter-delete">',
+              '#suffix' => '</div></div>',
           ),
           'log_filter_delete_logs_button' => !($allow_delete_logs = user_access('log_filter remove logs')) ? array( // (0 open)
               '#type' => 'markup',

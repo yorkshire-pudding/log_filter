@@ -134,7 +134,7 @@ var LogFilter = function($) {
       //  Filter dialog.
       create: "input[name='log_filter_create']",
       edit: "input[name='log_filter_edit']",
-      del: "input[name='log_filter_delete']",
+      delete_filter: "input[name='log_filter_delete']",
       cancel: "input[name='log_filter_cancel']",
       save: "input[name='log_filter_save']",
       delete_logs_button: "input[name='log_filter_delete_logs_button']"
@@ -150,7 +150,7 @@ var LogFilter = function($) {
     orderBy: [], // Array.
     buttons: {
       update_list: [],
-      crudFilters: [] // create, edit, del, cancel, save.
+      crudFilters: [] // create, edit, delete_filter, cancel, save.
     },
     misc: {}
   },
@@ -728,26 +728,18 @@ var LogFilter = function($) {
 	 * @return {void}
 	 */
 	_resize = function(evt, initially) {
-		var wW = _innerWidth(window), h;
+		var jq, o;
 
-    //  Adapt to window size.
-    if(wW < 1250) {
-      $(_elements.page).addClass("viewport-sub-1250");
-    }
-    if(wW < 1100) {
-      if(wW < 970) { // Filter dialog becomes a bar instead of a column.
-        $(_elements.page).addClass("viewport-sub-1100 viewport-sub-970");
-      }
-      else {
-        $(_elements.page).addClass("viewport-sub-1100").removeClass("viewport-sub-970");
-      }
-    }
-    else {
-      $(_elements.page).removeClass("viewport-sub-1100 viewport-sub-970");
-      if(wW >= 1250) {
-        $(_elements.page).removeClass("viewport-sub-1250");
-      }
-    }
+    //  Detect small viewport.
+    //  If small, then the filter box will float/fall down below the criteria box.
+    //  Because there isnt room for it.
+    //  And thus the filter box will be placed at the same offset from window left as the criteria box.
+    o = (jq = $("#log_filter_criteria")).offset();
+    $("#page")[
+        (o.left + jq.outerWidth(true) + $("div#log_filter_filters_cell_0").outerWidth(true)) >
+            (_innerWidth(window) - 20) ? // 20 ~ To prevent ambiguity.
+            "addClass" : "removeClass"
+    ]("log-filter-viewport-small");
 
     if(initially) {
       _overlayDisplay(0);
@@ -1239,7 +1231,7 @@ var LogFilter = function($) {
               switch(nm) {
                 case "create":
                 case "edit":
-                case "del":
+                case "delete_filter":
                 case "cancel":
                 case "save":
                   if(_.crudFilters) {
@@ -1308,23 +1300,23 @@ var LogFilter = function($) {
           if(!initially) {
             _selectValue(_elements.filter.filter, "");
             _elements.filter.name.value = _.name = _elements.filter.origin.value = _.origin = "";
-            if(_.crudFilters) {
-              $(_elements.filter.name_suggest.parentNode).hide();
-              $(_elements.filter.description.parentNode).hide();
-              if ((elm = _elements.filter.require_admin)) {
-                $(elm).hide();
-              }
-            }
             _enable(_elements.buttons.update_list);
           }
           if(_.crudFilters) {
             (elm = _elements.buttons.create).value = self.local("saveAs");
             $(elm).show();
             $(_elements.settings.onlyOwn.parentNode).show();
+            if ((elm = _elements.filter.require_admin)) {
+              $(elm.parentNode).hide();
+            }
+            $(_elements.filter.name_suggest.parentNode).hide();
+            $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
+            $(_elements.filter.description.parentNode).hide();
           }
           if(_.delLogs) {
-            $(_elements.buttons.delete_logs_button).show();
             $(_elements.settings.delete_logs_max).show();
+            $(elm = _elements.buttons.delete_logs_button).show();
+            $(elm.parentNode).show();
           }
           if(fromMode === "create") {
             fromMode = ""; // Dont keep 'create' as _.modePrevious.
@@ -1333,9 +1325,6 @@ var LogFilter = function($) {
         case "adhoc":
           if(!initially) {
             _selectValue(_elements.filter.filter, "");
-            if(_.crudFilters && (elm = _elements.filter.require_admin)) {
-              $(elm).hide();
-            }
             _enable(_elements.buttons.update_list);
           }
           if(fromMode === "stored") {
@@ -1353,14 +1342,19 @@ var LogFilter = function($) {
           if(_.crudFilters) {
             (elm = _elements.buttons.create).value = self.local("saveAs");
             $(elm).show();
-            $(_elements.filter.name_suggest.parentNode).hide();
-            $(_elements.filter.description.parentNode).hide();
             $(_elements.settings.onlyOwn.parentNode).show();
+            if ((elm = _elements.filter.require_admin)) {
+              $(elm.parentNode).hide();
+            }
+            $(_elements.filter.name_suggest.parentNode).hide();
+            $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
+            $(_elements.filter.description.parentNode).hide();
           }
           _enable(_elements.buttons.update_list);
           if(_.delLogs) {
-            $(_elements.buttons.delete_logs_button).show();
             $(_elements.settings.delete_logs_max).show();
+            $(elm = _elements.buttons.delete_logs_button).show();
+            $(elm.parentNode).show();
           }
           break;
         case "stored": // stored mode may only appear on page load and after cancelling create.
@@ -1373,24 +1367,26 @@ var LogFilter = function($) {
             $("option[value='']", elm).html( self.local("default") ); // Set visual value of filter selector's empty option.
             $(_elements.misc.title).html( nm );
             if(_.crudFilters) {
+              if ((elm = _elements.filter.require_admin)) {
+                $(elm.parentNode).hide();
+              }
               $(_elements.filter.name_suggest.parentNode).hide();
               $(_elements.filter.description.parentNode).hide();
-              if ((elm = _elements.filter.require_admin)) {
-                $(elm).hide();
-              }
             }
             _enable(_elements.buttons.update_list);
           }
+          $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
           if(_.crudFilters) {
-            (elm = _elements.buttons.create).value = self.local("saveAsNew");
-            $(_elements.buttons.edit).show();
-            $(elm).show();
-            $(_elements.buttons.del).show();
             $(_elements.settings.onlyOwn.parentNode).show();
+            (elm = _elements.buttons.create).value = self.local("saveAsNew");
+            $(elm).show();
+            $(_elements.buttons.edit).show();
+            $(_elements.buttons.delete_filter).show();
           }
           if(_.delLogs) {
-            $(_elements.buttons.delete_logs_button).show();
             $(_elements.settings.delete_logs_max).show();
+            $(elm = _elements.buttons.delete_logs_button).show();
+            $(elm.parentNode).show();
           }
           switch(fromMode) {
             case "create":
@@ -1420,17 +1416,18 @@ var LogFilter = function($) {
             default:
               throw new Error("Cant create from mode[" + fromMode + "].");
           }
-          if ((elm = _elements.filter.require_admin)) {
-            $(elm).hide();
-          }
+          $(_elements.settings.onlyOwn.parentNode).hide();
           $(_elements.filter.name_suggest.parentNode).show();
+          $(_elements.filter.name_suggest.parentNode.parentNode).show(); // To secure correct display of delete_logs when .viewport-narrow.
+          if ((elm = _elements.filter.require_admin)) {
+            $(elm.parentNode).show();
+          }
+          $(_elements.filter.description.parentNode).show();
           $(_elements.buttons.save).show();
           $(_elements.buttons.cancel).show();
           _disable(_elements.buttons.update_list);
-          $(_elements.settings.onlyOwn.parentNode).hide();
           if(_.delLogs) {
-            $(_elements.buttons.delete_logs_button).show();
-            $(_elements.settings.delete_logs_max).hide();
+            $(_elements.buttons.delete_logs_button.parentNode).hide();
           }
           break;
         case "edit":
@@ -1446,18 +1443,21 @@ var LogFilter = function($) {
             $("option[value='']", elm).html( self.local("default") );
             _selectValue(elm, nm);
           }
+          if ((elm = _elements.filter.require_admin)) {
+            $(elm.parentNode).show();
+            $(elm.parentNode.parentNode).show(); // To secure correct display of delete_logs when .viewport-narrow.
+          }
+          else {
+            $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
+          }
+          $(_elements.filter.name_suggest.parentNode).hide();
           $(_elements.filter.description.parentNode).show();
           $(_elements.buttons.cancel).show();
           $(_elements.buttons.save).show();
-          if ((elm = _elements.filter.require_admin)) {
-            $(elm).show();
-          }
-          $(_elements.filter.name_suggest.parentNode).hide();
           _disable(_elements.buttons.update_list);
           $(_elements.settings.onlyOwn.parentNode).hide();
           if(_.delLogs) {
-            $(_elements.buttons.delete_logs_button).show();
-            $(_elements.settings.delete_logs_max).hide();
+            $(_elements.buttons.delete_logs_button.parentNode).hide();
           }
           break;
         case "delete_filter": // Pop confirm(), and submit upon positive confirmation.
