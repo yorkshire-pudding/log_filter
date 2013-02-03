@@ -69,10 +69,6 @@ class LogFilter {
    * @return array
    */
   public static function viewerForm($form, &$form_state) {
-
-    inspect_log_message('hejsa, sa');
-
-
     $path = drupal_get_path('module', 'log_filter');
     //  Get jQuery UI datepicker.
     drupal_add_library("system", "ui.datepicker");
@@ -83,7 +79,7 @@ class LogFilter {
     //  Get jQuery UI dialog - because gecko's confirm()-dialog isnt draggable :-(
     drupal_add_library("system", "ui.dialog");
 
-    if (variable_get('log_filter_css', TRUE)) {
+    if (($use_module_css = variable_get('log_filter_css', TRUE))) {
       drupal_add_css(
           $path . '/css/log_filter.css',
           array('type' => 'file', 'group' => CSS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
@@ -98,10 +94,11 @@ class LogFilter {
       $allow_filter_edit = user_access('log_filter edit filters');
 
       //  Get submitted vars from session, and remove them (for later form build and submission).
-      $session = $settings = $submitted = NULL;
+      $session = $settings = $submitted = $messages = NULL;
       if (module_exists('state')) {
         if (($session = State::sessionGet('module', 'log_filter')) && array_key_exists('submitted', $session)) {
-          $submitted = State::sessionRemove('module', 'log_filter', 'submitted');
+          State::sessionRemove('module', 'log_filter', 'submitted');
+          State::sessionRemove('module', 'log_filter', 'messages');
         }
       }
       else {
@@ -109,6 +106,7 @@ class LogFilter {
         if (!empty($_SESSION['module']) && !empty($_SESSION['module']['log_filter'])) {
           $session = $_SESSION['module']['log_filter'];
           unset($_SESSION['module']['log_filter']['submitted']);
+          unset($_SESSION['module']['log_filter']['messages']);
         }
       }
       if ($session) {
@@ -117,6 +115,9 @@ class LogFilter {
         }
         if (array_key_exists('submitted', $session)) {
           $submitted =& $session['submitted'];
+        }
+        if (array_key_exists('messages', $session)) {
+          $messages =& $session['messages'];
         }
       }
 
@@ -363,7 +364,7 @@ class LogFilter {
           '#collapsed' => FALSE,
           'frontend_init' => array(
               '#type' => 'markup',
-              '#markup' => '<script type="text/javascript"> LogFilter.init(); </script>',
+              '#markup' => '<script type="text/javascript"> LogFilter.init(' . (int)$use_module_css . ', "' . $theme . '"); </script>',
           ),
           //  Control vars.
           'log_filter_mode' => array(
@@ -544,7 +545,7 @@ class LogFilter {
               '#button_type' => 'button', // Doesnt work; still type:submit.
               '#attributes' => array(
                   'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit', 'edit-reset', 'theme-' . $theme),
+                  'class' => array('form-submit', 'edit-reset'),
               ),
               '#prefix' => '<div class="log-filter-reset">',
               '#suffix' => '</div></div></div>',
@@ -612,7 +613,7 @@ class LogFilter {
               '#button_type' => 'button', // Doesnt work; still type:submit.
               '#attributes' => array(
                   'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit', 'theme-' . $theme),
+                  'class' => array('form-submit'),
                   'style' => 'display:none;',
               ),
               '#prefix' => '<div class="log-filter-edit-create">',
@@ -625,7 +626,7 @@ class LogFilter {
               '#button_type' => 'button', // Doesnt work; still type:submit.
               '#attributes' => array(
                   'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit', 'theme-' . $theme),
+                  'class' => array('form-submit'),
                   'style' => 'display:none;',
               ),
               '#suffix' => '</div>',
@@ -638,7 +639,7 @@ class LogFilter {
               '#button_type' => 'button', // Doesnt work; still type:submit.
               '#attributes' => array(
                   'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit', 'edit-cancel', 'theme-' . $theme),
+                  'class' => array('form-submit', 'edit-cancel'),
                   'style' => 'display:none;',
               ),
               '#prefix' => '<div class="log-filter-cancel-save'
@@ -654,7 +655,7 @@ class LogFilter {
               '#button_type' => 'button', // Doesnt work; still type:submit.
               '#attributes' => array(
                   'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit', 'theme-' . $theme),
+                  'class' => array('form-submit'),
                   'style' => 'display:none;',
               ),
               '#suffix' => '</div>',
@@ -667,7 +668,7 @@ class LogFilter {
               '#button_type' => 'button', // Doesnt work; still type:submit.
               '#attributes' => array(
                   'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit', 'edit-delete', 'theme-' . $theme),
+                  'class' => array('form-submit', 'edit-delete'),
                   'style' => 'display:none;',
               ),
               '#prefix' => '<div class="log-filter-delete">',
@@ -684,7 +685,7 @@ class LogFilter {
               '#button_type' => 'button', // Doesnt work; still type:submit.
               '#attributes' => array(
                   'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit', 'edit-delete', 'theme-' . $theme),
+                  'class' => array('form-submit', 'edit-delete'),
                   'style' => 'display:none;',
               ),
               '#prefix' => '<div id="log_filter_box_delete_logs">',
@@ -727,7 +728,8 @@ class LogFilter {
       . t('Date format: YYYY-MM-DD!newlineTime formats: N, NN, NNNN, NNNNNN, NN:NN, NN:NN:NN') . '".replace(/\!newline/, "\n"));
     //  Go.
     LogFilter.setup(
-      ' . $js_filters . '
+      ' . $js_filters . ',
+      ' . ($messages ? json_encode($messages) : 'null') . '
     );
   } );
 })(jQuery);
@@ -740,7 +742,7 @@ class LogFilter {
               '#value' => t('Update list'),
               '#button_type' => 'button', // Doesnt work; still type:submit.
               '#attributes' => array(
-                  'class' => array('form-submit', 'theme-' . $theme),
+                  'class' => array('form-submit'),
               ),
               '#prefix' => '<div class="log-filter-button log-filter-update-list">',
               '#suffix' => '</div>',
@@ -771,7 +773,7 @@ class LogFilter {
               '#value' => t('Update list'),
               '#button_type' => 'button', // Doesnt work; still type:submit.
               '#attributes' => array(
-                  'class' => array('form-submit', 'theme-' . $theme),
+                  'class' => array('form-submit'),
               ),
               '#prefix' => '<div class="log-filter-button log-filter-update-list-right">',
               '#suffix' => '</div>',
@@ -904,6 +906,8 @@ class LogFilter {
       $values =& $form_state['values'];
       $prefix = 'log_filter_';
 
+      $messages = array();
+
       $settings = array(
           'only_own' => !array_key_exists($prefix . 'only_own', $values) ? FALSE : $values[$prefix . 'only_own'],
           'delete_logs_max' => !array_key_exists($prefix . 'delete_logs_max', $values) ? '' : $values[$prefix . 'delete_logs_max'],
@@ -1013,7 +1017,10 @@ class LogFilter {
                     array('!name' => $filter_name, '!user' => $GLOBALS['user']->name),
                     WATCHDOG_INFO
                 );
-                drupal_set_message(
+                $messages[] = array(
+                    t('Deleted the filter \'!name\'.', array('!name' => $filter_name))
+                );
+                /*drupal_set_message(
                     t('Deleted the filter \'!name\'.', array('!name' => $filter_name))
                 );
                 drupal_set_message(
@@ -1024,7 +1031,7 @@ class LogFilter {
                 );
                 drupal_set_message(
                     t('Deleted the filter \'!name\'.', array('!name' => $filter_name)), 'error'
-                );
+                );*/
                 //  Change mode.
                 $submitted['mode'] = $mode = 'default';
             }
@@ -1157,18 +1164,22 @@ class LogFilter {
       }
 
       //  Pass to session.
+      $session = array('settings' => $settings, 'submitted' => $submitted);
+      if ($messages) {
+        $session['messages'] = $messages;
+      }
       if (module_exists('state')) {
-        State::sessionSet('module', 'log_filter', array('settings' => $settings, 'submitted' => $submitted));
+        State::sessionSet('module', 'log_filter', $session);
       }
       else {
         drupal_session_start();
         if (!isset($_SESSION['module'])) {
           $_SESSION['module'] = array(
-              'log_filter' => array('settings' => $settings, 'submitted' => $submitted),
+              'log_filter' => $session,
           );
         }
         else {
-          $_SESSION['module']['log_filter'] = array('settings' => $settings, 'submitted' => $submitted);
+          $_SESSION['module']['log_filter'] = $session;
         }
       }
     }

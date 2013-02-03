@@ -898,18 +898,18 @@ var LogFilter = function($) {
 	 */
 	_resize = function(evt, initially) {
 		var jq, o;
-
     //  Detect small viewport.
     //  If small, then the filter box will float/fall down below the criteria box.
     //  Because there isnt room for it.
     //  And thus the filter box will be placed at the same offset from window left as the criteria box.
-    o = (jq = $("#log_filter_criteria")).offset();
-    $("#page")[
-        (o.left + jq.outerWidth(true) + $("div#log_filter_filters_cell_0").outerWidth(true)) >
-            (_innerWidth(window) - 20) ? // 20 ~ To prevent ambiguity.
-            "addClass" : "removeClass"
-    ]("log-filter-viewport-small");
-
+    if(_.useModuleCss) {
+      o = (jq = $("#log_filter_criteria")).offset();
+      $("#page")[
+          (o.left + jq.outerWidth(true) + $("div#log_filter_filters_cell_0").outerWidth(true)) >
+              (_innerWidth(window) - 20) ? // 20 ~ To prevent ambiguity.
+              "addClass" : "removeClass"
+      ]("log-filter-viewport-small");
+    }
     if(initially) {
       _overlayDisplay(0);
       $(window).resize(_resize);
@@ -1503,8 +1503,7 @@ var LogFilter = function($) {
           }
           if(_.crudFilters) {
             $(_elements.settings.onlyOwn.parentNode).show();
-            (elm = _elements.buttons.create).value = self.local("saveAs");
-            $(elm).show();
+            $(_elements.buttons.create).show();
             if ((elm = _elements.filter.require_admin)) {
               $(elm.parentNode).hide();
             }
@@ -1540,8 +1539,7 @@ var LogFilter = function($) {
           }
           if(_.crudFilters) {
             $(_elements.settings.onlyOwn.parentNode).show();
-            (elm = _elements.buttons.create).value = self.local("saveAs");
-            $(elm).show();
+            $(_elements.buttons.create).show();
             if ((elm = _elements.filter.require_admin)) {
               $(elm.parentNode).hide();
             }
@@ -1577,8 +1575,7 @@ var LogFilter = function($) {
           $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
           if(_.crudFilters) {
             $(_elements.settings.onlyOwn.parentNode).show();
-            (elm = _elements.buttons.create).value = self.local("saveAsNew");
-            $(elm).show();
+            $(_elements.buttons.create).show();
             $(_elements.buttons.edit).show();
             $(_elements.buttons.delete_filter).show();
           }
@@ -2153,12 +2150,6 @@ var LogFilter = function($) {
         case "newName":
           _local[nm] = s = Drupal.t("new");
           break;
-        case "saveAs":
-          _local[nm] = s = Drupal.t("Save as...");
-          break;
-        case "saveAsNew":
-          _local[nm] = s = Drupal.t("Save as new");
-          break;
         case "savedNew":
           _local[nm] = s = Drupal.t("Saved new filter");
           break;
@@ -2244,10 +2235,16 @@ var LogFilter = function($) {
    *
    * @function
    * @name LogFilter.init
+   * @param {bool|integer} useModuleCss
+   * @param {string} theme
    * @return {void}
    */
-  this.init = function() {
+  this.init = function(useModuleCss, theme) {
     this.init = function() {};
+    //  Tell styles about theme.
+    if((_.useModuleCss = useModuleCss)) {
+      $("div#page").addClass("theme-" + theme);
+    }
     //	Create overlay, to prevent user from doing anything before page load and after form submission.
 		$("body").append(
 			"<div id=\"log_filter_overlay\" tabindex=\"10000\" title=\"" + self.local("wait") + "\">&nbsp;</div>"
@@ -2265,19 +2262,176 @@ var LogFilter = function($) {
    *  - (int) x
    * @function
    * @name LogFilter.setup
-   * @param {obj} [filters]
+   * @param {object} [filters]
+   * @param {array} [messages]
    * @return {void}
    */
-  this.setup = function(filters) {
-    var h;
+  this.setup = function(filters, messages) {
+    var a = messages, le, i, oMess = window.LogFilter_Message;
+    this.setup = function() {};
     _filters = filters || [];
     _prepareForm();
     _setMode(_.mode, false, true);
     _resize(null, true);
-    this.setup = function() {};
+
+    oMess.setup();
+    if(a) {
+      le = a.length;
+      for(i = 0; i < le; i++) {
+        oMess.create(a[i][0], a[i][1], true); // Don't fade initially.
+      }
+    }
+  };
+},
+/**
+ * Singleton, instantiated to itself.
+ * @constructor
+ * @name LogFilter_Message
+ * @singleton
+ */
+LogFilter_Message = function($) {
+  var self = this,
+  _timeToFade = 5000, // Milliseconds.
+  _interval = 150, // Milliseconds.
+  _factor = 1.2,
+  _n = -1,
+  _msie = $.browser.msie,
+  _htmlList = "<div id=\"log_filter__message\"><div><div id=\"log_filter__message_list\"></div></div></div>",
+  _htmlItem = "<div id=\"log_filter__message___NO__\" class=\"log-filter-message-__TYPE__\"><div>__CONTENT__</div><div title=\"" +
+      Drupal.t("Close") + "\">x</div></div>",
+  _list,
+
+  _close = function() {
+    $(this.parentNode).hide();
+  },
+  /**
+   * @ignore
+   */
+  _fader = function(selector) {
+    var self = this,
+    _opacity = 100,
+    _subtractor = 1,
+    _fade = function() {
+      var n = _opacity, jq = self.jq, s;
+      if(!_stopped) {
+        if((_opacity = (n -= (_subtractor *= _factor))) > 0) {
+          if(!_msie) {
+            jq.css("opacity", n / 100);
+          }
+          else {
+            jq.css({
+              "-ms-filter": "progid:DXImageTransform.Microsoft.Alpha(Opacity=" + (n = Math.round(n)) + ")",
+              filter: "alpha(opacity=" + n + ")"
+            });
+          }
+        }
+        else {
+          _stopped = true;
+          clearInterval(self.interval);
+          jq.hide();
+        }
+      }
+    },
+    _start = function() {
+      self.interval = setInterval(_fade, _interval)
+    },
+    _stopped,
+    jq;
+
+    this.stop = function() {
+      if(!_stopped) {
+        _stopped = true;
+        clearTimeout(self.timeout);
+        clearInterval(self.interval);
+      }
+    };
+
+    this.unfade = function() {
+      self.stop();
+      if(_opacity < 100) {
+        if(!_msie) {
+          jq.css("opacity", 1);
+        }
+        else {
+          jq.css({
+            "-ms-filter": "progid:DXImageTransform.Microsoft.Alpha(Opacity=100)",
+            filter: "alpha(opacity=100)"
+          });
+        }
+      }
+    };
+
+    if((jq = $(selector)).get(0)) {
+      self.jq = jq;
+      self.timeout = setTimeout(_start, _timeToFade);
+    }
+  };
+
+  /**
+   * @function
+   * @name LogFilter_Message.setup
+   * @return {void}
+   */
+  this.setup = function() {
+    var elm;
+    if((elm = document.getElementById("console"))) {
+      $(elm).after(_htmlList);
+    }
+    else {
+      $("#content").prepend(_htmlList);
+    }
+    _list = document.getElementById("log_filter__message_list");
+  };
+  /**
+   * @function
+   * @name LogFilter_Message.create
+   * @param {mixed} txt
+   * @param {string} [type]
+   *  - default: status
+   *  - values: status | warning | error
+   * @param {boolean} [noFade]
+   *  - default: false (~ status message will fade away after a while, other type of message will persist)
+   *  - truthy: never fade
+   * @return {void}
+   */
+  this.create = function(txt, type, noFade) {
+    var t = type || "status", s, f;
+
+    //  @todo: make support for type:info.
+
+    //  Get rid of wrong type.
+    switch(t) {
+      case "status":
+      case "warning":
+      case "error":
+        break;
+      default:
+        t = "error"
+    }
+    $(_list).prepend(
+      _htmlItem.replace(/__NO__/, ++_n).replace(/__TYPE__/, t).replace(/__CONTENT__/, txt || "")
+    );
+    $((s = "#log_filter__message_" + _n) + " > div:last-child").click(_close);
+    if(t === "status" && !noFade) {
+
+      //  @todo: set _fader instance as jQuery data(), to make it available.
+
+      f = new _fader(s);
+      $(s + " > div:first-child").click(f.unfade);
+    }
+  };
+
+  this.showAll = function() {
+    var le = _n + 1, i;
+    //  @todo: Stop all faders
+
+    for(i = 0; i < le; i++) {
+      $("#log_filter__message_" + i).show();
+    }
   };
 };
 
 window.LogFilter = new LogFilter($);
+window.LogFilter_Message = new LogFilter_Message($);
 
 })(jQuery);
