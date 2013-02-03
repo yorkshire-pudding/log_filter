@@ -69,6 +69,10 @@ class LogFilter {
    * @return array
    */
   public static function viewerForm($form, &$form_state) {
+
+    inspect_log_message('hejsa, sa');
+
+
     $path = drupal_get_path('module', 'log_filter');
     //  Get jQuery UI datepicker.
     drupal_add_library("system", "ui.datepicker");
@@ -1011,6 +1015,15 @@ class LogFilter {
                 );
                 drupal_set_message(
                     t('Deleted the filter \'!name\'.', array('!name' => $filter_name))
+                );
+                drupal_set_message(
+                    t('Deleted the filter \'!name\' - too.', array('!name' => $filter_name))
+                );
+                drupal_set_message(
+                    t('Deleted the filter \'!name\'.', array('!name' => $filter_name)), 'warning'
+                );
+                drupal_set_message(
+                    t('Deleted the filter \'!name\'.', array('!name' => $filter_name)), 'error'
                 );
                 //  Change mode.
                 $submitted['mode'] = $mode = 'default';

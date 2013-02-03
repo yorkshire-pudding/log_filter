@@ -1,3 +1,7 @@
+log_filter 7.x-1.0.x, 2013-02-03
+--------------------------------
+* Frontend now uses inspect.errorHandler().
+
 log_filter 7.x-1.0.x, 2013-02-02
 --------------------------------
 * Filter styling done.

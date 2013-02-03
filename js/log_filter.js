@@ -165,20 +165,35 @@ var LogFilter = function($) {
   _setUrlParam, _submit, _prepareForm, _setMode, _crudRelay, _changedCriterion, _resetCriteria, _getCriteria, _deleteLogs,
   _ajaxResponse, _ajaxRequest;
   /**
+   * @see inspect.errorHandler
    * @ignore
    * @private
-   * @param {Error} [er]
-   * @param {string} [ms]
-   * @return {str}
+   * @param {Error} [error]
+   * @param {mixed} [variable]
+   * @param {obj|int|bool|str} [options]
+   * @return {void}
    */
-  _errorHandler = function(er, ms) {
-    var s = (!ms ? "" : (ms + ":\n")) + (!er ? "" : inspect.traceGet(er));
-    inspect.console(s);
-    inspect.log(s, {
-      category: "log_filter",
-      message: s,
-      severity: "error"
-    });
+  _errorHandler = function(error, variable, options) {
+    var u = options, o = {}, t;
+    //  Do nothing, if inspect is the 'no action' type.
+    if(inspect.tcepsnI) {
+      if(typeof inspect.errorHandler === "function") {
+        if(u) {
+          if((t = typeof u) === "string") {
+            o.message = u;
+          }
+          else if(t === "object") {
+            o = u;
+          }
+          //  Otherwise: ignore; use object argument for options if other properties are needed.
+        }
+        o.category = "log_filter";
+        inspect.errorHandler(error, variable, o);
+      }
+      else {
+        inspect.console("Please update Inspect.");
+      }
+    }
   };
   /**
    * Object/function property getter, Object.hasOwnproperty() alternative.
@@ -1196,6 +1211,7 @@ var LogFilter = function($) {
                 this.value = _timeFormat(d, this.value);
                 rD.value = Math.floor(d / 1000);
                 _validateTimeSequence(nm);
+                _changedCriterion();
               });
               break;
             case "severity_any":
@@ -1441,7 +1457,7 @@ var LogFilter = function($) {
       });
     }
     catch(er) {
-      _errorHandler(er, _name + "._prepareForm()");
+      _errorHandler(er, 0, _name + "._prepareForm()");
     }
   };
 
@@ -1673,7 +1689,7 @@ var LogFilter = function($) {
       }
     }
     catch(er) {
-      _errorHandler(er, _name + "._setMode()");
+      _errorHandler(er, 0, _name + "._setMode()");
     }
   };
   /**
@@ -1757,7 +1773,7 @@ var LogFilter = function($) {
       }
     }
     catch(er) {
-      _errorHandler(er, _name + "._crudRelay()");
+      _errorHandler(er, 0, _name + "._crudRelay()");
     }
     return false; // false for IE<9's sake.
   };
@@ -1791,7 +1807,7 @@ var LogFilter = function($) {
       }
     }
     catch(er) {
-      _errorHandler(er, _name + "._changedCriterion()");
+      _errorHandler(er, 0, _name + "._changedCriterion()");
     }
   };
   /**
@@ -1864,6 +1880,8 @@ var LogFilter = function($) {
           switch(nm) {
             case "time_from_proxy":
             case "time_to_proxy":
+            case "time_from_time":
+            case "time_to_time":
               break;
             case "time_range":
             case "time_from":
@@ -1895,7 +1913,7 @@ var LogFilter = function($) {
                 }
                 if(v.length) {
                   ++n;
-                  conditions[nm] = v;
+                  conditions.severity = v;
                 }
               }
               break;
@@ -1905,7 +1923,7 @@ var LogFilter = function($) {
                   (v = _checklistValue(oElms.type_some))
               ) {
                 ++n;
-                conditions[nm] = v;
+                conditions.type = v;
               }
               break;
             case "hostname":
@@ -1932,7 +1950,7 @@ var LogFilter = function($) {
       }
     }
     catch(er) {
-      _errorHandler(er, _name + "._getCriteria()");
+      _errorHandler(er, 0, _name + "._getCriteria()");
     }
     return {
       nConditions: n,
@@ -2031,7 +2049,7 @@ var LogFilter = function($) {
             _submit();
             break;
           default: // Unknown error code.
-            _errorHandler(null, _name + "._ajaxResponse.create(), :\n" + inspect.get(o));
+            _errorHandler(null, oResp, _name + "._ajaxResponse.create()");
             alert( self.local("error_unknown") );
             _submit();
         }
@@ -2074,7 +2092,7 @@ var LogFilter = function($) {
             oResp: oResp
           };
           _.errors.push(o);
-          _errorHandler(null, _name + "._ajaxRequest():\n" + inspect.get(o));
+          _errorHandler(null, o, _name + "._ajaxRequest()");
         }
       },
       error: function(jqXHR, textStatus, errorThrown) {
@@ -2085,7 +2103,7 @@ var LogFilter = function($) {
           errorThrown: errorThrown
         };
         _.errors.push(o);
-        _errorHandler(null, _name + "._ajaxRequest():\n" + inspect.get(o));
+        _errorHandler(null, o, _name + "._ajaxRequest()");
       }
     });
   };
