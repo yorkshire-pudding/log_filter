@@ -8,8 +8,9 @@
 /**
  * Singleton, instantiated to itself.
  * @constructor
- * @name LogFilter
+ * @class
  * @singleton
+ * @param {jQuery} $
  */
 var LogFilter = function($) {
   /**
@@ -2233,8 +2234,6 @@ var LogFilter = function($) {
   /**
    * Called before page load.
    *
-   * @function
-   * @name LogFilter.init
    * @param {bool|integer} useModuleCss
    * @param {string} theme
    * @return {void}
@@ -2260,25 +2259,30 @@ var LogFilter = function($) {
    *
    *  Options:
    *  - (int) x
-   * @function
-   * @name LogFilter.setup
    * @param {object} [filters]
    * @param {array} [messages]
    * @return {void}
    */
   this.setup = function(filters, messages) {
-    var a = messages, le, i, oMess = window.LogFilter_Message;
+    var a = messages, le, i, oMess = window.LogFilter_Message, noFade;
     this.setup = function() {};
     _filters = filters || [];
     _prepareForm();
     _setMode(_.mode, false, true);
     _resize(null, true);
-
+    //  Display messages, if any.
     oMess.setup();
     if(a) {
       le = a.length;
+      //  Check if any message isnt of type status; status message should fade, unless there's another message of a different (more urgent) type.
       for(i = 0; i < le; i++) {
-        oMess.create(a[i][0], a[i][1], true); // Don't fade initially.
+        if(a[i][1] && a[i][1] !== "status") {
+          noFade = true;
+          break;
+        }
+      }
+      for(i = 0; i < le; i++) {
+        oMess.create(a[i][0], a[i][1], noFade, 2); // Long (double) delay when at page load.
       }
     }
   };
@@ -2291,28 +2295,91 @@ var LogFilter = function($) {
  */
 LogFilter_Message = function($) {
   var self = this,
-  _timeToFade = 5000, // Milliseconds.
-  _interval = 150, // Milliseconds.
-  _factor = 1.2,
   _n = -1,
   _msie = $.browser.msie,
   _htmlList = "<div id=\"log_filter__message\"><div><div id=\"log_filter__message_list\"></div></div></div>",
   _htmlItem = "<div id=\"log_filter__message___NO__\" class=\"log-filter-message-__TYPE__\"><div>__CONTENT__</div><div title=\"" +
       Drupal.t("Close") + "\">x</div></div>",
   _list,
-
+  _faders = {},
+  /**
+   * @function
+   * @name LogFilter_Message._close
+   * @return {void}
+   */
   _close = function() {
     $(this.parentNode).hide();
   },
   /**
-   * @ignore
+   * Mesage item fader.
+   *
+   * Not prototypal because the 'this' of prototypal methods as event handlers is masked by jQuery's element 'this' (or for inline handlers the global window 'this').
+   * Could use prototypal methods if we passed the the 'this' of the fader to jQuery handlers, but that would result in lots of references to the fader object (and probably more overall overhead).
+   *
+   * @constructor
+   * @class
+   * @name LogFilter_Message._fader
+   * @param {string} selector
+   * @param {integer|float|falsy} [delay]
+   *  - default: 3000 (milliseconds)
+   *  - if less than 1000 it will be used as multiplier against the default delay
    */
-  _fader = function(selector) {
+  _fader = function(selector, delay) {
     var self = this,
+    /**
+     * Default delay.
+     *
+     * @name LogFilter_Message._fader#_delayDefault
+     * @type integer
+     */
+    _delayDefault = 3000,
+    /**
+     * Interval setting.
+     *
+     * @name LogFilter_Message._fader#_pause
+     * @type integer
+     */
+    _pause = 150, // Milliseconds.
+    /**
+     * Opacity decrease factor setting.
+     *
+     * @name LogFilter_Message._fader#_factor
+     * @type float
+     */
+    _factor = 1.2,
+    /**
+     * State.
+     *
+     * @name LogFilter_Message._fader#_stopped
+     * @type boolean
+     */
+    _stopped,
+    /**
+     * @name LogFilter_Message._fader#_opacity
+     * @type integer
+     */
     _opacity = 100,
+    /**
+     * @name LogFilter_Message._fader#_subtractor
+     * @type integer
+     */
     _subtractor = 1,
+    /**
+     * @function
+     * @name LogFilter_Message._fader#_start
+     * @return {void}
+     */
+    _start = function() {
+      /** @ignore */
+      self._interval = setInterval(_fade, _pause)
+    },
+    /**
+     * @function
+     * @name LogFilter_Message._fader#_fade
+     * @return {void}
+     */
     _fade = function() {
-      var n = _opacity, jq = self.jq, s;
+      var n = _opacity, jq = self._jq;
       if(!_stopped) {
         if((_opacity = (n -= (_subtractor *= _factor))) > 0) {
           if(!_msie) {
@@ -2327,45 +2394,68 @@ LogFilter_Message = function($) {
         }
         else {
           _stopped = true;
-          clearInterval(self.interval);
+          clearInterval(self._interval);
           jq.hide();
         }
       }
     },
-    _start = function() {
-      self.interval = setInterval(_fade, _interval)
-    },
-    _stopped,
+    /** @ignore */
     jq;
-
+    /**
+     * @function
+     * @name LogFilter_Message._fader#stop
+     * @return {void}
+     */
     this.stop = function() {
       if(!_stopped) {
         _stopped = true;
-        clearTimeout(self.timeout);
-        clearInterval(self.interval);
+        clearTimeout(self._timeout);
+        clearInterval(self._interval);
       }
     };
-
+    /**
+     * @function
+     * @name LogFilter_Message._fader#unfade
+     * @return {void}
+     */
     this.unfade = function() {
       self.stop();
       if(_opacity < 100) {
         if(!_msie) {
-          jq.css("opacity", 1);
+          self._jq.css("opacity", 1);
         }
         else {
-          jq.css({
+          self._jq.css({
             "-ms-filter": "progid:DXImageTransform.Microsoft.Alpha(Opacity=100)",
             filter: "alpha(opacity=100)"
           });
         }
       }
     };
-
+    /**
+     * @function
+     * @name LogFilter_Message._fader#destroy
+     * @return {void}
+     */
+    this.destroy = function() {
+      self.stop();
+      delete self._jq;
+    };
+    //  Construction logics.
     if((jq = $(selector)).get(0)) {
-      self.jq = jq;
-      self.timeout = setTimeout(_start, _timeToFade);
+      /**
+       * @name LogFilter_Message._fader#_jq
+       * @type jquery
+       */
+      this._jq = jq;
+      /** @ignore */
+      this._timeout = setTimeout(
+          _start,
+          !delay ? _delayDefault : (delay < 1000 ? Math.floor(delay * _delayDefault) : _delayDefault)
+      );
     }
   };
+
 
   /**
    * @function
@@ -2392,13 +2482,12 @@ LogFilter_Message = function($) {
    * @param {boolean} [noFade]
    *  - default: false (~ status message will fade away after a while, other type of message will persist)
    *  - truthy: never fade
+   * @param {integer} [delay]
+   *  - default: 4000 (milliseconds)
    * @return {void}
    */
-  this.create = function(txt, type, noFade) {
+  this.create = function(txt, type, noFade, delay) {
     var t = type || "status", s, f;
-
-    //  @todo: make support for type:info.
-
     //  Get rid of wrong type.
     switch(t) {
       case "status":
@@ -2413,19 +2502,21 @@ LogFilter_Message = function($) {
     );
     $((s = "#log_filter__message_" + _n) + " > div:last-child").click(_close);
     if(t === "status" && !noFade) {
-
-      //  @todo: set _fader instance as jQuery data(), to make it available.
-
-      f = new _fader(s);
+      _faders[ "_" + _n ] = f = new _fader(s, delay);
       $(s + " > div:first-child").click(f.unfade);
     }
   };
-
+  /**
+   * @function
+   * @name LogFilter_Message.showAll
+   * @return {void}
+   */
   this.showAll = function() {
-    var le = _n + 1, i;
-    //  @todo: Stop all faders
-
+    var le = _n + 1, i, f;
     for(i = 0; i < le; i++) {
+      if((f = _faders[ "_" + i ]) && _faders.hasOwnProperty("_" + i)) {
+        f.unfade();
+      }
       $("#log_filter__message_" + i).show();
     }
   };
