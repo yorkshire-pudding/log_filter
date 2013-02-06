@@ -152,7 +152,7 @@ div#log_filter__message {
     div#log_filter__message_list {
       position: absolute;
       top: -1em;
-      z-index: 1;
+      z-index: 901; /* above overlay */
     }
       div#log_filter__message_list > div {
         width: 40em; max-width: 40em;
