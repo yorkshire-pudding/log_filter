@@ -8,247 +8,8 @@
 /**
  * Singleton, instantiated to itself.
  * @constructor
- * @name LogFilter_Message
- * @singleton
- */
-var LogFilter_Message = function($) {
-  var self = this,
-  _n = -1,
-  _msie = $.browser.msie,
-  _htmlList = "<div id=\"log_filter__message\"><div><div id=\"log_filter__message_list\"></div></div></div>",
-  _htmlItem = "<div id=\"log_filter__message___NO__\" class=\"log-filter-message-__TYPE__\"><div>__CONTENT__</div><div title=\"" +
-      Drupal.t("Close") + "\">x</div></div>",
-  _list,
-  _faders = {},
-  /**
-   * @function
-   * @name LogFilter_Message._close
-   * @return {void}
-   */
-  _close = function() {
-    $(this.parentNode).hide();
-  },
-  /**
-   * Message item fader.
-   *
-   * Not prototypal because the 'this' of prototypal methods as event handlers is masked by jQuery's element 'this' (or for inline handlers the global window 'this').
-   * Could use prototypal methods if we passed the the 'this' of the fader to jQuery handlers, but that would result in lots of references to the fader object (and probably more overall overhead).
-   *
-   * @constructor
-   * @class
-   * @name LogFilter_Message._fader
-   * @param {string} selector
-   * @param {integer|float|falsy} [delay]
-   *  - default: 3000 (milliseconds)
-   *  - if less than 1000 it will be used as multiplier against the default delay
-   */
-  _fader = function(selector, delay) {
-    var self = this,
-    /**
-     * Default delay.
-     *
-     * @name LogFilter_Message._fader#_delayDefault
-     * @type integer
-     */
-    _delayDefault = 3000,
-    /**
-     * Interval setting.
-     *
-     * @name LogFilter_Message._fader#_pause
-     * @type integer
-     */
-    _pause = 150, // Milliseconds.
-    /**
-     * Opacity decrease factor setting.
-     *
-     * @name LogFilter_Message._fader#_factor
-     * @type float
-     */
-    _factor = 1.2,
-    /**
-     * State.
-     *
-     * @name LogFilter_Message._fader#_stopped
-     * @type boolean
-     */
-    _stopped,
-    /**
-     * @name LogFilter_Message._fader#_opacity
-     * @type integer
-     */
-    _opacity = 100,
-    /**
-     * @name LogFilter_Message._fader#_subtractor
-     * @type integer
-     */
-    _subtractor = 1,
-    /**
-     * @function
-     * @name LogFilter_Message._fader#_start
-     * @return {void}
-     */
-    _start = function() {
-      /** @ignore */
-      self._interval = setInterval(_fade, _pause)
-    },
-    /**
-     * @function
-     * @name LogFilter_Message._fader#_fade
-     * @return {void}
-     */
-    _fade = function() {
-      var n = _opacity, jq = self._jq;
-      if(!_stopped) {
-        if((_opacity = (n -= (_subtractor *= _factor))) > 0) {
-          if(!_msie) {
-            jq.css("opacity", n / 100);
-          }
-          else {
-            jq.css({
-              "-ms-filter": "progid:DXImageTransform.Microsoft.Alpha(Opacity=" + (n = Math.round(n)) + ")",
-              filter: "alpha(opacity=" + n + ")"
-            });
-          }
-        }
-        else {
-          _stopped = true;
-          clearInterval(self._interval);
-          jq.hide();
-        }
-      }
-    },
-    /** @ignore */
-    jq;
-    /**
-     * @function
-     * @name LogFilter_Message._fader#stop
-     * @return {void}
-     */
-    this.stop = function() {
-      if(!_stopped) {
-        _stopped = true;
-        clearTimeout(self._timeout);
-        clearInterval(self._interval);
-      }
-    };
-    /**
-     * @function
-     * @name LogFilter_Message._fader#unfade
-     * @return {void}
-     */
-    this.unfade = function() {
-      self.stop();
-      if(_opacity < 100) {
-        if(!_msie) {
-          self._jq.css("opacity", 1);
-        }
-        else {
-          self._jq.css({
-            "-ms-filter": "progid:DXImageTransform.Microsoft.Alpha(Opacity=100)",
-            filter: "alpha(opacity=100)"
-          });
-        }
-      }
-    };
-    /**
-     * @function
-     * @name LogFilter_Message._fader#destroy
-     * @return {void}
-     */
-    this.destroy = function() {
-      self.stop();
-      delete self._jq;
-    };
-    //  Construction logics.
-    if((jq = $(selector)).get(0)) {
-      /**
-       * @name LogFilter_Message._fader#_jq
-       * @type jquery
-       */
-      this._jq = jq;
-      /** @ignore */
-      this._timeout = setTimeout(
-          _start,
-          !delay ? _delayDefault : (delay < 1000 ? Math.floor(delay * _delayDefault) : _delayDefault)
-      );
-    }
-  };
-
-  /**
-   * @function
-   * @name LogFilter_Message.setup
-   * @return {void}
-   */
-  this.setup = function() {
-    var elm;
-    if((elm = document.getElementById("console"))) {
-      $(elm).after(_htmlList);
-    }
-    else {
-      $("#content").prepend(_htmlList);
-    }
-    _list = document.getElementById("log_filter__message_list");
-  };
-  /**
-   * @function
-   * @name LogFilter_Message.set
-   * @param {mixed} txt
-   * @param {string} [type]
-   *  - default: status
-   *  - values: status | warning | error
-   * @param {boolean} [noFade]
-   *  - default: false (~ status message will fade away after a while, other type of message will persist)
-   *  - truthy: never fade
-   * @param {integer} [delay]
-   *  - default: 4000 (milliseconds)
-   * @return {void}
-   */
-  this.set = function(txt, type, noFade, delay) {
-    var t = type || "status", s, f;
-    //  Get rid of wrong type.
-    switch(t) {
-      case "status":
-      case "warning":
-      case "error":
-        break;
-      default:
-        t = "error"
-    }
-    $(_list).prepend(
-      _htmlItem.replace(/__NO__/, ++_n).replace(/__TYPE__/, t).replace(/__CONTENT__/, txt || "")
-    );
-    $((s = "#log_filter__message_" + _n) + " > div:last-child").click(_close);
-    if(t === "status" && !noFade) {
-      _faders[ "_" + _n ] = f = new _fader(s, delay);
-      $(s + " > div:first-child").click(f.unfade);
-    }
-  };
-  /**
-   * @function
-   * @name LogFilter_Message.showAll
-   * @return {void}
-   */
-  this.showAll = function() {
-    var le = _n + 1, i, f;
-    for(i = 0; i < le; i++) {
-      if((f = _faders[ "_" + i ]) && _faders.hasOwnProperty("_" + i)) {
-        f.unfade();
-      }
-      $("#log_filter__message_" + i).show();
-    }
-  };
-};
-
-window.LogFilter_Message = new LogFilter_Message($);
-
-})(jQuery);
-
-(function($) {
-
-/**
- * Singleton, instantiated to itself.
- * @constructor
- * @class
+ * @namespace
+ * @name LogFilter
  * @singleton
  * @param {jQuery} $
  */
@@ -292,25 +53,31 @@ var LogFilter = function($) {
     warned_deleteNoMax: false
   },
   /**
+   * @ignore
    * @private
    * @type {str}
    */
   _basePath = "/",
   /**
+   * @ignore
    * @private
    * @type {bool}
    */
   _secure,
   /**
+   * @ignore
    * @private
    * @type {jquery|undefined}
    */
   _jqOverlay,
   /**
+   * @ignore
    * @private
    * @type {bool|undefined}
    */
-  _submitted,/**
+  _submitted,
+  /**
+   * @ignore
    * @private
    * @type {bool|undefined}
    */
@@ -318,6 +85,7 @@ var LogFilter = function($) {
   /**
    * List of previously used localized labels/messages.
    *
+   * @ignore
    * @private
    * @type {object}
    */
@@ -325,6 +93,7 @@ var LogFilter = function($) {
 
   },
   /**
+   * @ignore
    * @private
    * @type {obj}
    */
@@ -395,6 +164,11 @@ var LogFilter = function($) {
     },
     misc: {}
   },
+  /**
+   * @ignore
+   * @private
+   * @type {array}
+   */
   _filters = [],
 
   //  Declare private methods, to make IDEs list them
@@ -402,7 +176,7 @@ var LogFilter = function($) {
   _selectValue, _checklistValue, _textareaRemoveWrapper, _disable, _enable, _readOnly, _readWrite, _focus,
   _machineNameConvert, _machineNameIllegals, _machineNameValidate,
   _validateTimeSequence,
-  _resize, _overlayResize, _overlayDisplay,
+  _resize, _overlayResize,
   _setUrlParam, _submit, _prepareForm, _setMode, _crudRelay, _changedCriterion, _resetCriteria, _getCriteria, _deleteLogs,
   _ajaxResponse, _ajaxRequest;
   /**
@@ -439,6 +213,7 @@ var LogFilter = function($) {
   /**
    * Object/function property getter, Object.hasOwnproperty() alternative.
    *
+   * @ignore
    * @param {obj} o
    * @param {str|int} k0
    * @param {str|int} [k1]
@@ -455,6 +230,7 @@ var LogFilter = function($) {
   /**
    * Prepends zeroes until arg length length.
    *
+   * @ignore
    * @param {string|integer} u
    * @param {integer} [length]
    *  - default: 1
@@ -482,6 +258,7 @@ var LogFilter = function($) {
   };
   /**
 	 * Nicked from Judy.
+   * @ignore
 	 */
 	_innerWidth = function(elm, disregardPadding) {
 		var dE = document.documentElement, jq, d, p;
@@ -507,6 +284,7 @@ var LogFilter = function($) {
 	};
 	/**
 	 * Nicked from Judy.
+   * @ignore
 	 */
 	_innerHeight = function(elm, disregardPadding) {
 		var dE = document.documentElement, jq, d, p;
@@ -532,6 +310,7 @@ var LogFilter = function($) {
 	};
   /**
 	 * Nicked from Judy.
+   * @ignore
 	 */
 	_outerHeight = function(elm, val, includeMargin, max) {
     var dE = document.documentElement, jq, d;
@@ -569,6 +348,7 @@ var LogFilter = function($) {
    * - DD.MM.YYYY
    *
    * No support for hours etc.
+   * @ignore
    * @param {str} s
    * @param {str} [format]
    *  - default: YYYY-MM-DD
@@ -653,6 +433,7 @@ var LogFilter = function($) {
    * - MM.DD.YYYY [HH][:II][:SS][ mmm]
    * - DD.MM.YYYY [HH][:II][:SS][ mmm]
    *
+   * @ignore
    * @param {Date} dt
    *  - no default, because empty/wrong arg must be detectable
    * @param {str} [format]
@@ -708,6 +489,7 @@ var LogFilter = function($) {
    * - if minutes and seconds are zero, then converts to 23:59:59; because 00:00:00 is today, whereas 24:00:00 is tomorrow
    * - otherwise sets hours as zero
    *
+   * @ignore
    * @param {Date|falsy} [date]
    *  - default: now
    * @param {string|falsy} [sTime]
@@ -770,6 +552,7 @@ var LogFilter = function($) {
   /**
    * Nicked from Judy.
    *
+   * @ignore
    * @param {element} elm
    * @param {string|undefined} [val]
    * @return {string|integer}
@@ -836,6 +619,7 @@ var LogFilter = function($) {
   /**
    * Nicked from Judy.
    *
+   * @ignore
    * @param {element} elm
    *  - one the checkboxes in the list
    * @param {arr|str|mixed|undefined} [val]
@@ -889,6 +673,7 @@ var LogFilter = function($) {
   /**
    * Removes parent form-textarea-wrapper div from (non-resizable) textarea, for easier (standard) DOM access.
    *
+   * @ignore
    * @param {element} elm
    * @return {void}
    */
@@ -900,6 +685,7 @@ var LogFilter = function($) {
     }
   };
   /**
+   * @ignore
    * @param {element|array} elm
    * @param {string|falsy} [hoverTitle]
    *  - string: update the element's (hover) title attribute
@@ -934,6 +720,7 @@ var LogFilter = function($) {
     }
   };
   /**
+   * @ignore
    * @param {element|array} elm
    * @param {string|falsy} [hoverTitle]
    *  - string: update the element's (hover) title attribute
@@ -966,6 +753,7 @@ var LogFilter = function($) {
     }
   };
   /**
+   * @ignore
    * @param {element} elm
    * @param {string|falsy} [hoverTitle]
    *  - string: update the element's (hover) title attribute
@@ -996,6 +784,7 @@ var LogFilter = function($) {
     $(elm).addClass("form-item-readonly");
   };
   /**
+   * @ignore
    * @param {element} elm
    * @param {string|falsy} [hoverTitle]
    *  - string: update the element's (hover) title attribute
@@ -1019,6 +808,7 @@ var LogFilter = function($) {
     $(elm).removeClass("form-item-readonly");
   };
   /**
+   * @ignore
    * @param {element} elm
    * @return {void}
    */
@@ -1079,6 +869,7 @@ var LogFilter = function($) {
     "Th", "th"
   ];
   /**
+   * @ignore
    * @return {void}
    */
   _machineNameConvert = function() {
@@ -1095,6 +886,7 @@ var LogFilter = function($) {
     }
   };
   /**
+   * @ignore
    * @type {array}
    */
   _machineNameIllegals = [
@@ -1102,6 +894,7 @@ var LogFilter = function($) {
     "adhoc"
   ],
   /**
+   * @ignore
    * @param {Event|falsy} evt
    *  - default: falsy (~ use arg elm)
    * @param {element} [elm]
@@ -1115,13 +908,20 @@ var LogFilter = function($) {
     var v = evt ? this.value : (elm ? elm.value : value), le = v.length;
     if(le < 2 || le > 32 || !/[a-z_]/.test(v.charAt(0)) || !/[a-z\d_]/.test(v) || $.inArray(v.toLowerCase(), _machineNameIllegals) > -1) {
       if(!noFeedback) {
-        alert( self.local("machineName", {"!illegals": _machineNameIllegals.join(", ")}) );
+        //alert( self.local("machineName", {"!illegals": _machineNameIllegals.join(", ")}) );
+        self.Message.set( self.local("machineName", {"!illegals": _machineNameIllegals.join(", ")}), "warning", {
+            modal: true,
+            close: function() {
+              _focus(_elements.filter.name_suggest);
+            }
+        });
       }
       return false;
     }
     return true;
   };
   /**
+   * @ignore
    * @param {string} nm
    * @return {void}
    */
@@ -1129,10 +929,12 @@ var LogFilter = function($) {
     var o = _elements.conditions, v, from = (v = o.time_from.value) ? parseInt(v, 10) : 0, to;
     if(from && (to = (v = o.time_to.value) ? parseInt(v, 10) : 0) && from > to) {
       o[ "time_" + nm ].value = o[ "time_" + nm + "_proxy" ].value = o[ "time_" + nm + "_time" ].value = "";
-      alert(self.local("invalid_timeSequence_" + nm));
+      //alert(self.local("invalid_timeSequence_" + nm));
+      self.Message.set( self.local("invalid_timeSequence_" + nm), "warning", { modal: true });
     }
   };
 	/**
+   * @ignore
    * @param {Event} [evt]
    * @param {bool} [initially]
 	 * @return {void}
@@ -1152,13 +954,14 @@ var LogFilter = function($) {
       ]("log-filter-viewport-small");
     }
     if(initially) {
-      _overlayDisplay(0);
+      self.overlay(0);
       $(window).resize(_resize);
     }
 	};
   /**
    * Resizes custom overlay to fill whole window/document; handler for window resize event.
-	 * @return {void}
+	 * @ignore
+   * @return {void}
 	 */
 	_overlayResize = function() {
 		var w = window, d = document.documentElement, dW, dD;
@@ -1168,31 +971,9 @@ var LogFilter = function($) {
 		});
 	};
   /**
-   * @param {boolean} [show]
-   *  - default: falsy (~ hide)
-   * @param {boolean|falsy} [opaque]
-   *  - default: non-boolean (~ dont change opacity)
-   * @param {string|falsy} [hoverTitle]
-   *  - string: update the overlay's (hover) title attribute
-   */
-  _overlayDisplay = function(show, opaque, hoverTitle) {
-    var jq = _jqOverlay, c = opaque;
-    if(!show) {
-      jq.hide();
-    }
-    if(c === true || c === false) {
-      jq[ c ? "addClass" : "removeClass" ]("log-filter-overlay-opaque");
-    }
-    if(typeof hoverTitle === "string") {
-      jq.get(0).setAttribute("title", hoverTitle);
-    }
-    if(show) {
-      jq.show();
-    }
-  },
-  /**
    * Set url paramater.
    *
+   * @ignore
    * @param {string} url
    *  - full url, or just url query (window.location.search)
    * @param {string|object} name
@@ -1247,6 +1028,7 @@ var LogFilter = function($) {
     return u + (a.length ? ("?" + a.join("&")) : "");
   };
   /**
+   * @ignore
    * @return {void}
    */
   _submit = function() {
@@ -1255,7 +1037,7 @@ var LogFilter = function($) {
       return;
     }
     _submitted = true;
-    _overlayDisplay(0, null, self.local("wait"));
+    self.overlay(0);
     switch(_.mode) {
       case "adhoc":
         nm = "adhoc";
@@ -1274,6 +1056,7 @@ var LogFilter = function($) {
     }, 100);
   };
   /**
+   * @ignore
    * @return {void}
    */
   _prepareForm = function() {
@@ -1433,7 +1216,8 @@ var LogFilter = function($) {
                     }
                   }
                   else {
-                    alert( self.local("invalid_date", {"!date": v, "!format": _.dateFormat}) );
+                    //alert( self.local("invalid_date", {"!date": v, "!format": _.dateFormat}) );
+                    self.Message.set( self.local("invalid_date", {"!date": v, "!format": _.dateFormat}), "warning", { modal: true });
                     r.value = "";
                     return; // No change, skip _changedCriterion()
                   }
@@ -1545,7 +1329,13 @@ var LogFilter = function($) {
                 if(v !== "") {
                   if(v === "0" || !/^[1-9]\d*$/.test(v)) {
                     if(v !== "0") {
-                      alert(self.local("invalid_uid"));
+                      //alert(self.local("invalid_uid"));
+                      self.Message.set( self.local("invalid_uid"), "warning", {
+                          modal: true,
+                          close: function() {
+                            _focus(_elements.conditions.uid);
+                          }
+                      });
                     }
                     this.value = v = "";
                   }
@@ -1584,7 +1374,13 @@ var LogFilter = function($) {
                   this.value = v = $.trim(v);
                 }
                 if(v !== "" && !/^https?\:\/\/.+$/.test(v)) {
-                  alert(self.local(nm === "location" ? "invalid_location" : "invalid_referer"));
+                  //alert(self.local(nm === "location" ? "invalid_location" : "invalid_referer"));
+                  self.Message.set( self.local(nm === "location" ? "invalid_location" : "invalid_referer"), "warning", {
+                      modal: true,
+                      close: function() {
+                        _focus(_elements.conditions[ nm ]);
+                      }
+                  });
                   this.value = v = "";
                 }
                 if(v !== _.recordedValues[nm]) {
@@ -1713,6 +1509,7 @@ var LogFilter = function($) {
    * - edit
    * - delete
    *
+   * @ignore
    * @param {string} mode
    * @param {boolean} [submit]
    * @param {boolean} [initially]
@@ -1901,17 +1698,17 @@ var LogFilter = function($) {
           if(!_.crudFilters) {
             throw new Error("Mode[" + mode + "] not allowed.");
           }
-          _overlayDisplay(1, true); // Opaque.
+          self.overlay(1, true); // Opaque.
           if (_elements.filter.name.value) {
             if(!confirm( self.local(
               "confirmDelete",
               {"!filter": _elements.filter.name.value}
             ))) {
-              _overlayDisplay(0, false); // Transparent.
+              self.overlay(0);
               return;
             }
             doSubmit = true;
-            _overlayDisplay(1, false); // Transparent.
+            self.overlay(1, false, self.local("wait")); // Transparent.
           }
           else {
             throw new Error("Cant delete filter having empty name[" + _elements.filter.name.value + "].");
@@ -1933,6 +1730,7 @@ var LogFilter = function($) {
   /**
    * Common handler for all CRUD buttons.
    *
+   * @ignore
    * @return {void}
    */
   _crudRelay = function() {
@@ -1944,6 +1742,7 @@ var LogFilter = function($) {
           break;
         case "log_filter_create":
           _setMode("create");
+          _focus(_elements.filter.name_suggest);
           break;
         case "log_filter_edit":
           _setMode("edit");
@@ -1981,12 +1780,11 @@ var LogFilter = function($) {
               return false; // false for IE<9's sake.
             }
             if($.inArray(v, _filters) > -1) {
-              _overlayDisplay(1, true);
-              //LogFilter_Message.set(self.local("filterNameDupe", {"!name": v}), "warning");
+              _overlay(1, true);
               self.Message.set(self.local("filterNameDupe", {"!name": v}), "warning");
               return false; // false for IE<9's sake.
             }
-            _overlayDisplay(1, null, self.local("waitCreate"));
+            self.overlay(1, false, self.local("waitCreate"));
             _ajaxRequestingBlocking = true;
             _ajaxRequest("create", {
               name: v,
@@ -2001,7 +1799,7 @@ var LogFilter = function($) {
           break;
         case "log_filter_delete_logs_button":
           if(_.delLogs) {
-            _overlayDisplay(1, false);
+            self.overlay(1, false, self.local("wait"));
             setTimeout(_deleteLogs, 200);
           }
           else {
@@ -2020,6 +1818,7 @@ var LogFilter = function($) {
   /**
    * Change handler for all condition and orderBy fields.
    *
+   * @ignore
    * @return {void}
    */
   _changedCriterion = function() {
@@ -2053,6 +1852,7 @@ var LogFilter = function($) {
   /**
    * Clear all condition and orderby fields, and set defaults.
    *
+   * @ignore
    * @param {Event} [evt]
    *  - when used as event handler
    * @param {string|falsy} [mode]
@@ -2108,6 +1908,7 @@ var LogFilter = function($) {
    *
    * Must be called delayed (after displaying overlay) to secure that validation (set-up in _prepareForm()) has done it's job.
    *
+   * @ignore
    * @return {object}
    */
   _getCriteria = function() {
@@ -2199,6 +2000,7 @@ var LogFilter = function($) {
     };
   };
   /**
+   * @ignore
    * @return {void}
    */
   _deleteLogs = function() {
@@ -2213,13 +2015,13 @@ var LogFilter = function($) {
       //  We warn every time, when no conditions at all.
       if(!max) {
         if(!confirm( self.local("deleteLogs_all") )) {
-          _overlayDisplay(0, false);
+          self.overlay(0);
           _focus(_elements.settings.delete_logs_max);
           return;
         }
       }
       else if(!confirm( self.local("deleteLogs_noConditions", {"!number": v}) )) {
-        _overlayDisplay(0, false);
+        self.overlay(0);
         _focus(_elements.settings.delete_logs_max);
         return;
       }
@@ -2228,13 +2030,13 @@ var LogFilter = function($) {
       if(!max) {
         if(!confirm( self.local("deleteLogs_storedNoMax", {"!name": _.name}) )) {
           _.warned_deleteNoMax = true;
-          _overlayDisplay(0, false);
+          self.overlay(0);
           _focus(_elements.settings.delete_logs_max);
           return;
         }
       }
       else if(!_.warned_deleteNoMax && !confirm( self.local("deleteLogs_stored", {"!name": _.name, "!number": v}) )) {
-        _overlayDisplay(0, false);
+        self.overlay(0);
         _focus(_elements.settings.delete_logs_max);
         return;
       }
@@ -2242,13 +2044,13 @@ var LogFilter = function($) {
     else if(!max) {
       if(!confirm( self.local("deleteLogs_adhocNoMax") )) {
         _.warned_deleteNoMax = true;
-        _overlayDisplay(0, false);
+        self.overlay(0);
         _focus(_elements.settings.delete_logs_max);
         return;
       }
     }
     else if(!_.warned_deleteNoMax && !confirm( self.local("deleteLogs_adhoc", {"!number": v}) )) {
-      _overlayDisplay(0, false);
+      self.overlay(0);
       _focus(_elements.settings.delete_logs_max);
       return;
     }
@@ -2256,6 +2058,7 @@ var LogFilter = function($) {
     //_submit();
   }
   /**
+   * @ignore
    * @type {object}
    */
   _ajaxResponse = {
@@ -2267,8 +2070,8 @@ var LogFilter = function($) {
         _elements.filter.name.value = _.name = nm;
         _filters.push(nm);
         _setMode("edit");
-        _overlayDisplay(0, null, self.local("wait")); // Reset.
-        LogFilter_Message.set(self.local("savedNew", { "|filter": nm }));
+        self.overlay(0);
+        self.Message.set(self.local("savedNew", {"|filter": nm}));
       }
       else {
         switch(oResp.error_code) {
@@ -2277,12 +2080,22 @@ var LogFilter = function($) {
             _submit();
             break;
           case 20: // Invalid machine name.
-            _overlayDisplay(0, null, self.local("wait")); // Reset.
-            LogFilter_Message.set( self.local("machineName"), "warning" );
+            self.overlay(0);
+            self.Message.set( self.local("machineName"), "warning", {
+                modal: true,
+                close: function() {
+                  _focus(_elements.filter.name_suggest);
+                }
+            });
             break;
           case 30: // Filter name already exists.
-            _overlayDisplay(0, null, self.local("wait")); // Reset.
-            LogFilter_Message.set( self.local("filterNameDupe", {"!name": nm}), "warning" );
+            self.overlay(0);
+            self.Message.set( self.local("filterNameDupe", {"!name": nm}), "warning", {
+                modal: true,
+                close: function() {
+                  _focus(_elements.filter.name_suggest);
+                }
+            });
             break;
           case 90: // Database error.
             alert(self.local("error_dbSave")); // alert() because we submit immediately (otherwise user wouldnt see the message).
@@ -2298,6 +2111,7 @@ var LogFilter = function($) {
     }
   };
   /**
+   * @ignore
    * @param {string} action
    * @param {object} oData
    * @return {void}
@@ -2348,6 +2162,8 @@ var LogFilter = function($) {
     });
   };
   /**
+   * @function
+   * @name LogFilter.inspect
    * @param {string|falsy} [prop]
    * @return {void}
    */
@@ -2355,6 +2171,8 @@ var LogFilter = function($) {
     inspect(!prop ? _ : _[prop], _name + (!prop ? "" : (" - " + prop)));
   };
   /**
+   * @function
+   * @name LogFilter.inspectElements
    * @param {string|falsy} [group]
    * @return {void}
    */
@@ -2364,6 +2182,8 @@ var LogFilter = function($) {
   /**
    * Caches translated labels/message having no replacers.
    *
+   * @function
+   * @name LogFilter.local
    * @param {string} name
    * @param {object|falsy} [replacers]
    * @return {string}
@@ -2476,8 +2296,34 @@ var LogFilter = function($) {
   };
 
   /**
+   * @function
+   * @name LogFilter.overlay
+   * @param {boolean|Event} [show]
+   *  - default: falsy (~ hide)
+   *  - Event|object: hide (because may be used as event handler)
+   * @param {boolean} [opaque]
+   *  - default: false
+   * @param {string|falsy} [hoverTitle]
+   *  - default: falsy (~ no hover title)
+   */
+  this.overlay = function(show, opaque, hoverTitle) {
+    var jq = _jqOverlay, ttl = hoverTitle || "";
+    if(!show ||
+        typeof show === "object" // event, when used as event handler.
+    ) {
+      jq.hide();
+      return;
+    }
+    jq[ opaque ? "addClass" : "removeClass" ]("log-filter-overlay-opaque");
+    jq[ ttl ? "addClass" : "removeClass" ]("log-filter-overlay-wait"); // Make cursor:wait if given hover title.
+    jq.get(0).setAttribute("title", ttl);
+    jq.show();
+  };
+
+  /**
    * Singleton, instantiated to itself.
    * @constructor
+   * @namespace
    * @name LogFilter.Message
    * @singleton
    */
@@ -2486,13 +2332,13 @@ var LogFilter = function($) {
     _n = -1,
     _msie = $.browser.msie,
     _htmlList = "<div id=\"log_filter__message\"><div><div id=\"log_filter__message_list\"></div></div></div>",
-    _htmlItem = "<div id=\"log_filter__message___NO__\" class=\"log-filter-message-__TYPE__\"><div>__CONTENT__</div><div title=\"" +
+    _htmlItem = "<div id=\"log_filter__message___NO__\" class=\"log-filter-message-__TYPE__\"><div class=\"log-filter--message-content\"><span>__CONTENT__</span></div><div title=\"" +
         Drupal.t("Close") + "\">x</div></div>",
     _list,
     _faders = {},
     /**
     * @function
-    * @name LogFilter_Message._close
+    * @name LogFilter.Message._close
     * @return {void}
     */
     _close = function() {
@@ -2506,7 +2352,7 @@ var LogFilter = function($) {
     *
     * @constructor
     * @class
-    * @name LogFilter_Message._fader
+    * @name LogFilter.Message._fader
     * @param {string} selector
     * @param {integer|float|falsy} [delay]
     *  - default: 3000 (milliseconds)
@@ -2517,44 +2363,44 @@ var LogFilter = function($) {
       /**
       * Default delay.
       *
-      * @name LogFilter_Message._fader#_delayDefault
+      * @name LogFilter.Message._fader#_delayDefault
       * @type integer
       */
       _delayDefault = 3000,
       /**
       * Interval setting.
       *
-      * @name LogFilter_Message._fader#_pause
+      * @name LogFilter.Message._fader#_pause
       * @type integer
       */
       _pause = 150, // Milliseconds.
       /**
       * Opacity decrease factor setting.
       *
-      * @name LogFilter_Message._fader#_factor
+      * @name LogFilter.Message._fader#_factor
       * @type float
       */
       _factor = 1.2,
       /**
       * State.
       *
-      * @name LogFilter_Message._fader#_stopped
+      * @name LogFilter.Message._fader#_stopped
       * @type boolean
       */
       _stopped,
       /**
-      * @name LogFilter_Message._fader#_opacity
+      * @name LogFilter.Message._fader#_opacity
       * @type integer
       */
       _opacity = 100,
       /**
-      * @name LogFilter_Message._fader#_subtractor
+      * @name LogFilter.Message._fader#_subtractor
       * @type integer
       */
       _subtractor = 1,
       /**
       * @function
-      * @name LogFilter_Message._fader#_start
+      * @name LogFilter.Message._fader#_start
       * @return {void}
       */
       _start = function() {
@@ -2563,7 +2409,7 @@ var LogFilter = function($) {
       },
       /**
       * @function
-      * @name LogFilter_Message._fader#_fade
+      * @name LogFilter.Message._fader#_fade
       * @return {void}
       */
       _fade = function() {
@@ -2591,7 +2437,7 @@ var LogFilter = function($) {
       jq;
       /**
       * @function
-      * @name LogFilter_Message._fader#stop
+      * @name LogFilter.Message._fader#stop
       * @return {void}
       */
       this.stop = function() {
@@ -2603,7 +2449,7 @@ var LogFilter = function($) {
       };
       /**
       * @function
-      * @name LogFilter_Message._fader#unfade
+      * @name LogFilter.Message._fader#unfade
       * @return {void}
       */
       this.unfade = function() {
@@ -2622,7 +2468,7 @@ var LogFilter = function($) {
       };
       /**
       * @function
-      * @name LogFilter_Message._fader#destroy
+      * @name LogFilter.Message._fader#destroy
       * @return {void}
       */
       this.destroy = function() {
@@ -2632,7 +2478,7 @@ var LogFilter = function($) {
       //  Construction logics.
       if((jq = $(selector)).get(0)) {
         /**
-        * @name LogFilter_Message._fader#_jq
+        * @name LogFilter.Message._fader#_jq
         * @type jquery
         */
         this._jq = jq;
@@ -2646,11 +2492,11 @@ var LogFilter = function($) {
 
     /**
     * @function
-    * @name LogFilter_Message.setup
+    * @name LogFilter.Message.setup
     * @return {void}
     */
     this.setup = function() {
-      var elm;
+      var elm, jq;
       if((elm = document.getElementById("console"))) {
         $(elm).after(_htmlList);
       }
@@ -2658,23 +2504,35 @@ var LogFilter = function($) {
         $("#content").prepend(_htmlList);
       }
       _list = document.getElementById("log_filter__message_list");
+      //  Draggable.
+      if((jq = $(_list)).draggable) {
+        jq.draggable({ handle: "div.log-filter--message-content", cancel: "span", cursor: "move" });
+      }
     };
     /**
     * @function
-    * @name LogFilter_Message.set
+    * @name LogFilter.Message.set
     * @param {mixed} txt
     * @param {string} [type]
-    *  - default: status
-    *  - values: status | warning | error
-    * @param {boolean} [noFade]
-    *  - default: false (~ status message will fade away after a while, other type of message will persist)
-    *  - truthy: never fade
+    *  - default: 'status'
+    *  - values: 'status' | 'warning' | 'error'
+    * @param {object} [options]
+    *  - (boolean) noFade: default false ~ a 'status' message will eventually fade away, unless clicked/mousedowned
+    *  - (number) fadeDelay: default zero ~ use default delay before starting fade ('status' message only)
+    *  - (number) fadeDelay: >1000 ~ use that delay | < 1000 multiply default delay with that number (both 'status' message only)
+    *  - (boolean) modal: default false ~ do not display blocking overlay
+    *  - (function) close: function to execute upon click on close button
     * @param {integer} [delay]
     *  - default: 4000 (milliseconds)
     * @return {void}
     */
-    this.set = function(txt, type, noFade, delay) {
-      var t = type || "status", s, f;
+    this.set = function(txt, type, options) {
+      var t = type || "status", s, f, k, jq, o = {
+        noFade: false,
+        fadeDelay: 0,
+        modal: false,
+        close: null
+      };
       //  Get rid of wrong type.
       switch(t) {
         case "status":
@@ -2684,18 +2542,39 @@ var LogFilter = function($) {
         default:
           t = "error"
       }
-      $(_list).prepend(
-        _htmlItem.replace(/__NO__/, ++_n).replace(/__TYPE__/, t).replace(/__CONTENT__/, txt || "")
-      );
-      $((s = "#log_filter__message_" + _n) + " > div:last-child").click(_close);
-      if(t === "status" && !noFade) {
-        _faders[ "_" + _n ] = f = new _fader(s, delay);
-        $(s + " > div:first-child").click(f.unfade);
+      if(options) {
+        for(k in o) {
+          if(o.hasOwnProperty(k) && options.hasOwnProperty(k)) {
+            o[k] = options[k];
+          }
+        }
       }
+      //  Add message to DOM.
+      $(_list).prepend(
+        _htmlItem.replace(/__NO__/, ++_n).replace(/__TYPE__/, t).replace(/__CONTENT__/, txt ? txt.replace(/\n/g, "<br/>") : "")
+      );
+      //  Close behaviours.
+      (jq = $((s = "#log_filter__message_" + _n) + " > div:last-child")).click(_close);
+      //  If modal, show overlay.
+      if(o.modal) {
+        jq.click(self.overlay); // And hide it on close click.
+        self.overlay(1, true); // Opaque, no hover title.
+      }
+      //  Close function.
+      if(o.close) {
+        jq.click(o.close);
+      }
+      //  If to be fading, make click on message content unfade the message.
+      if(t === "status" && !o.noFade) {
+        _faders[ "_" + _n ] = f = new _fader(s, o.fadeDelay);
+        $(s + " > div:first-child").bind("click mousedown", f.unfade); // And mousedown, otherwise dragging wont prevent fade.
+      }
+      //  Display the message.
+      $(s).show();
     };
     /**
     * @function
-    * @name LogFilter_Message.showAll
+    * @name LogFilter.Message.showAll
     * @return {void}
     */
     this.showAll = function() {
@@ -2709,16 +2588,18 @@ var LogFilter = function($) {
     };
   };
 
-
   /**
    * Called before page load.
    *
+   * @function
+   * @name LogFilter.init
    * @param {bool|integer} useModuleCss
    * @param {string} theme
    * @return {void}
    */
   this.init = function(useModuleCss, theme) {
-    this.init = function() {};
+    /** @ignore */
+    self.init = function() {};
     //  Tell styles about theme.
     if((_.useModuleCss = useModuleCss)) {
       $("div#page").addClass("theme-" + theme);
@@ -2736,46 +2617,33 @@ var LogFilter = function($) {
   /**
    * Called upon page load.
    *
-   *  Options:
-   *  - (int) x
+   * @function
+   * @name LogFilter.setup
    * @param {object} [filters]
    * @param {array} [messages]
    * @return {void}
    */
   this.setup = function(filters, messages) {
-    var a = messages, le, i, noFade;
-    this.setup = function() {};
+    var a = messages, le, i, o = { fadeDelay: 2 }; // Long (double) delay when at page load.
+    /** @ignore */
+    self.setup = function() {};
     _filters = filters || [];
     _prepareForm();
     _setMode(_.mode, false, true);
     _resize(null, true);
     //  Display messages, if any.
-   /* LogFilter_Message.setup();
+    (self.Message = new self.Message()).setup();
     if(a) {
       le = a.length;
       //  Check if any message isnt of type status; status message should fade, unless there's another message of a different (more urgent) type.
       for(i = 0; i < le; i++) {
         if(a[i][1] && a[i][1] !== "status") {
-          noFade = true;
+          o.noFade = true;
           break;
         }
       }
       for(i = 0; i < le; i++) {
-        LogFilter_Message.set(a[i][0], a[i][1], noFade, 2); // Long (double) delay when at page load.
-      }
-    }*/
-    (this.Message = new this.Message()).setup();
-    if(a) {
-      le = a.length;
-      //  Check if any message isnt of type status; status message should fade, unless there's another message of a different (more urgent) type.
-      for(i = 0; i < le; i++) {
-        if(a[i][1] && a[i][1] !== "status") {
-          noFade = true;
-          break;
-        }
-      }
-      for(i = 0; i < le; i++) {
-        this.Message.set(a[i][0], a[i][1], noFade, 2); // Long (double) delay when at page load.
+        self.Message.set(a[i][0], a[i][1], o);
       }
     }
   };
