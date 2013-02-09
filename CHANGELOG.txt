@@ -1,3 +1,7 @@
+log_filter 7.x-1.0.x, 2013-02-09
+--------------------------------
+* Frontend now strips tags off text fields.
+
 log_filter 7.x-1.0.x, 2013-02-05
 --------------------------------
 * Finished message box; .showAll() working, and fully documented.

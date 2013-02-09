@@ -89,9 +89,7 @@ var LogFilter = function($) {
    * @private
    * @type {object}
    */
-  _local = {
-
-  },
+  _local = {},
   /**
    * @ignore
    * @private
@@ -172,7 +170,7 @@ var LogFilter = function($) {
   _filters = [],
 
   //  Declare private methods, to make IDEs list them
-  _errorHandler, _oGet, _toLeading, _toAscii, _innerWidth, _innerHeight, _outerHeight, _dateFromFormat, _dateToFormat, _timeFormat,
+  _errorHandler, _oGet, _stripTags, _toLeading, _toAscii, _innerWidth, _innerHeight, _outerHeight, _dateFromFormat, _dateToFormat, _timeFormat,
   _selectValue, _checklistValue, _textareaRemoveWrapper, _disable, _enable, _readOnly, _readWrite, _focus,
   _machineNameConvert, _machineNameIllegals, _machineNameValidate,
   _validateTimeSequence,
@@ -226,6 +224,17 @@ var LogFilter = function($) {
         (k1 === undefined ? o[k0] : (
             (o = o[k0]) && ((t = typeof o) === "object" || t === "function") && o.hasOwnProperty(k1) ? o[k1] : undefined
         ) ) : undefined;
+  };
+  /**
+   * Strip tags, reduce consecutive spaces, and trim.
+   *
+   * @ignore
+   * @param {mixed} u
+   *  - will be stringed
+   * @return {string}
+   */
+  _stripTags = function(u) {
+    return $.trim(("" + u).replace(/<[^<>]+>/g, " ").replace(/[\ ]+/g, " "));
   };
   /**
    * Prepends zeroes until arg length length.
@@ -1091,6 +1100,12 @@ var LogFilter = function($) {
             case "description": // May not exist.
               _.crudFilters = true;
               _textareaRemoveWrapper(elm); // Remove parent form-textarea-wrapper.
+              jq.change(function() {
+                var v;
+                if((v = this.value)) {
+                  this.value = _stripTags(v);
+                }
+              });
               break;
           }
         }
@@ -1355,7 +1370,7 @@ var LogFilter = function($) {
               jq.change(function() {
                 var v = this.value;
                 if(v !== "") {
-                  this.value = v = $.trim(v);
+                  this.value = v = _stripTags(v);
                 }
                 if(v !== _.recordedValues.hostname) {
                   _.recordedValues.hostname = v;
@@ -1371,7 +1386,7 @@ var LogFilter = function($) {
               jq.change(function() {
                 var v = this.value, nm = this.name === "log_filter_location" ? "location" : "referer"; // Not the same nm as iteration nm ;-)
                 if(v !== "") {
-                  this.value = v = $.trim(v);
+                  this.value = v = _stripTags(v);
                 }
                 if(v !== "" && !/^https?\:\/\/.+$/.test(v)) {
                   //alert(self.local(nm === "location" ? "invalid_location" : "invalid_referer"));
