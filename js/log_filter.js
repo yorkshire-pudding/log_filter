@@ -189,7 +189,7 @@ var LogFilter = function($) {
   _errorHandler = function(error, variable, options) {
     var u = options, o = {}, t;
     //  Do nothing, if inspect is the 'no action' type.
-    if(inspect.tcepsnI) {
+    if(typeof window.inspect === "function" && inspect.tcepsni) {
       if(typeof inspect.errorHandler === "function") {
         if(u) {
           if((t = typeof u) === "string") {
@@ -498,11 +498,17 @@ var LogFilter = function($) {
    * - if minutes and seconds are zero, then converts to 23:59:59; because 00:00:00 is today, whereas 24:00:00 is tomorrow
    * - otherwise sets hours as zero
    *
+   *
+   * @example
+//  Get time of a date:
+_timeFormat(date);
+//  Modify time of a date:
+_timeFormat(date, "17:30");
    * @ignore
-   * @param {Date|falsy} [date]
-   *  - default: now
+   * @param {Date|falsy} date
    * @param {string|falsy} [sTime]
-   *  - default: 00:00:00
+   *  - empty: creates time string according to arg date
+   *  - non-empty: sets time of arg date
    *  - any kinds of delimiters are supported; only looks for integers
    *  - N, NN, NNNN and NNNNNN are also supported
    * @return {string}
@@ -784,7 +790,6 @@ var LogFilter = function($) {
       case "select":
         $(elm).bind("focus.readonly", function(evt) {
           this.setAttribute("before_change_value", _selectValue(this));
-          inspect(evt.type)
         }).bind("change.readonly", function() {
           _selectValue(this, this.getAttribute("before_change_value") || ""); // "" to prevent nasty undefined errors.
         });
@@ -2177,13 +2182,17 @@ var LogFilter = function($) {
     });
   };
   /**
+   * Does nothing if no Inspect module (or no-action version of Inspect; user not allowed to use frontend instection).
+   *
    * @function
    * @name LogFilter.inspect
    * @param {string|falsy} [prop]
    * @return {void}
    */
   this.inspect = function(prop) {
-    inspect(!prop ? _ : _[prop], _name + (!prop ? "" : (" - " + prop)));
+    if(typeof window.inspect === "function" && inspect.tcepsni === true) {
+      inspect(!prop ? _ : _[prop], _name + (!prop ? "" : (" - " + prop)));
+    }
   };
   /**
    * @function
@@ -2192,7 +2201,9 @@ var LogFilter = function($) {
    * @return {void}
    */
   this.inspectElements = function(group) {
-    inspect(!group ? _elements : _elements[group], "_elements" + (!group ? "" : ("." + group)));
+    if(typeof window.inspect === "function" && inspect.tcepsni === true) {
+      inspect(!group ? _elements : _elements[group], "_elements" + (!group ? "" : ("." + group)));
+    }
   };
   /**
    * Caches translated labels/message having no replacers.

@@ -72,6 +72,7 @@ class LogFilter {
     $path = drupal_get_path('module', 'log_filter');
     //  Get jQuery UI datepicker.
     drupal_add_library("system", "ui.datepicker");
+    //  Have to include own datepicker localisation, because it doesnt seem to exist in neither core nor the Date Popup module.
     drupal_add_js(
         $path . '/js/jquery_ui_datepicker_i18n/jquery.ui.datepicker-' . $GLOBALS['language']->language . '.min.js',
         array('type' => 'file', 'group' => JS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
@@ -1142,11 +1143,11 @@ class LogFilter {
       if ($save) { // edit mode.
         $success = TRUE;
 
-        inspect(array(
-            'filter' => $submitted['filter'],
-            'conditions' => $submitted['conditions'],
-            'order_by' => $submitted['order_by'],
-        ), 'save');
+inspect(array(
+    'filter' => $submitted['filter'],
+    'conditions' => $submitted['conditions'],
+    'order_by' => $submitted['order_by'],
+), 'save');
 
 
         //  Change mode.
@@ -1231,7 +1232,7 @@ class LogFilter {
             exit;
           }
 
-          inspect($_POST['criteria'], 'callback');
+inspect($_POST['criteria'], 'callback');
 
           if (!user_access('log_filter edit filters')) {
             $oResp->success = FALSE;
@@ -1300,18 +1301,23 @@ class LogFilter {
   }
 
   /**
+   * Traces and logs via Inspect tracer, or watchdog (no trace).
+   *
    * @param Exception $xc
    * @param integer $severity
    *  - default: WATCHDOG_ERROR
    * @return void
    */
   protected static function _errorHandler($xc, $severity = WATCHDOG_ERROR) {
-    if (!inspect_trace($xc, array('category' => 'log_filter', 'severity' => $severity))) {
+    if (module_exists('inspect')) {
+      inspect_trace($xc, array('category' => 'log_filter', 'severity' => $severity));
+    }
+    else {
       watchdog(
         'log_filter',
-        $xc->getMessage(),
+        check_plain($xc->getMessage()),
         NULL,
-        WATCHDOG_ERROR
+        $severity
       );
     }
   }

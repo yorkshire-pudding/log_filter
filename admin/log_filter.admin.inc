@@ -5,8 +5,6 @@
  */
 
 /**
- * Implements drupal_get_form().
- *
  * Defines configuration form fields.
  *
  * @param array $form

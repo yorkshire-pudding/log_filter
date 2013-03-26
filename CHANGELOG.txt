@@ -1,3 +1,7 @@
+log_filter 7.x-1.0.x, 2013-03-26
+--------------------------------
+* Removed Inspect module dependency.
+
 log_filter 7.x-1.0.x, 2013-02-09
 --------------------------------
 * Frontend now strips tags off text fields.

@@ -6,7 +6,5 @@ package = Administration
 core = 7.x
 php = 5.3
 
-dependencies[] = inspect
-
 files[] = LogFilter.inc
 configure = admin/config/system/log_filter
