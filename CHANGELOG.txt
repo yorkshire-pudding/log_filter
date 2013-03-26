@@ -1,3 +1,8 @@
+log_filter 7.x-1.x, 2013-03-26
+------------------------------
+* Now uses singular development branch.
+* Implemented use of Judy.
+
 log_filter 7.x-1.0.x, 2013-03-26
 --------------------------------
 * Removed Inspect module dependency.
@@ -22,7 +27,7 @@ log_filter 7.x-1.0.x, 2013-02-02
 
 log_filter 7.x-1.0.x, 2013-01-28
 --------------------------------
-* em-styling to get rid of naseously complex javascript resizing.
+* em-styling to get rid of nauseously complex javascript resizing.
 
 log_filter 7.x-1.0.x, 2013-01-27
 --------------------------------

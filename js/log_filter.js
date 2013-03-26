@@ -67,12 +67,6 @@ var LogFilter = function($) {
   /**
    * @ignore
    * @private
-   * @type {jquery|undefined}
-   */
-  _jqOverlay,
-  /**
-   * @ignore
-   * @private
    * @type {bool|undefined}
    */
   _submitted,
@@ -170,12 +164,12 @@ var LogFilter = function($) {
   _filters = [],
 
   //  Declare private methods, to make IDEs list them
-  _errorHandler, _oGet, _stripTags, _toLeading, _toAscii, _innerWidth, _innerHeight, _outerHeight, _dateFromFormat, _dateToFormat, _timeFormat,
-  _selectValue, _checklistValue, _textareaRemoveWrapper, _disable, _enable, _readOnly, _readWrite, _focus,
+  _errorHandler, _oGet, _toAscii,
+  _textareaRemoveWrapper,
   _machineNameConvert, _machineNameIllegals, _machineNameValidate,
   _validateTimeSequence,
-  _resize, _overlayResize,
-  _setUrlParam, _submit, _prepareForm, _setMode, _crudRelay, _changedCriterion, _resetCriteria, _getCriteria, _deleteLogs,
+  _resize,
+  _submit, _prepareForm, _setMode, _crudRelay, _changedCriterion, _resetCriteria, _getCriteria, _deleteLogs,
   _ajaxResponse, _ajaxRequest;
   /**
    * @see inspect.errorHandler
@@ -225,465 +219,18 @@ var LogFilter = function($) {
             (o = o[k0]) && ((t = typeof o) === "object" || t === "function") && o.hasOwnProperty(k1) ? o[k1] : undefined
         ) ) : undefined;
   };
-  /**
-   * Strip tags, reduce consecutive spaces, and trim.
-   *
-   * @ignore
-   * @param {mixed} u
-   *  - will be stringed
-   * @return {string}
-   */
-  _stripTags = function(u) {
-    return $.trim(("" + u).replace(/<[^<>]+>/g, " ").replace(/[\ ]+/g, " "));
-  };
-  /**
-   * Prepends zeroes until arg length length.
-   *
-   * @ignore
-   * @param {string|integer} u
-   * @param {integer} [length]
-   *  - default: 1
-   * @return {string}
-   */
-  _toLeading = function(u, length) {
-    var le = length || 1, s = "" + u;
-    while(s.length < le) {
-      s = "0" + s;
-    }
-    return s;
-  };
   _toAscii = function(s) {
     var ndl = _toAscii.needles, rpl = _toAscii.replacers, le = ndl.length, i, u;
     if(typeof ndl[0] === "string") { // First time called.
       u = ndl.concat();
       for(i = 0; i < le; i++) {
-          ndl[i] = new RegExp("\\u" + _toLeading(u[i].charCodeAt(0).toString(16), 4), "g");
+          ndl[i] = new RegExp("\\u" + Judy.toLeading(u[i].charCodeAt(0).toString(16), 4), "g");
       }
     }
     for(i = 0; i < le; i++) {
         s = s.replace(ndl[i], rpl[i]);
     }
     return s;
-  };
-  /**
-	 * Nicked from Judy.
-   * @ignore
-	 */
-	_innerWidth = function(elm, disregardPadding) {
-		var dE = document.documentElement, jq, d, p;
-		if(elm === window) {
-			return dE.clientWidth;
-		}
-		if(elm === dE || elm === document.body) {
-			return dE.scrollWidth;
-		}
-		if(!(jq = $(elm)).get(0)) {
-			return undefined;
-		}
-		d = jq.innerWidth();
-		if(!disregardPadding) {
-			if((p = jq.css("padding-left")).indexOf("px") > -1) {
-				d -= parseInt(p, 10);
-			}
-			if((p = jq.css("padding-right")).indexOf("px") > -1) {
-				d -= parseInt(p, 10);
-			}
-		}
-		return d;
-	};
-	/**
-	 * Nicked from Judy.
-   * @ignore
-	 */
-	_innerHeight = function(elm, disregardPadding) {
-		var dE = document.documentElement, jq, d, p;
-		if(elm === window) {
-			return dE.clientHeight;
-		}
-		if(elm === dE || elm === document.body) {
-			return dE.scrollHeight;
-		}
-		if(!(jq = $(elm)).get(0)) {
-			return undefined;
-		}
-		d = jq.innerHeight();
-		if(!disregardPadding) {
-			if((p = jq.css("padding-top")).indexOf("px") > -1) {
-				d -= parseInt(p, 10);
-			}
-			if((p = jq.css("padding-bottom")).indexOf("px") > -1) {
-				d -= parseInt(p, 10);
-			}
-		}
-		return d;
-	};
-  /**
-	 * Nicked from Judy.
-   * @ignore
-	 */
-	_outerHeight = function(elm, val, includeMargin, max) {
-    var dE = document.documentElement, jq, d;
-    if(elm === window) {
-      return (d = window.innerHeight) ? d : dE.clientHeight; // innerHeight includes scrollbar
-    }
-    if(elm === dE || elm === document.body) {
-      return dE.scrollHeight;
-    }
-    if(!(jq = $(elm)).get(0)) {
-      return undefined;
-    }
-    d = jq.outerHeight(includeMargin);
-    if(!val || // if only measuring
-        val === d) { // or dimension correct
-      return d;
-    }
-    d = _innerHeight(elm) + (val - d);
-    if(!max || max === 2) {
-      jq.css("height", d + "px");
-    }
-    if(max) {
-      jq.css("max-height", d + "px");
-    }
-    return val;
-  };
-  /**
-   * Nicked from Judy.
-   *
-   * Translate string - like the value of a text field - to Date.
-   *
-   * Supported formats, dot means any (non-YMD) character:
-   * - YYYY.MM.DD
-   * - MM.DD.YYYY
-   * - DD.MM.YYYY
-   *
-   * No support for hours etc.
-   * @ignore
-   * @param {str} s
-   * @param {str} [format]
-   *  - default: YYYY-MM-DD
-   *  - delimiters are ignored, only looks for the position of YYYY, MM and DD in the format string
-   * @return {Date|null}
-   *  - null if arg str isnt non-empty string, or impossible month or day, or unsupported format
-   */
-  _dateFromFormat = function(s, format) {
-    var dt = new Date(), fmt = (format || "YYYY-MM-DD").toUpperCase(), y, m, d;
-    if(!s || typeof s !== "string" || !s.length) {
-      return null;
-    }
-    if(/^YYYY.MM.DD$/.test(fmt)) { // iso
-      if(!/^\d{4}.\d\d.\d\d$/.test(s)) {
-        return null;
-      }
-      y = s.substr(0, 4);
-      m = s.substr(5, 2);
-      d = s.substr(8, 2);
-    }
-    else if(/^MM.DD.YYYY$/.test(fmt)) { // English
-      if(!/^\d\d.\d\d.\d{4}$/.test(s)) {
-        return null;
-      }
-      y = s.substr(6, 4);
-      m = s.substr(0, 2);
-      d = s.substr(3, 2);
-    }
-    else if(/^DD.MM.YYYY$/.test(fmt)) { // continental
-      if(!/^\d\d.\d\d.\d{4}$/.test(s)) {
-        return null;
-      }
-      y = s.substr(6, 4);
-      m = s.substr(3, 2);
-      d = s.substr(0, 2);
-    }
-    else {
-      return null;
-    }
-    y = parseInt(y, 10);
-    d = parseInt(d, 10);
-    switch((m = parseInt(m, 10))) {
-      case 1:
-      case 3:
-      case 5:
-      case 7:
-      case 8:
-      case 10:
-      case 12:
-        if(d > 31) {
-          return null;
-        }
-        break;
-      case 4:
-      case 6:
-      case 9:
-      case 11:
-        if(d > 30) {
-          return null;
-        }
-        break;
-      case 2:
-        if(d > 29 || (d === 29 && !self.isLeapYear(y))) {
-          return null;
-        }
-        break;
-      default:
-        return null;
-    }
-    dt.setFullYear(y, m - 1, d );
-    dt.setHours(0, 0, 0);
-    dt.setMilliseconds(0);
-    return dt;
-  };
-  /**
-   * Nicked from Judy.
-   *
-   * Translate a Date into a string - like the value of a text field.
-   *
-   * Supported formats, dot means any (non-YMD) character:
-   * - YYYY.MM.DD [HH][:II][:SS][ mmm]
-   * - MM.DD.YYYY [HH][:II][:SS][ mmm]
-   * - DD.MM.YYYY [HH][:II][:SS][ mmm]
-   *
-   * @ignore
-   * @param {Date} dt
-   *  - no default, because empty/wrong arg must be detectable
-   * @param {str} [format]
-   *  - default: YYYY-MM-DD, omitting hours etc.
-   * @return {str}
-   *  - empty if arg dt isnt Date object, or unsupported format
-   */
-  _dateToFormat = function(dt, format) {
-    var fmt = format || "YYYY-MM-DD", le, y, m, d, s, a, b;
-    if(!dt || typeof dt !== "object" || !dt.getFullYear) {
-      alert(1); // @todo: fix this, or remove the method.
-      return "";
-    }
-    y = dt.getFullYear();
-    m = _toLeading(dt.getMonth() + 1, 2);
-    d = _toLeading(dt.getDate(), 2);
-    if((a = (s = fmt.substr(0, 10)).replace(/[MDY]/g, "")).length < 2) {
-      return "";
-    }
-    b = a.charAt(1);
-    a = a.charAt(0);
-    switch(s.replace(/[^MDY]/g, "")) {
-      case "YYYYMMDD":
-        s = y + a + m + b + d;
-        break;
-      case "MMDDYYYY":
-        s = m + a + d + b + y;
-        break;
-      case "DDMMYYYY":
-        s = d + a + m + b + y;
-        break;
-      default:
-        return "";
-    }
-    if((le = fmt.length) > 11) {
-      s += " " + _toLeading(dt.getHours(), 2);
-      if(le > 14) {
-        s += ":" + _toLeading(dt.getMinutes(), 2);
-        if(le > 17) {
-          s += ":" + _toLeading(dt.getSeconds(), 2);
-          if(le > 20) {
-            s += " " + _toLeading(dt.getMilliseconds(), 3);
-          }
-        }
-      }
-    }
-    return s;
-  };
-  /**
-   * Modifies a date with evaluated value of a time string, or creates time string based upon the date.
-   *
-   * If hours evaluate to 24:
-   * - if minutes and seconds are zero, then converts to 23:59:59; because 00:00:00 is today, whereas 24:00:00 is tomorrow
-   * - otherwise sets hours as zero
-   *
-   *
-   * @example
-//  Get time of a date:
-_timeFormat(date);
-//  Modify time of a date:
-_timeFormat(date, "17:30");
-   * @ignore
-   * @param {Date|falsy} date
-   * @param {string|falsy} [sTime]
-   *  - empty: creates time string according to arg date
-   *  - non-empty: sets time of arg date
-   *  - any kinds of delimiters are supported; only looks for integers
-   *  - N, NN, NNNN and NNNNNN are also supported
-   * @return {string}
-   *  - time NN:NN:NN
-   */
-  _timeFormat = function(date, sTime) {
-    var d = date || new Date(), t = sTime ? $.trim(sTime) : 0, h = 0, i = 0, s = 0, le, v;
-    //  Modify date.
-    if(t) {
-      if(/^\d+$/.test(t)) {
-        h = t.substr(0, 2);
-        if((le = t.length) > 3) {
-          i = t.substr(2, 2);
-          if(le > 5) {
-            s = t.substr(4, 2);
-          }
-        }
-      }
-      else if( (le = (t = t.split(/[^\d]/)).length) ) {
-        h = t[0];
-        if(le > 1) {
-          i = t[1];
-          if(le > 2) {
-            s = t[2];
-          }
-        }
-      }
-      if(h) {
-        h = isFinite(v = parseInt(h, 10)) && v < 25 ? v : 0;
-        if(i) {
-          i = isFinite(v = parseInt(i, 10)) && v < 60 ? v : 0;
-        }
-        if(s) {
-          s = isFinite(v = parseInt(s, 10)) && v < 60 ? v : 0;
-        }
-        if(h === 24) {
-          if(!i && !s) {
-            h = 23;
-            i = s = 59;
-          }
-          else {
-            h = 0;
-          }
-        }
-      }
-      d.setHours(h, i, s);
-    }
-    //  Create time string from date.
-    else {
-      h = d.getHours();
-      i = d.getMinutes();
-      s = d.getSeconds();
-    }
-    return "" + (h < 10 ? "0" : "") + h + ":" + (i < 10 ? "0" : "") + i + ":" + (s < 10 ? "0" : "") + s;
-  };
-  /**
-   * Nicked from Judy.
-   *
-   * @ignore
-   * @param {element} elm
-   * @param {string|undefined} [val]
-   * @return {string|integer}
-   */
-  _selectValue = function(elm, val) {
-    var multi, r, ndx = -1, rOpts, nOpts, nVals, i, vals = [], v, set = 0;
-    //  get ------------------------------------
-    if(val === undefined &&
-        ((ndx = elm.selectedIndex) === undefined || ndx < 0)) {
-      return "";
-    }
-    // getting and setting
-    multi = elm.multiple;
-    nOpts = (rOpts = $("option", elm).get()).length;
-    //  get ----------------
-    //  translating selectedIndex to actual option is weird/error prone, so we use jQuery list of options instead
-    if(val === undefined) {
-      if(!multi) {
-        return (v = rOpts[ndx].value) !== "_none" ? v : "";
-      }
-      //  multi
-      for(i = 0; i < nOpts; i++) {
-        if((r = rOpts[i]).selected &&
-            (v = r.value) !== "" && v !== "_none") {
-          vals.push(v);
-        }
-      }
-      return vals.length ? vals : "";
-    }
-    //  set ------------------------------------
-    //  start by clearing all
-    //  elm.selectedIndex = -1; ...is seriously unhealthy, may effectively ruin the select.
-    for(i = 0; i < nOpts; i++) {
-      rOpts[i].selected = false;
-    }
-    if(val === "" || val === "_none") {
-      return true; // all done
-    }
-    //  secure array
-    if(!$.isArray(val)) {
-      v = ["" + val];
-    }
-    else {
-      if(!(nVals = val.length) ||
-          (nVals === 1 && (val[0] === "" || val[0] === "_none"))
-      ) {
-        return true; // all done
-      }
-      v = val.concat();
-      for(i = 0; i < nVals; i++) { // stringify for comparison
-        v[i] = "" + v[i];
-      }
-    }
-    for(i = 0; i < nOpts; i++) {
-      if( ( (r = rOpts[i]).selected = $.inArray(r.value, v) > -1 ? "selected" : false) ) { // set? and count
-        ++set;
-        if(!multi) {
-          return 1;
-        }
-      }
-    }
-    return set;
-  };
-  /**
-   * Nicked from Judy.
-   *
-   * @ignore
-   * @param {element} elm
-   *  - one the checkboxes in the list
-   * @param {arr|str|mixed|undefined} [val]
-   *  - default: undefined (~ get value, dont set)
-   *  - empty string or array or [""] translates to clear all options
-   *  - non-empty string or not array: sets that single value (stringified)
-   * @return {arr|str|int|bool|undefined}
-   *  - array if getting and any option is selected
-   *  - empty string if getting and no option selected
-   *  - true if clearing all options
-   *  - integer if selecting some option(s); zero if none of this/those options exist
-   */
-  _checklistValue = function(elm, val) {
-    var r = elm, par = r.parentNode.parentNode, rOpts, nOpts, nVals, i, v = [], set = 0;
-    nOpts = (rOpts = $("input[type='checkbox']", par).get()).length;
-    //  get ------------------------------------
-    if(val === undefined) {
-      for(i = 0; i < nOpts; i++) {
-        if((r = rOpts[i]).checked) {
-          v.push(r.value);
-        }
-      }
-      return v.length ? v : "";
-    }
-    //  set ------------------------------------
-    //  let empty be undefined, otherwise secure array
-    v = !$.isArray(val) ? (
-            val === "" ? undefined : [val]
-        ) : (
-            !(nVals = val.length) || (nVals === 1 && val[0] === "") ? undefined :
-                val.concat() // do copy array, because we stringify values
-        );
-    if(v === undefined) { // unset all
-      for(i = 0; i < nOpts; i++) {
-        rOpts[i].checked = false;
-      }
-      return true;
-    }
-    for(i = 0; i < nVals; i++) { // stringify all buckets, because field values are always strings (~> comparison)
-      v[i] = "" + v[i];
-    }
-    for(i = 0; i < nOpts; i++) {
-      if( ( (r = rOpts[i]).checked =
-          $.inArray(r.value, v) > -1 ? "checked" : false)
-      ) { // set? and count
-        ++set;
-      }
-    }
-    return set;
   };
   /**
    * Removes parent form-textarea-wrapper div from (non-resizable) textarea, for easier (standard) DOM access.
@@ -698,141 +245,6 @@ _timeFormat(date, "17:30");
       jq.after( $(elm).remove() );
       jq.remove();
     }
-  };
-  /**
-   * @ignore
-   * @param {element|array} elm
-   * @param {string|falsy} [hoverTitle]
-   *  - string: update the element's (hover) title attribute
-   * @return {void}
-   */
-  _disable = function(elm, hoverTitle) {
-    var le, i;
-    if($.isArray(elm)) {
-      le = elm.length;
-      for(i = 0; i < le; i++) {
-        _disable(elm[i], hoverTitle)
-      }
-      return;
-    }
-    elm.disabled = "disabled";
-    if(typeof hoverTitle === "string") {
-      elm.setAttribute("title", hoverTitle);
-    }
-    if(elm.tagName.toLowerCase() === "input") {
-      switch(elm.getAttribute("type")) {
-        case "checkbox":
-          $(elm).bind("click." + _name + ".disabled", function() {
-            return false;
-          });
-          break;
-        case "button":
-        case "submit":
-        case "reset":
-          $(elm).addClass("form-button-disabled");
-          break;
-      }
-    }
-  };
-  /**
-   * @ignore
-   * @param {element|array} elm
-   * @param {string|falsy} [hoverTitle]
-   *  - string: update the element's (hover) title attribute
-   * @return {void}
-   */
-  _enable = function(elm, hoverTitle) {
-    var le, i;
-    if($.isArray(elm)) {
-      le = elm.length;
-      for(i = 0; i < le; i++) {
-        _enable(elm[i], hoverTitle)
-      }
-      return;
-    }
-    elm.disabled = false;
-    if(typeof hoverTitle === "string") {
-      elm.setAttribute("title", hoverTitle);
-    }
-    if(elm.tagName.toLowerCase() === "input") {
-      switch(elm.getAttribute("type")) {
-        case "checkbox":
-          $(elm).unbind("click." + _name + ".disabled");
-          break;
-        case "button":
-        case "submit":
-        case "reset":
-          $(elm).removeClass("form-button-disabled");
-          break;
-      }
-    }
-  };
-  /**
-   * @ignore
-   * @param {element} elm
-   * @param {string|falsy} [hoverTitle]
-   *  - string: update the element's (hover) title attribute
-   * @return {void}
-   */
-  _readOnly = function(elm, hoverTitle) {
-    elm.readOnly = true;
-    if(typeof hoverTitle === "string") {
-      elm.setAttribute("title", hoverTitle);
-    }
-    switch(elm.tagName.toLowerCase()) {
-      case "input":
-        if(elm.getAttribute("type") === "checkbox") {
-          $(elm).bind("click.readonly", function() {
-            return false;
-          });
-        }
-        break;
-      case "select":
-        $(elm).bind("focus.readonly", function(evt) {
-          this.setAttribute("before_change_value", _selectValue(this));
-        }).bind("change.readonly", function() {
-          _selectValue(this, this.getAttribute("before_change_value") || ""); // "" to prevent nasty undefined errors.
-        });
-        break;
-    }
-    $(elm).addClass("form-item-readonly");
-  };
-  /**
-   * @ignore
-   * @param {element} elm
-   * @param {string|falsy} [hoverTitle]
-   *  - string: update the element's (hover) title attribute
-   * @return {void}
-   */
-  _readWrite = function(elm, hoverTitle) {
-    elm.readOnly = false;
-    if(typeof hoverTitle === "string") {
-      elm.setAttribute("title", hoverTitle);
-    }
-    switch(elm.tagName.toLowerCase()) {
-      case "input":
-        if(elm.getAttribute("type") === "checkbox") {
-          $(elm).unbind("click.readonly");
-        }
-        break;
-      case "select":
-        $(elm).unbind("focus.readonly change.readonly");
-        break;
-    }
-    $(elm).removeClass("form-item-readonly");
-  };
-  /**
-   * @ignore
-   * @param {element} elm
-   * @return {void}
-   */
-  _focus = function(elm) {
-    setTimeout(function() {
-      try {
-        elm.focus();
-      }
-      catch(er) {}
-    });
   };
   _toAscii.needles = [
     //  iso-8859-1
@@ -926,7 +338,7 @@ _timeFormat(date, "17:30");
         self.Message.set( self.local("machineName", {"!illegals": _machineNameIllegals.join(", ")}), "warning", {
             modal: true,
             close: function() {
-              _focus(_elements.filter.name_suggest);
+              Judy.focus(_elements.filter.name_suggest);
             }
         });
       }
@@ -963,84 +375,15 @@ _timeFormat(date, "17:30");
       o = (jq = $("#log_filter_criteria")).offset();
       $("#page")[
           (o.left + jq.outerWidth(true) + $("div#log_filter_filters_cell_0").outerWidth(true)) >
-              (_innerWidth(window) - 20) ? // 20 ~ To prevent ambiguity.
+              (Judy.innerWidth(window) - 20) ? // 20 ~ To prevent ambiguity.
               "addClass" : "removeClass"
       ]("log-filter-viewport-small");
     }
     if(initially) {
-      self.overlay(0);
+      Judy.overlay(0);
       $(window).resize(_resize);
     }
 	};
-  /**
-   * Resizes custom overlay to fill whole window/document; handler for window resize event.
-	 * @ignore
-   * @return {void}
-	 */
-	_overlayResize = function() {
-		var w = window, d = document.documentElement, dW, dD;
-		_jqOverlay.css({
-			width: ((dD = _innerWidth(d)) > (dW = _innerWidth(w)) ? dD : dW) + "px",
-			height: ((dD = _innerHeight(d)) > (dW = _innerHeight(w)) ? dD : dW) + "px"
-		});
-	};
-  /**
-   * Set url paramater.
-   *
-   * @ignore
-   * @param {string} url
-   *  - full url, or just url query (window.location.search)
-   * @param {string|object} name
-   * @param {string|number|falsy} [value]
-   *  - ignored if arg name is object
-   *  - falsy and not zero: unsets the parameter
-   * @return {string}
-   */
-  _setUrlParam = function(url, name, value) {
-    var u = url || "", a = u, o = name, oS = {}, p, le, i, k, v;
-    if(u && (p = u.indexOf("?")) > -1) {
-      a = u.substr(p + 1);
-      u = u.substr(0, p);
-    }
-    else {
-      a = "";
-    }
-    if(typeof o !== "object") {
-      o = {};
-      o[name] = value;
-    }
-    if(a) {
-      le = (a = a.split(/&/g)).length;
-      for(i = 0; i < le; i++) {
-        if((p = a[i].indexOf("=")) > 0) {
-          oS[ a[i].substr(0, p) ] = a[i].substr(p + 1);
-        }
-        else if(p) { // Dont use it if starts with =.
-          oS[ a[i] ] = "";
-        }
-      }
-    }
-    a = [];
-    for(k in oS) {
-      if(oS.hasOwnProperty(k)) {
-        if(o.hasOwnProperty(k)) {
-          if((v = o[k]) || v === 0) { // Falsy and not zero: unsets the parameter.
-            a.push(k + "=" + encodeURIComponent(v));
-          }
-          delete o[k];
-        }
-        else {
-          a.push(k + "=" + oS[k]);
-        }
-      }
-    }
-    for(k in o) {
-      if(o.hasOwnProperty(k) && (v = o[k]) || v === 0) {
-        a.push(k + "=" + v);
-      }
-    }
-    return u + (a.length ? ("?" + a.join("&")) : "");
-  };
   /**
    * @ignore
    * @return {void}
@@ -1051,7 +394,7 @@ _timeFormat(date, "17:30");
       return;
     }
     _submitted = true;
-    self.overlay(0);
+    Judy.overlay(0);
     switch(_.mode) {
       case "adhoc":
         nm = "adhoc";
@@ -1062,9 +405,9 @@ _timeFormat(date, "17:30");
     }
     _elements.form.setAttribute(
         "action",
-        _setUrlParam(_elements.form.getAttribute("action"), "log_filter", nm)
+        Judy.setUrlParam(_elements.form.getAttribute("action"), "log_filter", nm)
     );
-    //  Delay; otherwise it may in some situations not submit, presumably because _enable() hasnt finished it's job yet(?).
+    //  Delay; otherwise it may in some situations not submit, presumably because Judy.enable() hasnt finished it's job yet(?).
     setTimeout(function() {
       $(_elements.buttons.submit).trigger("click");
     }, 100);
@@ -1089,13 +432,13 @@ _timeFormat(date, "17:30");
               //  Selecting a stored filter means submit form.
               jq.change(function() {
                 var v;
-                _elements.filter.name.value = _.name = v = _selectValue(this);
+                _elements.filter.name.value = _.name = v = Judy.fieldValue(this);
                 _elements.settings.mode.value = _.mode = v ? "stored" : "default";
                 if(!v) { // default|adhoc
                   _resetCriteria(null, "default");
                   return;
                 }
-                _enable(_elements.buttons.update_list);
+                Judy.enable(_elements.buttons.update_list);
                 _submit();
               });
               break;
@@ -1108,7 +451,7 @@ _timeFormat(date, "17:30");
               jq.change(function() {
                 var v;
                 if((v = this.value)) {
-                  this.value = _stripTags(v);
+                  this.value = Judy.stripTags(v);
                 }
               });
               break;
@@ -1135,11 +478,11 @@ _timeFormat(date, "17:30");
                 if(this.checked) {
                   if(_.mode === "stored") {
                     _elements.settings.mode.value = "adhoc";
-                    _selectValue(_elements.filter.filter, "");
+                    Judy.fieldValue(_elements.filter.filter, null, "");
                     _elements.filter.origin.value = _.name; // Pass name to origin.
                     _elements.filter.name.value = "";
                   }
-                  _enable(_elements.buttons.update_list);
+                  Judy.enable(_elements.buttons.update_list);
                   _submit();
                 }
               });
@@ -1213,22 +556,22 @@ _timeFormat(date, "17:30");
               //  Set datepicker and time field values.
               if((v = _elements.conditions[ u === "from" ? "time_from" : "time_to" ].value) && (v = parseInt(v, 10))) {
                 jq.datepicker("setDate", d = new Date(v * 1000));
-                elm2.value = _timeFormat(d);
+                elm2.value = Judy.timeFormat(d);
               }
               //  Date proxy field handler.
               jq.change(function() {
                 var v, d, nm = this.name.indexOf("from") > 1 ? "from" : "to", r = _elements.conditions[ "time_" + nm ],
                   rT = _elements.conditions[ "time_" + nm + "_time" ];
                 if((v = $.trim(this.value)).length) {
-                  if((d = _dateFromFormat(v, _.dateFormat))) {
+                  if((d = Judy.dateFromFormat(v, _.dateFormat))) {
                     _.recordedValues.time_range = _elements.conditions.time_range.value = ""; // Clear time_range.
-                    rT.value = _timeFormat(d, rT.value);
+                    rT.value = Judy.timeFormat(d, rT.value);
                     r.value = v = Math.floor(d.getTime() / 1000);
                     //  If time_to, and same as time_from, and no hours/minutes/seconds: make time_to the end of the day.
                     if(nm === "to" && ("" + v) === _elements.conditions.time_from.value &&
                       d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0
                     ) {
-                      rT.value = _timeFormat(d, "24");
+                      rT.value = Judy.timeFormat(d, "24");
                       r.value = Math.floor(d.getTime() / 1000);
                     }
                     else {
@@ -1253,7 +596,7 @@ _timeFormat(date, "17:30");
                   return;
                 }
                 d = new Date(d * 1000);
-                this.value = _timeFormat(d, this.value);
+                this.value = Judy.timeFormat(d, this.value);
                 rD.value = Math.floor(d / 1000);
                 _validateTimeSequence(nm);
                 _changedCriterion();
@@ -1304,19 +647,19 @@ _timeFormat(date, "17:30");
                 _changedCriterion();
               });
               break;
-            case "type_any": // _checklistValue
+            case "type_any": // check list
               oElms[nm] = elm;
               jq.change(function() {
                 var elm;
                 if(this.checked && // Uncheck all of type_some.
                     (elm = _elements.conditions.type_some) // Doesnt exists if no logs at all.
                 ) {
-                  _checklistValue(elm, "");
+                  Judy.fieldValue(elm, null, "", "checkboxes");
                 }
                 _changedCriterion();
               });
               break;
-            case "type_some": // _checklistValue
+            case "type_some":  // check list
               oElms[nm] = elm;
               if(elm) { // Doesnt exists if no logs at all.
                 jq.change(function() {
@@ -1331,7 +674,7 @@ _timeFormat(date, "17:30");
               oElms[nm] = elm;
               //  Clear uid when selecting a role.
               jq.change(function() {
-                if(_selectValue(this)) {
+                if(Judy.fieldValue(this)) {
                   _elements.conditions.uid.value = "";
                 }
                 _changedCriterion();
@@ -1353,14 +696,14 @@ _timeFormat(date, "17:30");
                       self.Message.set( self.local("invalid_uid"), "warning", {
                           modal: true,
                           close: function() {
-                            _focus(_elements.conditions.uid);
+                            Judy.focus(_elements.conditions.uid);
                           }
                       });
                     }
                     this.value = v = "";
                   }
                   else {
-                    _selectValue(_elements.conditions.role, ""); // Clear role when setting a uid.
+                    Judy.fieldValue(_elements.conditions.role, null, ""); // Clear role when setting a uid.
                   }
                 }
                 if(v !== _.recordedValues.uid) {
@@ -1375,7 +718,7 @@ _timeFormat(date, "17:30");
               jq.change(function() {
                 var v = this.value;
                 if(v !== "") {
-                  this.value = v = _stripTags(v);
+                  this.value = v = Judy.stripTags(v);
                 }
                 if(v !== _.recordedValues.hostname) {
                   _.recordedValues.hostname = v;
@@ -1391,14 +734,14 @@ _timeFormat(date, "17:30");
               jq.change(function() {
                 var v = this.value, nm = this.name === "log_filter_location" ? "location" : "referer"; // Not the same nm as iteration nm ;-)
                 if(v !== "") {
-                  this.value = v = _stripTags(v);
+                  this.value = v = Judy.stripTags(v);
                 }
                 if(v !== "" && !/^https?\:\/\/.+$/.test(v)) {
                   //alert(self.local(nm === "location" ? "invalid_location" : "invalid_referer"));
                   self.Message.set( self.local(nm === "location" ? "invalid_location" : "invalid_referer"), "warning", {
                       modal: true,
                       close: function() {
-                        _focus(_elements.conditions[ nm ]);
+                        Judy.focus(_elements.conditions[ nm ]);
                       }
                   });
                   this.value = v = "";
@@ -1422,16 +765,16 @@ _timeFormat(date, "17:30");
           oElms.push(
             [ elm = aElms[i] ]
           );
-          _.recordedValues.orderBy.push(_selectValue(elm));
+          _.recordedValues.orderBy.push(Judy.fieldValue(elm));
           //  There can't be two orderBys having same value.
           $(elm).change(function() {
             var v, index, i, a;
-            if((v = _selectValue(this)) && v !== "_none") {
+            if((v = Judy.fieldValue(this)) && v !== "_none") {
               index = parseInt(this.name.replace(/^log_filter_orderby_/, ""), 10) - 1;
               a = _elements.orderBy;
               for(i = 0; i < nOrderBy; i++) {
-                if(i !== index && _selectValue(a[i][0]) === v) {
-                  _selectValue(this, v = "");
+                if(i !== index && Judy.fieldValue(a[i][0]) === v) {
+                  Judy.fieldValue(this, null, v = "");
                   break;
                 }
               }
@@ -1547,7 +890,7 @@ _timeFormat(date, "17:30");
           $(_elements.buttons.crudFilters).hide();
         }
         if(_.delLogs) {
-          _disable(_elements.buttons.delete_logs_button, self.local("deleteLogs_prohibit"));
+          Judy.disable(_elements.buttons.delete_logs_button, null, self.local("deleteLogs_prohibit"));
         }
       }
       switch(mode) {
@@ -1555,9 +898,9 @@ _timeFormat(date, "17:30");
           $("option[value='']", _elements.filter.filter).html( self.local("default") ); // Set visual value of filter selector's empty option.
           $(_elements.misc.title).html(self.local("default"));
           if(!initially) {
-            _selectValue(_elements.filter.filter, "");
+            Judy.fieldValue(_elements.filter.filter, null, "");
             _elements.filter.name.value = _.name = _elements.filter.origin.value = _.origin = "";
-            _enable(_elements.buttons.update_list);
+            Judy.enable(_elements.buttons.update_list);
           }
           if(_.crudFilters) {
             $(_elements.settings.onlyOwn.parentNode).show();
@@ -1580,8 +923,8 @@ _timeFormat(date, "17:30");
           break;
         case "adhoc":
           if(!initially) {
-            _selectValue(_elements.filter.filter, "");
-            _enable(_elements.buttons.update_list);
+            Judy.fieldValue(_elements.filter.filter, null, "");
+            Judy.enable(_elements.buttons.update_list);
           }
           if(fromMode === "stored") {
             //  Pass current name to origin field.
@@ -1605,7 +948,7 @@ _timeFormat(date, "17:30");
             $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
             $(_elements.filter.description.parentNode).hide();
           }
-          _enable(_elements.buttons.update_list);
+          Judy.enable(_elements.buttons.update_list);
           if(_.delLogs) {
             $(_elements.settings.delete_logs_max).show();
             $(elm = _elements.buttons.delete_logs_button).show();
@@ -1618,7 +961,7 @@ _timeFormat(date, "17:30");
               _elements.filter.name.value = _.name = _.origin;
               _elements.filter.origin.value = _.origin = "";
             }
-            _selectValue(elm = _elements.filter.filter, nm = _.name);
+            Judy.fieldValue(elm = _elements.filter.filter, null, nm = _.name);
             $("option[value='']", elm).html( self.local("default") ); // Set visual value of filter selector's empty option.
             $(_elements.misc.title).html( nm );
             if(_.crudFilters) {
@@ -1628,7 +971,7 @@ _timeFormat(date, "17:30");
               $(_elements.filter.name_suggest.parentNode).hide();
               $(_elements.filter.description.parentNode).hide();
             }
-            _enable(_elements.buttons.update_list);
+            Judy.enable(_elements.buttons.update_list);
           }
           $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
           if(_.crudFilters) {
@@ -1660,7 +1003,7 @@ _timeFormat(date, "17:30");
               $(_elements.misc.title).html( self.local("newTitle") );
               break;
             case "stored":
-              _selectValue(_elements.filter.filter, "");
+              Judy.fieldValue(_elements.filter.filter, null, "");
               //  Pass current name to origin field.
               _elements.filter.origin.value = _.origin = nm = _.name;
               _elements.filter.name.value = _.name = "";
@@ -1679,7 +1022,7 @@ _timeFormat(date, "17:30");
           $(_elements.filter.description.parentNode).show();
           $(_elements.buttons.save).show();
           $(_elements.buttons.cancel).show();
-          _disable(_elements.buttons.update_list);
+          Judy.disable(_elements.buttons.update_list);
           if(_.delLogs) {
             $(_elements.buttons.delete_logs_button.parentNode).hide();
           }
@@ -1695,7 +1038,7 @@ _timeFormat(date, "17:30");
               "<option value=\"" + (nm = _.name) + "\">" + nm + "</option>"
             );
             $("option[value='']", elm).html( self.local("default") );
-            _selectValue(elm, nm);
+            Judy.fieldValue(elm, null, nm);
           }
           if ((elm = _elements.filter.require_admin)) {
             $(elm.parentNode).show();
@@ -1708,7 +1051,7 @@ _timeFormat(date, "17:30");
           $(_elements.filter.description.parentNode).show();
           $(_elements.buttons.cancel).show();
           $(_elements.buttons.save).show();
-          _disable(_elements.buttons.update_list);
+          Judy.disable(_elements.buttons.update_list);
           $(_elements.settings.onlyOwn.parentNode).hide();
           if(_.delLogs) {
             $(_elements.buttons.delete_logs_button.parentNode).hide();
@@ -1718,17 +1061,17 @@ _timeFormat(date, "17:30");
           if(!_.crudFilters) {
             throw new Error("Mode[" + mode + "] not allowed.");
           }
-          self.overlay(1, true); // Opaque.
+          Judy.overlay(1, true); // Opaque.
           if (_elements.filter.name.value) {
             if(!confirm( self.local(
               "confirmDelete",
               {"!filter": _elements.filter.name.value}
             ))) {
-              self.overlay(0);
+              Judy.overlay(0);
               return;
             }
             doSubmit = true;
-            self.overlay(1, false, self.local("wait")); // Transparent.
+            Judy.overlay(1, false, self.local("wait")); // Transparent.
           }
           else {
             throw new Error("Cant delete filter having empty name[" + _elements.filter.name.value + "].");
@@ -1762,7 +1105,7 @@ _timeFormat(date, "17:30");
           break;
         case "log_filter_create":
           _setMode("create");
-          _focus(_elements.filter.name_suggest);
+          Judy.focus(_elements.filter.name_suggest);
           break;
         case "log_filter_edit":
           _setMode("edit");
@@ -1796,7 +1139,7 @@ _timeFormat(date, "17:30");
             }
             //  No reason to trim(), because change handler (_machineNameChange()) replaces spaces with underscores.
             if(!_machineNameValidate(null, null, v = (elm = _elements.filter.name_suggest).value)) {
-              _focus(elm);
+              Judy.focus(elm);
               return false; // false for IE<9's sake.
             }
             if($.inArray(v, _filters) > -1) {
@@ -1804,7 +1147,7 @@ _timeFormat(date, "17:30");
               self.Message.set(self.local("filterNameDupe", {"!name": v}), "warning");
               return false; // false for IE<9's sake.
             }
-            self.overlay(1, false, self.local("waitCreate"));
+            Judy.overlay(1, false, self.local("waitCreate"));
             _ajaxRequestingBlocking = true;
             _ajaxRequest("create", {
               name: v,
@@ -1819,7 +1162,7 @@ _timeFormat(date, "17:30");
           break;
         case "log_filter_delete_logs_button":
           if(_.delLogs) {
-            self.overlay(1, false, self.local("wait"));
+            Judy.overlay(1, false, self.local("wait"));
             setTimeout(_deleteLogs, 200);
           }
           else {
@@ -1849,7 +1192,7 @@ _timeFormat(date, "17:30");
           break;
         case "adhoc":
           if(_.delLogs) {
-            _disable(_elements.buttons.delete_logs_button, self.local("deleteLogs_prohibit")); // Because we don't _setMode(), which does that.
+            Judy.disable(_elements.buttons.delete_logs_button, null, self.local("deleteLogs_prohibit")); // Because we don't _setMode(), which does that.
           }
           break;
         case "stored":
@@ -1898,7 +1241,7 @@ _timeFormat(date, "17:30");
             break;
           case "type_some":
             if(r) { // Doesnt exists if no logs at all.
-              _checklistValue(r, "");
+              Judy.fieldValue(r, null, "", "checkboxes");
             }
             break;
           default:
@@ -1909,7 +1252,7 @@ _timeFormat(date, "17:30");
     le = (a = _elements.orderBy).length;
     //  Default to order by time ascending, only.
     for(i = 0; i < le; i++) {
-      _selectValue(a[i][0], i ? "" : "time");
+      Judy.fieldValue(a[i][0], null, i ? "" : "time");
       a[i][1].checked = i ? false : "checked";
     }
     //  Degrade mode.
@@ -1954,7 +1297,7 @@ _timeFormat(date, "17:30");
               }
               break;
             case "role":
-              if((v = _selectValue(r)) !== "" && v !== "_none" && (v = $.trim(v)) && (v = parseInt(v, 10))) {
+              if((v = Judy.fieldValue(r)) !== "" && v !== "_none" && (v = $.trim(v)) && (v = parseInt(v, 10))) {
                 ++n;
                 conditions[nm] = v;
               }
@@ -1978,10 +1321,10 @@ _timeFormat(date, "17:30");
                 }
               }
               break;
-            case "type_some":
+            case "type_some": // check list
               if(!oElms.type_any.checked &&
                   oElms.type_some && // Doesnt exists if no logs at all.
-                  (v = _checklistValue(oElms.type_some))
+                  (v = Judy.fieldValue(oElms.type_some))
               ) {
                 ++n;
                 conditions.type = v;
@@ -2002,7 +1345,7 @@ _timeFormat(date, "17:30");
       }
       le = (oElms = _elements.orderBy).length;
       for(i = 0; i < le; i++) {
-        if((v = _selectValue(oElms[i][0])) && v !== "_none" && (v = $.trim(v))) {
+        if((v = Judy.fieldValue(oElms[i][0])) && v !== "_none" && (v = $.trim(v))) {
           order_by.push([
             v,
             oElms[i][1].checked ? "DESC" : "ASC"
@@ -2035,14 +1378,14 @@ _timeFormat(date, "17:30");
       //  We warn every time, when no conditions at all.
       if(!max) {
         if(!confirm( self.local("deleteLogs_all") )) {
-          self.overlay(0);
-          _focus(_elements.settings.delete_logs_max);
+          Judy.overlay(0);
+          Judy.focus(_elements.settings.delete_logs_max);
           return;
         }
       }
       else if(!confirm( self.local("deleteLogs_noConditions", {"!number": v}) )) {
-        self.overlay(0);
-        _focus(_elements.settings.delete_logs_max);
+        Judy.overlay(0);
+        Judy.focus(_elements.settings.delete_logs_max);
         return;
       }
     }
@@ -2050,28 +1393,28 @@ _timeFormat(date, "17:30");
       if(!max) {
         if(!confirm( self.local("deleteLogs_storedNoMax", {"!name": _.name}) )) {
           _.warned_deleteNoMax = true;
-          self.overlay(0);
-          _focus(_elements.settings.delete_logs_max);
+          Judy.overlay(0);
+          Judy.focus(_elements.settings.delete_logs_max);
           return;
         }
       }
       else if(!_.warned_deleteNoMax && !confirm( self.local("deleteLogs_stored", {"!name": _.name, "!number": v}) )) {
-        self.overlay(0);
-        _focus(_elements.settings.delete_logs_max);
+        Judy.overlay(0);
+        Judy.focus(_elements.settings.delete_logs_max);
         return;
       }
     }
     else if(!max) {
       if(!confirm( self.local("deleteLogs_adhocNoMax") )) {
         _.warned_deleteNoMax = true;
-        self.overlay(0);
-        _focus(_elements.settings.delete_logs_max);
+        Judy.overlay(0);
+        Judy.focus(_elements.settings.delete_logs_max);
         return;
       }
     }
     else if(!_.warned_deleteNoMax && !confirm( self.local("deleteLogs_adhoc", {"!number": v}) )) {
-      self.overlay(0);
-      _focus(_elements.settings.delete_logs_max);
+      Judy.overlay(0);
+      Judy.focus(_elements.settings.delete_logs_max);
       return;
     }
     //_elements.filter.delete_logs.value = "1";
@@ -2090,7 +1433,7 @@ _timeFormat(date, "17:30");
         _elements.filter.name.value = _.name = nm;
         _filters.push(nm);
         _setMode("edit");
-        self.overlay(0);
+        Judy.overlay(0);
         self.Message.set(self.local("savedNew", {"|filter": nm}));
       }
       else {
@@ -2100,20 +1443,20 @@ _timeFormat(date, "17:30");
             _submit();
             break;
           case 20: // Invalid machine name.
-            self.overlay(0);
+            Judy.overlay(0);
             self.Message.set( self.local("machineName"), "warning", {
                 modal: true,
                 close: function() {
-                  _focus(_elements.filter.name_suggest);
+                  Judy.focus(_elements.filter.name_suggest);
                 }
             });
             break;
           case 30: // Filter name already exists.
-            self.overlay(0);
+            Judy.overlay(0);
             self.Message.set( self.local("filterNameDupe", {"!name": nm}), "warning", {
                 modal: true,
                 close: function() {
-                  _focus(_elements.filter.name_suggest);
+                  Judy.focus(_elements.filter.name_suggest);
                 }
             });
             break;
@@ -2203,6 +1546,17 @@ _timeFormat(date, "17:30");
   this.inspectElements = function(group) {
     if(typeof window.inspect === "function" && inspect.tcepsni === true) {
       inspect(!group ? _elements : _elements[group], "_elements" + (!group ? "" : ("." + group)));
+    }
+  };
+  /**
+   * @function
+   * @name LogFilter.inspectCriteria
+   * @param {string|falsy} [group]
+   * @return {void}
+   */
+  this.inspectCriteria = function(group) {
+    if(typeof window.inspect === "function" && inspect.tcepsni === true) {
+      inspect(_getCriteria());
     }
   };
   /**
@@ -2319,31 +1673,6 @@ _timeFormat(date, "17:30");
       }
     }
     return s.replace(/\!newline/g, "\n");
-  };
-
-  /**
-   * @function
-   * @name LogFilter.overlay
-   * @param {boolean|Event} [show]
-   *  - default: falsy (~ hide)
-   *  - Event|object: hide (because may be used as event handler)
-   * @param {boolean} [opaque]
-   *  - default: false
-   * @param {string|falsy} [hoverTitle]
-   *  - default: falsy (~ no hover title)
-   */
-  this.overlay = function(show, opaque, hoverTitle) {
-    var jq = _jqOverlay, ttl = hoverTitle || "";
-    if(!show ||
-        typeof show === "object" // event, when used as event handler.
-    ) {
-      jq.hide();
-      return;
-    }
-    jq[ opaque ? "addClass" : "removeClass" ]("log-filter-overlay-opaque");
-    jq[ ttl ? "addClass" : "removeClass" ]("log-filter-overlay-wait"); // Make cursor:wait if given hover title.
-    jq.get(0).setAttribute("title", ttl);
-    jq.show();
   };
 
   /**
@@ -2583,8 +1912,8 @@ _timeFormat(date, "17:30");
       (jq = $((s = "#log_filter__message_" + _n) + " > div:last-child")).click(_close);
       //  If modal, show overlay.
       if(o.modal) {
-        jq.click(self.overlay); // And hide it on close click.
-        self.overlay(1, true); // Opaque, no hover title.
+        jq.click(Judy.overlay); // And hide it on close click.
+        Judy.overlay(1, true); // Opaque, no hover title.
       }
       //  Close function.
       if(o.close) {
@@ -2630,15 +1959,8 @@ _timeFormat(date, "17:30");
     if((_.useModuleCss = useModuleCss)) {
       $("div#page").addClass("theme-" + theme);
     }
-    //	Create overlay, to prevent user from doing anything before page load and after form submission.
-		$("body").append(
-			"<div id=\"log_filter_overlay\" tabindex=\"10000\" title=\"" + self.local("wait") + "\">&nbsp;</div>"
-		);
-		_jqOverlay = $("div#log_filter_overlay");
-    _overlayResize();
-		$(window).resize(function() {
-			_overlayResize();
-		});
+    //	Set overlay, to prevent user from doing anything before page load and after form submission.
+    Judy.overlay(1, false, self.local("wait"));
   };
   /**
    * Called upon page load.

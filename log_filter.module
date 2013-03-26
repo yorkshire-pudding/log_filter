@@ -19,7 +19,6 @@ function log_filter_permission() {
     ),
     'log_filter edit filters' => array(
       'title' => t('Create/edit/delete saveable log filters'),
-      'restrict access' => TRUE,
     ),
     'log_filter remove logs' => array(
       'title' => t('Remove logs'),
@@ -71,7 +70,6 @@ function log_filter_menu() {
       'page callback' => 'drupal_get_form', // Hook to implement.
       'page arguments' => array('log_filter_form'), // Name of implementing function.
       'access arguments' => array('access site reports'), // Permission required.
-      'file' => 'LogFilter.inc',
       'type' => MENU_LOCAL_TASK,
       'weight' => ++$i,
     );
@@ -84,7 +82,6 @@ function log_filter_menu() {
       'page callback' => 'drupal_get_form', // Hook to implement.
       'page arguments' => array('log_filter_form'), // Name of implementing function.
       'access arguments' => array('access site reports'), // Permission required.
-      'file' => 'LogFilter.inc',
       'type' => MENU_NORMAL_ITEM,
       'weight' => -1,
     );
@@ -105,6 +102,32 @@ function log_filter_menu() {
     'weight' => ++$i,
   );
   return $items;
+}
+
+/**
+ * Defines log viewer form and GUI.
+ *
+ * Function name not underscore prefixed to prevent html form id starting with hyphen (unhealthy naming).
+ *
+ * @param array $form
+ * @param array &$form_state
+ * @return array
+ */
+function log_filter_form($form, &$form_state) {
+  module_load_include('inc', 'log_filter', 'LogFilter');
+  return LogFilter::viewerForm($form, $form_state);
+}
+
+/**
+ * Called when log viewer form submits.
+ *
+ * @param array $form
+ * @param array &$form_state
+ * @return void
+ */
+function _log_filter_form_submit($form, &$form_state) {
+  module_load_include('inc', 'log_filter', 'LogFilter');
+  LogFilter::viewerFormSubmit($form, $form_state);
 }
 
 /**
@@ -131,12 +154,13 @@ function log_filter_form_field_after_build($element) {
  *
  *  Expects (requires) POST vars on actions:
  *  - create: name, require_admin
- * 
+ *
  * @see LogFilter::ajaxCallback
  * @param string $action
  * @return void
  *  - sends 403 header if the expected POST vars arent set or their sanitized values evaluates to empty
  */
 function log_filter_ajax_callback($action) {
+  module_load_include('inc', 'log_filter', 'LogFilter');
   LogFilter::ajaxCallback($action);
 }

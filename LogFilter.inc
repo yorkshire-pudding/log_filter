@@ -70,15 +70,17 @@ class LogFilter {
    */
   public static function viewerForm($form, &$form_state) {
     $path = drupal_get_path('module', 'log_filter');
+    //  Get Judy.
+    drupal_add_library('judy', 'judy');
     //  Get jQuery UI datepicker.
-    drupal_add_library("system", "ui.datepicker");
+    drupal_add_library('system', 'ui.datepicker');
     //  Have to include own datepicker localisation, because it doesnt seem to exist in neither core nor the Date Popup module.
     drupal_add_js(
         $path . '/js/jquery_ui_datepicker_i18n/jquery.ui.datepicker-' . $GLOBALS['language']->language . '.min.js',
         array('type' => 'file', 'group' => JS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
     );
     //  Get jQuery UI dialog - because gecko's confirm()-dialog isnt draggable :-(
-    drupal_add_library("system", "ui.dialog");
+    drupal_add_library('system', 'ui.dialog');
 
     if (($use_module_css = variable_get('log_filter_css', TRUE))) {
       drupal_add_css(
@@ -1321,29 +1323,4 @@ inspect($_POST['criteria'], 'callback');
       );
     }
   }
-}
-
-
-/**
- * Defines log viewer form and GUI.
- *
- * Function name not underscore prefixed to prevent html form id starting with hyphen (unhealthy naming).
- *
- * @param array $form
- * @param array &$form_state
- * @return array
- */
-function log_filter_form($form, &$form_state) {
-  return LogFilter::viewerForm($form, $form_state);
-}
-
-/**
- * Called when log viewer form submits.
- *
- * @param array $form
- * @param array &$form_state
- * @return void
- */
-function _log_filter_form_submit($form, &$form_state) {
-  LogFilter::viewerFormSubmit($form, $form_state);
 }
