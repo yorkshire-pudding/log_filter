@@ -31,6 +31,26 @@ var LogFilter = function($) {
    * @private
    * @type {obj}
    */
+  _errorCodes = {
+    unknown: 1,
+    //  Programmatic errors and wrong use of program.
+    algo: 100,
+    use: 101,
+    //  Missing permission.
+    perm_general: 200,
+    form_expired: 201,
+    perm_filter_crud: 202,
+    //  Database.
+    db_general: 500,
+    //  Misc.
+    name_composition: 1001,
+    name_exists: 1002
+  },
+  /**
+   * @ignore
+   * @private
+   * @type {obj}
+   */
   _ = {
     //  {arr}
     errors: [],
@@ -50,20 +70,15 @@ var LogFilter = function($) {
       referer: "",
       orderBy: []
     },
-    warned_deleteNoMax: false
+    warned_deleteNoMax: false,
+    saveEditFilterAjaxed: true // Save/update filter using AJAX or ordinary POST request?
   },
   /**
    * @ignore
    * @private
    * @type {str}
    */
-  _basePath = "/",
-  /**
-   * @ignore
-   * @private
-   * @type {bool}
-   */
-  _secure,
+  _formToken = "",
   /**
    * @ignore
    * @private
@@ -169,7 +184,7 @@ var LogFilter = function($) {
   _machineNameConvert, _machineNameIllegals, _machineNameValidate,
   _validateTimeSequence,
   _resize,
-  _submit, _prepareForm, _setMode, _crudRelay, _changedCriterion, _resetCriteria, _getCriteria, _deleteLogs,
+  _url, _submit, _prepareForm, _setMode, _crudRelay, _changedCriterion, _resetCriteria, _getCriteria, _deleteLogs,
   _ajaxResponse, _ajaxRequest;
   /**
    * @see inspect.errorHandler
@@ -384,6 +399,16 @@ var LogFilter = function($) {
       $(window).resize(_resize);
     }
 	};
+  /**
+   * @ignore
+   * @param {object} [params]
+   * @return {string}
+   */
+  _url = function(params) {
+    var loc = window.location, v, s;
+    s = loc.protocol + "//" + loc.hostname + (!(v = loc.port) ? "" : (":" + v)) + loc.pathname;
+    return !params ? s : Judy.setUrlParam(s, params);
+  };
   /**
    * @ignore
    * @return {void}
@@ -1051,7 +1076,7 @@ var LogFilter = function($) {
           $(_elements.filter.description.parentNode).show();
           $(_elements.buttons.cancel).show();
           $(_elements.buttons.save).show();
-          Judy.disable(_elements.buttons.update_list);
+          Judy.disable(_elements.buttons.update_list); // @todo: no, because update buttons must be ajaxed
           $(_elements.settings.onlyOwn.parentNode).hide();
           if(_.delLogs) {
             $(_elements.buttons.delete_logs_button.parentNode).hide();
@@ -1097,7 +1122,7 @@ var LogFilter = function($) {
    * @return {void}
    */
   _crudRelay = function() {
-    var nm = this.name, elm, v;
+    var nm = this.name, elm, v, rqa;
     try {
       switch(nm) {
         case "log_filter_reset":
@@ -1133,31 +1158,42 @@ var LogFilter = function($) {
           }
           break;
         case "log_filter_save":
-          if(_.mode === "create") {
-            if(_ajaxRequestingBlocking) { // Prevent double-click.
-              return false; // false for IE<9's sake.
-            }
-            //  No reason to trim(), because change handler (_machineNameChange()) replaces spaces with underscores.
-            if(!_machineNameValidate(null, null, v = (elm = _elements.filter.name_suggest).value)) {
-              Judy.focus(elm);
-              return false; // false for IE<9's sake.
-            }
-            if($.inArray(v, _filters) > -1) {
-              _overlay(1, true);
-              self.Message.set(self.local("filterNameDupe", {"!name": v}), "warning");
-              return false; // false for IE<9's sake.
-            }
-            Judy.overlay(1, false, self.local("waitCreate"));
-            _ajaxRequestingBlocking = true;
-            _ajaxRequest("create", {
-              name: v,
-              require_admin: _elements.filter.require_admin ? 1 : 0, // Create with require_admin if the element exists (the user has the permission).
-              criteria: _getCriteria(),
-              description: $.trim(_elements.filter.description.value)
-            });
-          }
-          else { // mode:edit
+          if(_.mode === "edit" && !_.saveEditFilterAjaxed) {
             _submit();
+          }
+          else {
+            //  Prevent double-click.
+            if(_ajaxRequestingBlocking) {
+              return false; // false for IE<9's sake.
+            }
+            if(_.mode === "create") {
+              //  No reason to trim(), because change handler (_machineNameChange()) replaces spaces with underscores.
+              if(!_machineNameValidate(null, null, v = (elm = _elements.filter.name_suggest).value)) {
+                Judy.focus(elm);
+                return false; // false for IE<9's sake.
+              }
+              if($.inArray(v, _filters) > -1) {
+                Judy.overlay(1, true);
+                self.Message.set(self.local("filterNameDupe", {"!name": v}), "warning");
+                return false; // false for IE<9's sake.
+              }
+              nm = v;
+              rqa = _elements.filter.require_admin ? 1 : 0; // Create with require_admin if the element exists (the user has the permission).
+            }
+            else {
+              nm = this.name;
+              rqa = (elm = _elements.filter.require_admin) && Judy.fieldValue(elm);
+            }
+            Judy.overlay(1, false, self.local("wait_" + _.mode));
+            _ajaxRequestingBlocking = true;
+            v = _getCriteria();
+            _ajaxRequest("filter_" + _.mode, { // filter_create|filter_edit
+              name: nm,
+              require_admin: rqa,
+              description: $.trim(Judy.stripTags(_elements.filter.description.value)).substr(0, 255),
+              conditions: v.conditions,
+              order_by: v.order_by
+            });
           }
           break;
         case "log_filter_delete_logs_button":
@@ -1420,59 +1456,7 @@ var LogFilter = function($) {
     //_elements.filter.delete_logs.value = "1";
     //_submit();
   }
-  /**
-   * @ignore
-   * @type {object}
-   */
-  _ajaxResponse = {
-    create: function(oResp) { // Only saves a default filter with a name; progress to edit mode on success.
-      var nm = oResp.name;
-      if(oResp.success) {
-        _elements.filter.name_suggest.value = "";
-        _elements.filter.origin.value = _.origin = _.name;
-        _elements.filter.name.value = _.name = nm;
-        _filters.push(nm);
-        _setMode("edit");
-        Judy.overlay(0);
-        self.Message.set(self.local("savedNew", {"|filter": nm}));
-      }
-      else {
-        switch(oResp.error_code) {
-          case 10: // Missing permission.
-            alert( self.local("error_noPermission") ); // alert() because we submit immediately (otherwise user wouldnt see the message).
-            _submit();
-            break;
-          case 20: // Invalid machine name.
-            Judy.overlay(0);
-            self.Message.set( self.local("machineName"), "warning", {
-                modal: true,
-                close: function() {
-                  Judy.focus(_elements.filter.name_suggest);
-                }
-            });
-            break;
-          case 30: // Filter name already exists.
-            Judy.overlay(0);
-            self.Message.set( self.local("filterNameDupe", {"!name": nm}), "warning", {
-                modal: true,
-                close: function() {
-                  Judy.focus(_elements.filter.name_suggest);
-                }
-            });
-            break;
-          case 90: // Database error.
-            alert(self.local("error_dbSave")); // alert() because we submit immediately (otherwise user wouldnt see the message).
-            _submit();
-            break;
-          default: // Unknown error code.
-            _errorHandler(null, oResp, _name + "._ajaxResponse.create()");
-            alert( self.local("error_unknown") ); // alert() because we submit immediately (otherwise user wouldnt see the message).
-            _submit();
-        }
-      }
-      _ajaxRequestingBlocking = false;
-    }
-  };
+
   /**
    * @ignore
    * @param {string} action
@@ -1480,6 +1464,7 @@ var LogFilter = function($) {
    * @return {void}
    */
   _ajaxRequest = function(action, oData) {
+    oData.form_token = Judy.fieldValue("[name='form_token']", _elements.form);
     $.ajax({
       url: "/log_filter/ajax/" + action,
       type: "POST",
@@ -1498,8 +1483,8 @@ var LogFilter = function($) {
         */
       success: function(oResp, textStatus, jqXHR) {
         var o;
-        if(textStatus === "success" && $.type(oResp) === "object") {
-          _ajaxResponse[ action ](oResp);
+        if(textStatus === "success" && typeof action === "string" && $.type(oResp) === "object") {
+          _ajaxResponse(action, oResp);
         }
         else {
           o = {
@@ -1513,17 +1498,151 @@ var LogFilter = function($) {
         }
       },
       error: function(jqXHR, textStatus, errorThrown) {
-        var o = {
-          source: "ajax request",
-          action: action,
-          textStatus: textStatus,
-          errorThrown: errorThrown
-        };
-        _.errors.push(o);
-        _errorHandler(null, o, _name + "._ajaxRequest()");
+        var o;
+        if(jqXHR && jqXHR.status === 403) {
+          _ajaxResponse(action, { success: false, error_code: _errorCodes.perm_general });
+        }
+        else {
+          o = {
+            source: "ajax request",
+            action: action,
+            textStatus: textStatus,
+            errorThrown: errorThrown
+          };
+          _.errors.push(o);
+          _errorHandler(null, o, _name + "._ajaxRequest()");
+        }
       }
     });
   };
+  /**
+   * @ignore
+   * @param {string} action
+   * @param {object} oResp
+   * @return {void}
+   */
+  _ajaxResponse = function(action, oResp) {
+    var errorCode = oResp.error_code || 0, url;
+    //  Handle general errors.
+    if (!oResp.success || errorCode) {
+      switch(errorCode) {
+        //  General errors.
+        case _errorCodes.perm_general: // Probably session timeout.
+          //  Reload page, to get 403. And remove form.
+          $(_elements.form).html("");
+          self.Message.set( self.local("error_form_expired", { "!url": url = _url() }), "warning", { // In case Javascript redirect fails.
+              modal: true,
+              close: function() {
+                window.location.href = url;
+              }
+          });
+          window.location.href = url;
+          return;
+        case _errorCodes.form_expired:
+          self.Message.set( self.local("error_form_expired", { "!url": url = _url() }), "warning", {
+              modal: true,
+              close: function() {
+                window.location.href = url;
+              }
+          });
+          return;
+        //  Errors by more than one request type.
+        case _errorCodes.error_perm_filter_crud:
+          self.Message.set( self.local("error_perm_filter_crud"), "warning", {
+              modal: true,
+              close: function() {
+                window.location.href = _url(); // Reload to make GUI reflect permissions; omitting create/edit/save/delete controls.
+              }
+          });
+          return;
+        case _errorCodes.db_general: // Database error.
+          self.Message.set( self.local("error_dbSave"), "error", {
+              modal: true,
+              close: function() {
+                window.location.href = _url();
+              }
+          });
+          break;
+        // default: Let action function handle the error, and optionally return false if it doesnt know that error code.
+
+      }
+    }
+    if(_ajaxResponse.hasOwnProperty(action)) { // IE<9 wont like that, has no function.hasOwnProperty() method ;-)
+      if(!_ajaxResponse[action](oResp)) {
+        _errorHandler(null, oResp, _name + "._ajaxResponse." + action + "()");
+        self.Message.set( self.local("error_unknown"), "error", {
+            modal: true,
+            close: function() {
+              window.location.href = _url();
+            }
+        });
+      }
+    }
+    else {
+      _errorHandler(null, oResp, _name + "._ajaxResponse(), unsupported action[" + action + "]");
+    }
+  };
+  /**
+   * @ignore
+   * @param {object} oResp
+   * @return {boolean}
+   */
+  _ajaxResponse.filter_create = function(oResp) { // Only saves a default filter with a name; progress to edit mode on success.
+    var nm = oResp.name;
+    if(oResp.success) {
+      _elements.filter.name_suggest.value = "";
+      _elements.filter.origin.value = _.origin = _.name;
+      _elements.filter.name.value = _.name = nm;
+      _filters.push(nm);
+      _setMode("edit");
+      Judy.overlay(0);
+      self.Message.set(self.local("savedNew", {"!filter": nm}));
+    }
+    else {
+      switch(oResp.error_code) {
+        case _errorCodes.name_composition: // Invalid machine name.
+          Judy.overlay(0);
+          self.Message.set( self.local("machineName"), "warning", {
+              modal: true,
+              close: function() {
+                Judy.focus(_elements.filter.name_suggest);
+              }
+          });
+          break;
+        case _errorCodes.name_exists: // Filter name already exists.
+          Judy.overlay(0);
+          self.Message.set( self.local("filterNameDupe", {"!name": nm}), "warning", {
+              modal: true,
+              close: function() {
+                Judy.focus(_elements.filter.name_suggest);
+              }
+          });
+          break;
+        default: // Unknown error code.
+          return false;
+      }
+    }
+    _ajaxRequestingBlocking = false;
+    return true;
+  };
+  /**
+   * @ignore
+   * @param {object} oResp
+   * @return {boolean}
+   */
+  _ajaxResponse.filter_edit = function(oResp) {
+    var nm = oResp.name;
+    if(oResp.success) {
+      Judy.overlay(0);
+      self.Message.set(self.local("saved", {"!filter": nm}));
+    }
+    else {
+      return false;
+    }
+    _ajaxRequestingBlocking = false;
+    return true;
+  };
+
   /**
    * Does nothing if no Inspect module (or no-action version of Inspect; user not allowed to use frontend instection).
    *
@@ -1597,6 +1716,10 @@ var LogFilter = function($) {
           //  { "!filter": name }
           s = Drupal.t("Saved new filter '!filter'.");
           break;
+        case "saved":
+          //  { "!filter": name }
+          s = Drupal.t("Saved filter '!filter'.");
+          break;
         case "confirmDelete":
           //  { "!filter": _elements.filter.name.value }
           s = Drupal.t("Are you sure you want to delete the filter!newline!filter?", replacers);
@@ -1631,8 +1754,11 @@ var LogFilter = function($) {
         case "wait":
           _local[nm] = s = Drupal.t("Please wait a sec...");
           break;
-        case "waitCreate":
+        case "wait_create":
           _local[nm] = s = Drupal.t("Creating new filter. Please wait a sec...");
+          break;
+        case "wait_ereate":
+          _local[nm] = s = Drupal.t("Saving filter changes. Please wait a sec...");
           break;
         case "deleteLogs_prohibit":
           _local[nm] = s = Drupal.t("Only allowed when the log list is freshly updated,!newlinereflecting current filter - press the 'Update list' button.");
@@ -1659,8 +1785,12 @@ var LogFilter = function($) {
           //  {"!number": integer}
           s = Drupal.t("Do you want to delete all logs!newlinematching current ad hoc filter!newlinelimited by a maximum of !number?", replacers);
           break;
-        case "error_noPermission":
-          _local[nm] = s = Drupal.t("Sorry, bad error,!newlinebut no loss of data.");
+        case "error_form_expired":
+          //  {"!url": url}
+          s = Drupal.t("The form has become outdated!newline- please <a href=\"!url\">reload this page</a>.", replacers);
+          break;
+        case "error_perm_filter_crud":
+          _local[nm] = s = Drupal.t("Sorry, you're not allowed to edit saveable filters.");
           break;
         case "error_dbSave":
           _local[nm] = s = Drupal.t("Sorry, failed to save data.");
@@ -1978,7 +2108,11 @@ var LogFilter = function($) {
     _filters = filters || [];
     _prepareForm();
     _setMode(_.mode, false, true);
-    _resize(null, true);
+
+ //   _formToken = Judy.fieldValue("input[name='form_token']");
+
+    _resize(null, true); // Hides overlay.
+
     //  Display messages, if any.
     (self.Message = new self.Message()).setup();
     if(a) {

@@ -109,7 +109,7 @@ function log_filter_schema() {
                   'length' => 255,
                   'not null' => TRUE,
                   'default' => 'time:DESC',
-                  'description' => 'Comma-separated list.',
+                  'description' => 'Comma-separated list, like: \'time:DESC,severity:ASC\'.',
               ),
               'editor' => array(
                   'type' => 'int',

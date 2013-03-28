@@ -1,3 +1,7 @@
+log_filter 7.x-1.x, 2013-03-28
+------------------------------
+* Working on saving (creating/updating) filter.
+
 log_filter 7.x-1.x, 2013-03-26
 ------------------------------
 * Now uses singular development branch.

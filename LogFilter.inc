@@ -21,7 +21,47 @@ class LogFilter {
   //  Name suggest must use ordinary save button, not that stupid 'set' button.
   //  But saving upon edit must be an ordinary page post request (primarily because much easier).
 
+  /**
+   * @type array $_errorCodes
+   */
+  protected static $_errorCodes = array(
+      'unknown' => 1,
+      //  Programmatic errors and wrong use of program.
+      'algo' => 100,
+      'use' => 101,
+      //  Missing permission.
+      'perm_general' => 200,
+      'form_expired' => 201,
+      'perm_filter_crud' => 202,
+      //  Database.
+      'db_general' => 500,
+      //  Misc.
+      'name_composition' => 1001,
+      'name_exists' => 1002,
+      'bad_condition' => 1003,
+  );
 
+  /**
+   * Traces and logs via Inspect tracer, or watchdog (no trace).
+   *
+   * @param Exception $xc
+   * @param integer $severity
+   *  - default: WATCHDOG_ERROR
+   * @return void
+   */
+  protected static function _errorHandler($xc, $severity = WATCHDOG_ERROR) {
+    if (module_exists('inspect')) {
+      inspect_trace($xc, array('category' => 'log_filter', 'severity' => $severity));
+    }
+    else {
+      watchdog(
+        'log_filter',
+        '(' . (int)$xc->getCode() . ') ' . check_plain($xc->getMessage()),
+        NULL,
+        $severity
+      );
+    }
+  }
 
   /**
    * @type array
@@ -127,12 +167,14 @@ class LogFilter {
       //  Get current filter name, if any.
       $filter_name = $submitted ? $submitted['filter']['name'] :
           (!empty($GLOBALS['_GET']) && array_key_exists('log_filter', $_GET)
-              && ($le = strlen($v = $_GET['log_filter'])) && $le <= 32 && preg_match('/^[a-z\d_]+$/', $v) ? $v : '');
+              && ($le = strlen($v = $_GET['log_filter'])) && $le <= 32
+              && $v != 'default' && $v != 'adhoc'
+              && preg_match('/^[a-z\d_]+$/', $v) ? $v : '');
 
       $require_admin = $submitted ? $submitted['filter']['require_admin'] : FALSE;
       $user_admin_permission = user_access('log_filter administer');
 
-      //  Get mode; default | adhoc | stored | edit | delete_filter.
+      //  Get mode: default | adhoc | stored (create|edit|delete_filter aren't allowed at form build).
       $mode = $submitted ? $submitted['mode'] : ($filter_name ? 'stored' : 'default');
 
       //  Stored mode may degrade to default.
@@ -202,13 +244,17 @@ class LogFilter {
             $le = count($arr = explode(',', $v));
             for ($i = 0; $i < $le; $i++) {
               $v = explode(':', $arr[$i]);
-              $order_by[] = array($v[0], $v[1] == 'DESC');
+              $order_by[] = array(
+                  $v[0],
+                  $v[1] == 'DESC' // ~ To boolean.
+              );
             }
           }
           $title = $filter_name . (($v = $filter['description']) ? (' - ' . $v) : '');
         }
         else {
           $mode = 'default';
+          $filter_name = 'default';
         }
         unset($stored_filter);
       }
@@ -255,13 +301,13 @@ class LogFilter {
         case 'stored':
           //  Done earlier.
           break;
+        case 'create':
         case 'edit':
-          break;
         case 'delete_filter':
-          throw new Exception('Mode[' . $mode . '] not allowed at form build.');
+          throw new Exception('Mode[' . $mode . '] not allowed at form build.', self::$_errorCodes['algo']);
           break;
         default:
-          throw new Exception('Unsupported mode[' . $mode . '].');
+          throw new Exception('Unsupported mode[' . $mode . '].', self::$_errorCodes['algo']);
       }
 
       //  Prepare some fields.
@@ -276,7 +322,7 @@ class LogFilter {
         $prepend_types = array();
         if ($conditions['type']) {
           foreach ($conditions['type'] as $v) {
-            if (!isset($options_type[$v])) {
+            if ($v && !isset($options_type[$v])) {
               $prepend_types[$v] = $v;
             }
           }
@@ -944,14 +990,17 @@ class LogFilter {
           //  Just get filter name; in stored mode we do absolutely nothing at submission but establishing the filter's name.
           //  Whether the filter require_admin and user has that permission will be checked at form build - no reason to check twice.
           if (!($submitted['filter']['name'] = $filter_name = $values[$prefix . 'name'])) {
-            throw new Exception('Mode[' . $mode . '], empty name[' . $filter_name . '].');
+            throw new Exception('Mode[' . $mode . '], empty name[' . $filter_name . '].', self::$_errorCodes['name_composition']);
           }
+          break;
+        case 'create': // Always AJAX-handled.
+          throw new Exception('Mode[' . $mode . '] not allowed at form submission.', self::$_errorCodes['algo']);
           break;
         case 'edit':
         case 'delete_filter':
           //  Get name.
           if (!($submitted['filter']['name'] = $filter_name = $values[$prefix . 'name'])) {
-            throw new Exception('Mode[' . $mode . '], empty name[' . $filter_name . '].');
+            throw new Exception('Mode[' . $mode . '], empty name[' . $filter_name . '].', self::$_errorCodes['name_composition']);
           }
           $success = TRUE;
           //  Check CRUD permission.
@@ -985,14 +1034,18 @@ class LogFilter {
             }
           }
           //  Check if exists, and get require_admin field.
-          if (!($require_admin = db_select('log_filter')
+          elseif (!($require_admin = db_select('log_filter')
               ->fields('log_filter', array('require_admin'))
               ->condition('name', $filter_name, '=')
               ->execute()->fetchField())
           ) {
             if ($require_admin === FALSE) { // Doesn't exist.
               $success = FALSE;
-              drupal_set_message(
+              /*drupal_set_message(
+                  t('The filter \'!name\' doesn\'t exist.', array('!name' => $filter_name)),
+                  'warning'
+              );*/
+              $messages[] = array(
                   t('The filter \'!name\' doesn\'t exist.', array('!name' => $filter_name)),
                   'warning'
               );
@@ -1023,18 +1076,6 @@ class LogFilter {
                 $messages[] = array(
                     t('Deleted the filter \'!name\'.', array('!name' => $filter_name))
                 );
-                /*drupal_set_message(
-                    t('Deleted the filter \'!name\'.', array('!name' => $filter_name))
-                );
-                drupal_set_message(
-                    t('Deleted the filter \'!name\' - too.', array('!name' => $filter_name))
-                );
-                drupal_set_message(
-                    t('Deleted the filter \'!name\'.', array('!name' => $filter_name)), 'warning'
-                );
-                drupal_set_message(
-                    t('Deleted the filter \'!name\'.', array('!name' => $filter_name)), 'error'
-                );*/
                 //  Change mode.
                 $submitted['mode'] = $mode = 'default';
             }
@@ -1046,7 +1087,7 @@ class LogFilter {
           }
           break;
         default:
-          throw new Exception('Unsupported mode[' . $mode . '].');
+          throw new Exception('Unsupported mode[' . $mode . '].', self::$_errorCodes['algo']);
       }
 
 
@@ -1067,7 +1108,7 @@ class LogFilter {
               $conditions[$name] = $conditions['time_range'] ? '' : (($v = trim($values[$prefix . $name])) ? $v : '');
               break;
             case 'time_from_proxy':
-              if (!$save) {
+              if (!$save) { // Because save doesnt use the proxy field.
                 $conditions[$name] = !$conditions['time_from'] ? '' : $values[$prefix . $name];
               }
               break;
@@ -1075,7 +1116,7 @@ class LogFilter {
               $conditions[$name] = $conditions['time_range'] ? '' : (($v = trim($values[$prefix . $name])) ? $v : '');
               break;
             case 'time_to_proxy':
-              if (!$save) {
+              if (!$save) { // Because save doesnt use the proxy field.y
                 $conditions[$name] = !$conditions['time_to'] ? '' : $values[$prefix . $name];
               }
               break;
@@ -1093,9 +1134,6 @@ class LogFilter {
                   }
                 }
               }
-              if ($save) {
-    //            $vals = str_replace('zero', '0', join(',', $vals));
-              }
               $conditions[$name] = $vals;
               break;
             case 'type_wildcard':
@@ -1103,7 +1141,16 @@ class LogFilter {
               break;
             case 'type':
               //  Dont remember type list (may be very long), if wildcard on.
-              $conditions[$name] = !$conditions['type_wildcard'] ? $values[$prefix . $name] : array();
+              $conditions[$name] = array();
+              if (!$conditions['type_wildcard']) {
+                $a =& $values[$prefix . $name];
+                foreach ($a as $v) {
+                  if ($v) { // Checkboxes; is zero if unchecked.
+                    $conditions[$name][ $v ] = $v;
+                  }
+                }
+                unset($a); // Clear reference.
+              }
               if ($save) {
                 unset($conditions['type_wildcard']);
               }
@@ -1120,41 +1167,31 @@ class LogFilter {
         for ($i = 1; $i < 10; $i++) {
           if (array_key_exists($key = $prefix . $fields_order_by[0] . $i, $values)) {
             if (($key = $values[ $key ])) {
-       //       if (!$save) {
+              if (!$save) {
                 $order_by[] = array($key, $values[ $prefix . $fields_order_by[1] . $i ]);
-       /*       }
+              }
               else {
-                $order_by[] = $key . ':' . $values[ $prefix . $fields_order_by[1] . $i ] ? 'DESC' : 'ASC';
-              }*/
+                $order_by[] = array($key, $values[ $prefix . $fields_order_by[1] . $i ] ? 'DESC' : 'ASC');
+              }
             }
           }
           else {
             break;
           }
         }
-        unset($fields_order_by);
- //       if (!$save) {
-          $submitted['order_by'] =& $order_by;
-  /*      }
-        else {
-          $submitted['order_by'] = join(',', $order_by);
-          unset($order_by);
-        }*/
+        $submitted['order_by'] =& $order_by;
+        unset($order_by, $fields_order_by);
       }
+
+inspect($submitted, $mode);
 
       if ($save) { // edit mode.
         $success = TRUE;
 
-inspect(array(
-    'filter' => $submitted['filter'],
-    'conditions' => $submitted['conditions'],
-    'order_by' => $submitted['order_by'],
-), 'save');
-
 
         //  Change mode.
         if ($success) {
-          $submitted['mode'] = $mode = 'edit';
+          $submitted['mode'] = $mode = 'stored';
         }
         else {
           $submitted['mode'] = $mode = 'default';
@@ -1192,6 +1229,122 @@ inspect(array(
     }
   }
 
+  /**
+   * @throws Exception
+   * @param array $values
+   * @param boolean $create
+   *  - default: FALSE
+   * @return boolean
+   */
+  protected static function _saveFilter($values, $create = FALSE) {
+    $uid = $GLOBALS['user']->uid;
+
+    $name = $values['name'];
+
+    $fields = array(
+        'editor' => $uid,
+        'changed' => REQUEST_TIME,
+        'require_admin' => $values['require_admin'],
+        'description' => $values['description'],
+    );
+    if ($create) {
+      $fields['creator'] = $uid;
+      $fields['created'] = REQUEST_TIME;
+    }
+
+    //  Conditions.
+    $names =& self::$_fields['conditions'];
+    $conditions =& $values['conditions'];
+    foreach ($names as $name) {
+      switch ($name) {
+        case 'severity':
+          if (!empty($conditions[$name])) {
+            if (!is_array($v = $conditions[$name])) {
+              throw new Exception('Non-empty condition[' . $name . '], type[' . gettype($v) . '], must be array.', self::$_errorCodes['bad_condition']);
+            }
+            //  Use array keys, because value may contain strings like 'zero'.
+            //  And make sure it's all integers.
+            $fields[$name] = preg_replace('/[^\d,]/', '', join(',', array_keys($v)));
+          }
+          else {
+            $fields[$name] = '';
+          }
+          break;
+        case 'type':
+          if (!empty($conditions[$name])) {
+            if (!is_array($v = $conditions[$name])) {
+              throw new Exception('Non-empty condition[' . $name . '], type[' . gettype($v) . '], must be array.', self::$_errorCodes['bad_condition']);
+            }
+            //  Use array values, because key is simply numeric index.
+            $fields[$name] = check_plain(join(',', $v));
+          }
+          else {
+            $fields[$name] = '';
+          }
+          break;
+        case 'time_range':
+          $fields[$name] = !empty($conditions[$name]) && ($v = (int)$conditions[$name]) > 0 && $v < 1000 ? $v : 0;
+          break;
+        case 'time_from':
+        case 'time_to':
+          $fields[$name] = !empty($conditions[$name]) && ($v = (int)$conditions[$name]) > 0 && $v <= PHP_INT_MAX ? $v : 0;
+          break;
+        case 'role':
+        case 'uid':
+          $fields[$name] = array_key_exists($name, $conditions) ? (int)$conditions[$name] : -1;
+          break;
+        case 'hostname':
+        case 'location':
+        case 'referer':
+          $fields[$name] = !empty($conditions[$name]) ? check_plain($conditions[$name]) : '';
+          break;
+        default:
+          //  Ignore.
+      }
+    }
+
+    //  Order by.
+    $order_by = '';
+    if (!empty($values['order_by'])) {
+      $order_by = array();
+      foreach ($values['order_by'] as $k => $v) {
+        if (preg_match('/^[a-z\d_]{2,32}$/', $k) && ($v === 'DESC' || $v === 'ASC')) {
+          $order_by[] = $k . ':' . $v;
+        }
+      }
+      $fields['order_by'] = join(',', $order_by);
+    }
+    else {
+      $fields['order_by'] = '';
+    }
+
+
+    /*try {
+                db_insert('log_filter')->fields(array(
+                  'name' => $name,
+                  'creator' => $uid,
+                  'require_admin' => $require_admin,
+                  'type' => '', // No default because text field.
+                  'editor' => $uid,
+                  'created' => REQUEST_TIME,
+                ))
+                ->execute();
+              }
+              catch (PDOException $xc) {
+                if ((int)$xc->getCode() == 23000) { // Fair chance that it's a duplicate key error, though 23000 may also (MySQL) mean null error.
+                  $oResp->success = FALSE;
+                  $oResp->error_code = self::$_errorCodes['name_exists'];
+                  $oResp->error = 'Filter name[' . $name . '] already exists.';
+                  LogFilter::_errorHandler($xc);
+                }
+                else {
+                  throw $xc;
+                }
+              }*/
+
+  }
+
+
   protected static function _listLogs() {
     //  @todo: order by time must always be combined with order by log id, otherwise the actual temporal order may get wrong.
   }
@@ -1199,8 +1352,10 @@ inspect(array(
   /**
    * Access permission: 'access site reports'.
    *
+   * All actions require the POST var form_token.
+   *
    *  Expects (requires) POST vars on actions:
-   *  - create: name, require_admin, criteria, description
+   *  - filter_create|filter_edit: name, require_admin, description, conditions, order_by
    *
    * @see LogFilter::ajaxCallback
    * @param string $action
@@ -1208,89 +1363,110 @@ inspect(array(
    *  - sends 403 header if the expected POST vars arent set or their sanitized values evaluates to empty
    */
   public static function ajaxCallback($action) {
-    if (!user_access('access site reports')
-        || !$action || !($le = strlen($action)) || $le > 32
+    if ( // Require permission.
+        !user_access('access site reports')
+        //  Require valid composition of the 'action' parameter (presumably a GET var).
+        || !$action || !($le = strlen($action)) || $le > 32 || !preg_match('/^[a-zA-Z\d_]+$/', $action)
+        //  Require valid composition of POST 'form_token'.
+        || !array_key_exists('form_token', $_POST) || !($le = strlen($form_token = $_POST['form_token'])) || $le > 100
+            || !preg_match('/^[\!-\~]+$/', $form_token)
     ) {
       header('HTTP/1.1 403 Forbidden');
       exit;
     }
     $oResp = new stdClass();
     $oResp->action = $action;
-    $oResp->success = TRUE;
-    $oResp->error_code = 0;
     $oResp->error = '';
 
-    try {
-      $uid = $GLOBALS['user']->uid;
-      switch ($action) {
-        case 'create':
-          if (
-              !array_key_exists('name', $_POST) || !($le = strlen($name = $_POST['name'])) || $le > 32
-              || !array_key_exists('require_admin', $_POST) || !(($require_admin = (int)$_POST['require_admin']) == 0 || $require_admin == 1)
-              || !array_key_exists('criteria', $_POST)
-              || !array_key_exists('description', $_POST)
-          ) {
-            header('HTTP/1.1 403 Forbidden');
-            exit;
-          }
+    //  Check form_token.
+    if (!drupal_valid_token($form_token, 'log_filter_form')) {
+      $oResp->success = FALSE;
+      $oResp->error_code = self::$_errorCodes['perm_general'];
+    }
+    else {
+      $oResp->success = TRUE;
+      $oResp->error_code = 0;
 
-inspect($_POST['criteria'], 'callback');
+      try {
+        $uid = $GLOBALS['user']->uid;
+        switch ($action) {
+          case 'filter_create':
+          case 'filter_edit':
+            if (
+                !array_key_exists('name', $_POST) || !($le = strlen($name = $_POST['name'])) || $le > 32
+                || !array_key_exists('require_admin', $_POST) || !(($require_admin = (int)$_POST['require_admin']) == 0 || $require_admin == 1)
+                || !array_key_exists('description', $_POST)
+                    || ( ($description = $_POST['description']) !== '' && (!drupal_validate_utf8($description) || drupal_strlen($description) > 255) )
+                || !array_key_exists('conditions', $_POST)
+                || !array_key_exists('order_by', $_POST)
+            ) {
+              header('HTTP/1.1 403 Forbidden');
+              exit;
+            }
+            if (!user_access('log_filter edit filters')) {
+              $oResp->success = FALSE;
+              $oResp->error_code = self::$_errorCodes['perm_filter_crud'];
+              //  $oResp->error = t('You are not allowed to edit saveable filters.'); Frontend creates own message.
+              throw new Exception(
+                  'Logical error: missing permission \'log_filter edit filters\' for user (' . $uid . ') ' . $GLOBALS['user']->name
+                      . ', thus the user should not be presented with the option of saving a filter.',
+                  self::$_errorCodes['use']
+              );
+            }
+            elseif (!preg_match('/^[a-z_][a-z\d_]+$/', $name) || $name == 'default' || $name == 'adhoc') { // @IDE: var $name is declared.
+              $oResp->success = FALSE;
+              $oResp->error_code = self::$_errorCodes['name_composition'];
+              //  $oResp->error = t('Invalid machine name[' . $name . '].'); Frontend creates own message.
+              $oResp->name = check_plain($name);
+            }
+            else {
+              $oResp->name = $name = strtolower($name);
 
-          if (!user_access('log_filter edit filters')) {
-            $oResp->success = FALSE;
-            $oResp->error_code = 10;
-            $oResp->error = 'Missing permission.';
-            throw new Exception(
-                'Logical error: missing permission \'log_filter edit filters\' for user (' . $uid . ') ' . $GLOBALS['user']->name
-                    . ', thus the user should not be presented with the option of saving a filter.'
-            );
-          }
-          elseif (!preg_match('/^[a-z_][a-z\d_]+$/', $name) || $name == 'default' || $name == 'adhoc') { // @IDE: var $name is declared.
-            $oResp->success = FALSE;
-            $oResp->error_code = 20;
-            $oResp->error = 'Invalid machine name[' . $name . '].';
-            $oResp->name = $name;
-          }
-          else {
-            $oResp->name = $name = strtolower($name);
-            try {
-              db_insert('log_filter')->fields(array(
-                'name' => $name,
-                'creator' => $uid,
-                'require_admin' => $require_admin,
-                'type' => '', // No default because text field.
-                'editor' => $uid,
-                'created' => REQUEST_TIME,
-              ))
-              ->execute();
+              inspect(array(
+                  $_POST['conditions'],
+                  $_POST['order_by']
+              ));
+              break;
+              /*
+              self::_saveFilter(
+                  array(
+                      'name' => $name,
+                      'require_admin' => $require_admin,
+                      'description' => $description,
+                      'conditions' => ($v = $_POST['conditions']) ? $v : array(),
+                      'order_by' => ($v = $_POST['order_by']) ? $v : array(),
+                  ),
+                  $action == 'filter_create'
+              );
+              */
             }
-            catch (PDOException $xc) {
-              if ((int)$xc->getCode() == 23000) { // Fair chance that it's a duplicate key error, though 23000 may also (MySQL) mean null error.
-                $oResp->success = FALSE;
-                $oResp->error_code = 30;
-                $oResp->error = 'Filter name[' . $name . '] already exists.';
-                LogFilter::_errorHandler($xc);
-              }
-              else {
-                throw $xc;
-              }
-            }
-          }
-          break;
-        default:
-          $oResp->success = FALSE;
-          $oResp->error_code = 1;
-          $oResp->error = 'Unsupported action[' . $action . '].';
+            break;
+          default:
+            $oResp->success = FALSE;
+            $oResp->error_code = 1;
+            $oResp->error = 'Unsupported action[' . $action . '].';
+        }
       }
-    }
-    catch (PDOException $xc) {
-      LogFilter::_errorHandler($xc);
-      $oResp->success = FALSE;
-      $oResp->error_code = 90;
-    }
-    catch (Exception $xc) {
-      LogFilter::_errorHandler($xc);
-      $oResp->success = FALSE;
+      catch (PDOException $xc) {
+        LogFilter::_errorHandler($xc);
+        $oResp->success = FALSE;
+        if (($error_code = $xc->getCode())) {
+          $oResp->error_code = $error_code;
+        }
+        elseif (!$oResp->error_code) {
+          $oResp->error_code = self::$_errorCodes['db_general'];
+        }
+      }
+      catch (Exception $xc) {
+        LogFilter::_errorHandler($xc);
+        $oResp->success = FALSE;
+        if (($error_code = $xc->getCode())) {
+          $oResp->error_code = $error_code;
+        }
+        elseif (!$oResp->error_code) {
+          $oResp->error_code = self::$_errorCodes['unknown'];
+        }
+      }
     }
 
     header('Content-Type: application/json; charset=utf-8');
@@ -1300,27 +1476,5 @@ inspect($_POST['criteria'], 'callback');
     echo json_encode($oResp);
     flush();
     exit;
-  }
-
-  /**
-   * Traces and logs via Inspect tracer, or watchdog (no trace).
-   *
-   * @param Exception $xc
-   * @param integer $severity
-   *  - default: WATCHDOG_ERROR
-   * @return void
-   */
-  protected static function _errorHandler($xc, $severity = WATCHDOG_ERROR) {
-    if (module_exists('inspect')) {
-      inspect_trace($xc, array('category' => 'log_filter', 'severity' => $severity));
-    }
-    else {
-      watchdog(
-        'log_filter',
-        check_plain($xc->getMessage()),
-        NULL,
-        $severity
-      );
-    }
   }
 }
