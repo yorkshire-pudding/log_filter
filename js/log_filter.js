@@ -40,11 +40,14 @@ var LogFilter = function($) {
     perm_general: 200,
     form_expired: 201,
     perm_filter_crud: 202,
+    perm_filter_restricted: 203,
     //  Database.
     db_general: 500,
     //  Misc.
-    name_composition: 1001,
-    name_exists: 1002
+    filter_name_composition: 1001,
+    filter_name_nonunique: 1002,
+    filter_doesnt_exist: 1003,
+    bad_filter_condition: 1010
   },
   /**
    * @ignore
@@ -71,7 +74,7 @@ var LogFilter = function($) {
       orderBy: []
     },
     warned_deleteNoMax: false,
-    saveEditFilterAjaxed: true // Save/update filter using AJAX or ordinary POST request?
+    saveEditFilterAjaxed: false // Save/update filter using AJAX or ordinary POST request?
   },
   /**
    * @ignore
@@ -331,6 +334,7 @@ var LogFilter = function($) {
    * @type {array}
    */
   _machineNameIllegals = [
+    "log_filter",
     "default",
     "adhoc"
   ],
@@ -349,8 +353,8 @@ var LogFilter = function($) {
     var v = evt ? this.value : (elm ? elm.value : value), le = v.length;
     if(le < 2 || le > 32 || !/[a-z_]/.test(v.charAt(0)) || !/[a-z\d_]/.test(v) || $.inArray(v.toLowerCase(), _machineNameIllegals) > -1) {
       if(!noFeedback) {
-        //alert( self.local("machineName", {"!illegals": _machineNameIllegals.join(", ")}) );
-        self.Message.set( self.local("machineName", {"!illegals": _machineNameIllegals.join(", ")}), "warning", {
+        //alert( self.local("error_machine_name_composition", {"!illegals": _machineNameIllegals.join(", ")}) );
+        self.Message.set( self.local("error_machine_name_composition", {"!illegals": _machineNameIllegals.join(", ")}), "warning", {
             modal: true,
             close: function() {
               Judy.focus(_elements.filter.name_suggest);
@@ -401,20 +405,18 @@ var LogFilter = function($) {
 	};
   /**
    * @ignore
-   * @param {object} [params]
    * @return {string}
    */
-  _url = function(params) {
-    var loc = window.location, v, s;
-    s = loc.protocol + "//" + loc.hostname + (!(v = loc.port) ? "" : (":" + v)) + loc.pathname;
-    return !params ? s : Judy.setUrlParam(s, params);
+  _url = function(params) {  // @todo: use location, not window.location, all over the place, to respect overlay iframe.
+    var loc = window.location, v;
+    return loc.protocol + "//" + loc.hostname + (!(v = loc.port) ? "" : (":" + v)) + loc.pathname.replace(/\/dblog(\/.+)?$/, "/dblog/log_filter");
   };
   /**
    * @ignore
    * @return {void}
    */
   _submit = function() {
-    var nm = "";
+    var nm = "", v;
     if(_submitted) {
       return;
     }
@@ -430,7 +432,7 @@ var LogFilter = function($) {
     }
     _elements.form.setAttribute(
         "action",
-        Judy.setUrlParam(_elements.form.getAttribute("action"), "log_filter", nm)
+        _elements.form.getAttribute("action").replace(/\/dblog(\/[^\?\&]+)([\?\&].+)?$/, "/dblog/log_filter/" + nm + "$2")
     );
     //  Delay; otherwise it may in some situations not submit, presumably because Judy.enable() hasnt finished it's job yet(?).
     setTimeout(function() {
@@ -691,6 +693,9 @@ var LogFilter = function($) {
                   if(this.checked) { // Un-check type_any.
                     _elements.conditions.type_any.checked = false;
                   }
+                  else if(!Judy.fieldValue(_elements.conditions.type_some)) {
+                    _elements.conditions.type_any.checked = "checked";
+                  }
                   _changedCriterion();
                 });
               }
@@ -762,14 +767,18 @@ var LogFilter = function($) {
                   this.value = v = Judy.stripTags(v);
                 }
                 if(v !== "" && !/^https?\:\/\/.+$/.test(v)) {
-                  //alert(self.local(nm === "location" ? "invalid_location" : "invalid_referer"));
-                  self.Message.set( self.local(nm === "location" ? "invalid_location" : "invalid_referer"), "warning", {
-                      modal: true,
-                      close: function() {
-                        Judy.focus(_elements.conditions[ nm ]);
-                      }
-                  });
-                  this.value = v = "";
+                  if(!/^https?\:\/\/.+$/.test(v = "http://" + v)) {
+                    self.Message.set( self.local(nm === "location" ? "invalid_location" : "invalid_referer"), "warning", {
+                        modal: true,
+                        close: function() {
+                          Judy.focus(_elements.conditions[ nm ]);
+                        }
+                    });
+                    this.value = v = "";
+                  }
+                  else {
+                    this.value = v;
+                  }
                 }
                 if(v !== _.recordedValues[nm]) {
                   _.recordedValues[nm] = v;
@@ -1122,7 +1131,8 @@ var LogFilter = function($) {
    * @return {void}
    */
   _crudRelay = function() {
-    var nm = this.name, elm, v, rqa;
+    var nm = this.name, // The element's name, not _.name.
+      elm, v, rqa;
     try {
       switch(nm) {
         case "log_filter_reset":
@@ -1174,14 +1184,14 @@ var LogFilter = function($) {
               }
               if($.inArray(v, _filters) > -1) {
                 Judy.overlay(1, true);
-                self.Message.set(self.local("filterNameDupe", {"!name": v}), "warning");
+                self.Message.set(self.local("error_filter_name_nonunique", {"!name": v}), "warning");
                 return false; // false for IE<9's sake.
               }
               nm = v;
               rqa = _elements.filter.require_admin ? 1 : 0; // Create with require_admin if the element exists (the user has the permission).
             }
             else {
-              nm = this.name;
+              nm = _.name;
               rqa = (elm = _elements.filter.require_admin) && Judy.fieldValue(elm);
             }
             Judy.overlay(1, false, self.local("wait_" + _.mode));
@@ -1189,8 +1199,10 @@ var LogFilter = function($) {
             v = _getCriteria();
             _ajaxRequest("filter_" + _.mode, { // filter_create|filter_edit
               name: nm,
-              require_admin: rqa,
-              description: $.trim(Judy.stripTags(_elements.filter.description.value)).substr(0, 255),
+              filter: {
+                require_admin: rqa,
+                description: $.trim(Judy.stripTags(_elements.filter.description.value).replace(/[\r\n\t]/g, " ").replace(/\ +/g, " ")).substr(0, 255)
+              },
               conditions: v.conditions,
               order_by: v.order_by
             });
@@ -1556,7 +1568,7 @@ var LogFilter = function($) {
           });
           return;
         case _errorCodes.db_general: // Database error.
-          self.Message.set( self.local("error_dbSave"), "error", {
+          self.Message.set( self.local("error_db_general"), "error", {
               modal: true,
               close: function() {
                 window.location.href = _url();
@@ -1595,23 +1607,24 @@ var LogFilter = function($) {
       _elements.filter.name.value = _.name = nm;
       _filters.push(nm);
       _setMode("edit");
+      $(_elements.misc.title).html(nm + "<span> - " + oResp.description + "</span>");
       Judy.overlay(0);
       self.Message.set(self.local("savedNew", {"!filter": nm}));
     }
     else {
       switch(oResp.error_code) {
-        case _errorCodes.name_composition: // Invalid machine name.
+        case _errorCodes.filter_name_composition: // Invalid machine name.
           Judy.overlay(0);
-          self.Message.set( self.local("machineName"), "warning", {
+          self.Message.set( self.local("error_machine_name_composition"), "warning", {
               modal: true,
               close: function() {
                 Judy.focus(_elements.filter.name_suggest);
               }
           });
           break;
-        case _errorCodes.name_exists: // Filter name already exists.
+        case _errorCodes.filter_name_nonunique: // Filter name already exists.
           Judy.overlay(0);
-          self.Message.set( self.local("filterNameDupe", {"!name": nm}), "warning", {
+          self.Message.set( self.local("error_filter_name_nonunique", {"!name": nm}), "warning", {
               modal: true,
               close: function() {
                 Judy.focus(_elements.filter.name_suggest);
@@ -1633,8 +1646,25 @@ var LogFilter = function($) {
   _ajaxResponse.filter_edit = function(oResp) {
     var nm = oResp.name;
     if(oResp.success) {
+      $("span", _elements.misc.title).html(" - " + oResp.description);
       Judy.overlay(0);
       self.Message.set(self.local("saved", {"!filter": nm}));
+    }
+    else if(oResp.error_code === _errorCodes.filter_doesnt_exist) {
+      self.Message.set( self.local("error_filter_doesnt_exist", {"!name": nm}), "warning", {
+          modal: true,
+          close: function() {
+            window.location.href = _url(); // Reload to make GUI reflect missing filter.
+          }
+      });
+    }
+    else if(oResp.error_code === _errorCodes.perm_filter_restricted) {
+      self.Message.set( self.local("error_perm_filter_restricted"), "error", {
+          modal: true,
+          close: function() {
+            window.location.href = _url(); // Reload to make get out of that situation.
+          }
+      });
     }
     else {
       return false;
@@ -1714,11 +1744,11 @@ var LogFilter = function($) {
           break;
         case "savedNew":
           //  { "!filter": name }
-          s = Drupal.t("Saved new filter '!filter'.");
+          s = Drupal.t("Saved new filter '!filter'.", replacers);
           break;
         case "saved":
           //  { "!filter": name }
-          s = Drupal.t("Saved filter '!filter'.");
+          s = Drupal.t("Saved filter '!filter'.", replacers);
           break;
         case "confirmDelete":
           //  { "!filter": _elements.filter.name.value }
@@ -1743,13 +1773,17 @@ var LogFilter = function($) {
         case "invalid_referer":
           _local[nm] = s = Drupal.t("Referrer must be a URL, or empty.");
           break;
-        case "machineName":
+        case "error_machine_name_composition":
           //  { "!illegals": "default, adhoc" }
           s = Drupal.t("The filter name:!newline- must be 2 to 32 characters long!newline- must only consist of the characters a-z, letters, and underscore (_)!newline- cannot start with a number!newline- cannot be: !illegals", replacers);
           break;
-        case "filterNameDupe":
+        case "error_filter_name_nonunique":
           //  {"!name": name}
           s = Drupal.t("There's already a filter named!newline'!name'.", replacers);
+          break;
+        case "error_filter_doesnt_exist":
+          //  {"!name": name}
+          s = Drupal.t("There's no filter named!newline'!name'.", replacers);
           break;
         case "wait":
           _local[nm] = s = Drupal.t("Please wait a sec...");
@@ -1792,7 +1826,10 @@ var LogFilter = function($) {
         case "error_perm_filter_crud":
           _local[nm] = s = Drupal.t("Sorry, you're not allowed to edit saveable filters.");
           break;
-        case "error_dbSave":
+        case "error_perm_filter_restricted":
+          _local[nm] = s = Drupal.t("You're not allowed to use that filter.");
+          break;
+        case "error_db_general":
           _local[nm] = s = Drupal.t("Sorry, failed to save data.");
           break;
         case "error_unknown":

@@ -1,5 +1,10 @@
 log_filter 7.x-1.x, 2013-03-28
 ------------------------------
+* Saving filters works.
+* Implemented standards compliant url GET parameter (filter name) regime.
+
+log_filter 7.x-1.x, 2013-03-28
+------------------------------
 * Working on saving (creating/updating) filter.
 
 log_filter 7.x-1.x, 2013-03-26

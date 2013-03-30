@@ -56,6 +56,8 @@ function log_filter_menu() {
     ),
   );
 
+  //  NB: Accessing a saved filter is done via an extra url argument after admin/reports/dblog/log_filter; see LogFilter::FILTER_NAME_ARG.
+
   $i = 0;
   //  Add two tabs to dblog's default viewer.
   if (!variable_get('log_filter_hidedblog', FALSE)) {

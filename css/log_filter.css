@@ -211,7 +211,7 @@ div#log_filter__message {
   /* ~ #page.log-filter-viewport-small form#log-filter-form div#log_filter_filters */
   max-width: 66.5em;
 }
-  form#log-filter-form fieldset#edit-filter-filter-edit .fieldset-legend span {
+  form#log-filter-form fieldset#edit-log-filter-filter-edit .fieldset-legend span span {
     text-transform: none;
   }
   form#log-filter-form div.fieldset-wrapper {
