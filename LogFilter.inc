@@ -146,7 +146,7 @@ class LogFilter {
       $allow_filter_edit = user_access('log_filter edit filters');
 
       //  Get submitted vars from session, and remove them (for later form build and submission).
-      $session = $settings = $submitted = $messages = NULL;
+      $formSubmitted = $session = $settings = $submitted = $messages = NULL;
       if (module_exists('state')) {
         if (($session = State::sessionGet('module', 'log_filter')) && array_key_exists('submitted', $session)) {
           State::sessionRemove('module', 'log_filter', 'submitted');
@@ -166,6 +166,7 @@ class LogFilter {
           $settings =& $session['settings'];
         }
         if (array_key_exists('submitted', $session)) {
+          $formSubmitted = TRUE;
           $submitted =& $session['submitted'];
         }
         if (array_key_exists('messages', $session)) {
@@ -193,18 +194,21 @@ class LogFilter {
         }
         if (!($stored_filter = self::_readFilter($filter_name))) {
           $success = FALSE;
-          if ($stored_filter === FALSE) {
-            drupal_set_message(
-              t('The filter \'!name\' doesn\'t exist.', array('!name' => $filter_name)),
-              'warning'
-            );
+          if (!$formSubmitted) { // Don't put these errors twice.
+            if ($stored_filter === FALSE) {
+              drupal_set_message(
+                t('The filter \'!name\' doesn\'t exist.', array('!name' => $filter_name)),
+                'warning'
+              );
+            }
+            else {
+              drupal_set_message(
+                t('You\'re not allowed to use the filter named \'!name\'.', array('!name' => $filter_name)),
+                'warning'
+              );
+            }
           }
-          else {
-            drupal_set_message(
-              t('You\'re not allowed to use the filter named \'!name\'.', array('!name' => $filter_name)),
-              'warning'
-            );
-          }
+          $mode = 'default';
         }
         if ($success) {
           $filter = array(
@@ -656,7 +660,10 @@ class LogFilter {
                   'autocomplete' => 'off',
                   'title' => ($title_require_admin = t('Require the \'Administer log filtering\' permission.')),
                ),
-              '#suffix' => '</div>',
+          ),
+          array(
+              '#type' => 'markup',
+              '#markup' => '</div>',
           ),
           'log_filter_description' => !$allow_filter_edit ? array() : // (2 open)
           array( // (2 open)
@@ -858,7 +865,7 @@ class LogFilter {
       $form['#submit'][] = '_log_filter_form_submit';
       return $form;
 
-      //  NOT FINISHED, NAD MUST be in other method.
+//  NOT FINISHED, NAD MUST be in other method.
       if (!$filter) {
         $filter = new stdClass();
         $filter->conditions = array();
@@ -1005,6 +1012,9 @@ class LogFilter {
         case 'stored': // Saved filter.
           //  Just get filter name; in stored mode we do absolutely nothing at submission but establishing the filter's name.
           //  Whether the filter require_admin and user has that permission will be checked at form build - no reason to check twice.
+
+          //$submitted['mode'] = $mode = 'default';
+
           if (!($submitted['filter']['name'] = $filter_name = $values[$prefix . 'name'])) {
             throw new Exception('Mode[' . $mode . '], empty name[' . $filter_name . '].', self::$_errorCodes['filter_name_composition']);
           }
@@ -1106,9 +1116,6 @@ class LogFilter {
           throw new Exception('Unsupported mode[' . $mode . '].', self::$_errorCodes['algo']);
       }
 
-
-      //  @todo: test criteria gotten when creating versus when saving, and implement protection method that can handle both uniformly.
-
       //  Load values from form.
       if ($use_form_values) {
         $fields_conditions =& self::$_fields['conditions'];
@@ -1198,40 +1205,11 @@ class LogFilter {
         $submitted['order_by'] =& $order_by;
         unset($order_by, $fields_order_by);
       }
-
-      //  inspect($submitted, $mode);
-
       if ($save) { // edit mode.
         $success = TRUE;
         try {
           self::_saveFilter($filter_name, $submitted);
         }
-        /*catch (PDOException $xc) {
-          self::_errorHandler($xc);
-          $oResp->success = FALSE;
-
-          $messages[] = array(
-              t('The filter \'!name\' doesn\'t exist.', array('!name' => $filter_name)),
-              'warning'
-          );
-
-          if (($error_code = $xc->getCode())) {
-            $oResp->error_code = $error_code;
-          }
-          elseif (!$oResp->error_code) {
-            $oResp->error_code = self::$_errorCodes['db_general'];
-          }
-        }
-        catch (Exception $xc) {
-          self::_errorHandler($xc);
-          $oResp->success = FALSE;
-          if (($error_code = $xc->getCode())) {
-            $oResp->error_code = $error_code;
-          }
-          elseif (!$oResp->error_code) {
-            $oResp->error_code = self::$_errorCodes['unknown'];
-          }
-        }*/
         catch (Exception $xc) {
           self::_errorHandler($xc);
           $oResp->success = FALSE;
