@@ -1510,6 +1510,8 @@ class LogFilter {
 
   protected static function _listLogs() {
     //  @todo: order by time must always be combined with order by log id, otherwise the actual temporal order may get wrong.
+
+    //  @todo: referer condition must support strictly empty value (filter referer value 'none')
   }
 
   /**

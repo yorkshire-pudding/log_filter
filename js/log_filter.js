@@ -760,22 +760,27 @@ var LogFilter = function($) {
               _.recordedValues[nm]= elm.value;
               //  Check for url pattern.
               jq.change(function() {
-                var v = this.value, nm = this.name === "log_filter_location" ? "location" : "referer"; // Not the same nm as iteration nm ;-)
-                if(v !== "") {
-                  this.value = v = Judy.stripTags(v);
+                var v = $.trim(this.value), nm = this.name === "log_filter_location" ? "location" : "referer"; // Not the same nm as iteration nm ;-)
+                if(nm === "referer" && (v === "none" || v === "<none>")) {
+                  this.value = "none";
                 }
-                if(v !== "" && !/^https?\:\/\/.+$/.test(v)) {
-                  if(!/^https?\:\/\/.+$/.test(v = "http://" + v)) {
-                    self.Message.set( self.local(nm === "location" ? "invalid_location" : "invalid_referer"), "warning", {
-                        modal: true,
-                        close: function() {
-                          Judy.focus(_elements.conditions[ nm ]);
-                        }
-                    });
-                    this.value = v = "";
+                else {
+                  if(v !== "") {
+                    this.value = v = Judy.stripTags(v);
                   }
-                  else {
-                    this.value = v;
+                  if(v !== "" && !/^https?\:\/\/.+$/.test(v)) {
+                    if(!/^https?\:\/\/.+$/.test(v = "http://" + v)) {
+                      self.Message.set( self.local(nm === "location" ? "invalid_location" : "invalid_referer"), "warning", {
+                          modal: true,
+                          close: function() {
+                            Judy.focus(_elements.conditions[ nm ]);
+                          }
+                      });
+                      this.value = v = "";
+                    }
+                    else {
+                      this.value = v;
+                    }
                   }
                 }
                 if(v !== _.recordedValues[nm]) {

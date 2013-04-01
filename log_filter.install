@@ -103,6 +103,7 @@ function log_filter_schema() {
                   'length' => 255,
                   'not null' => TRUE,
                   'default' => '',
+                  'description' => 'Url, \'none\' or empty.',
               ),
               'order_by' => array(
                   'type' => 'varchar',
