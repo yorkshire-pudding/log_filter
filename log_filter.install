@@ -124,7 +124,6 @@ function log_filter_schema() {
               'changed' => array(
                   'type' => 'int',
                   'not null' => TRUE,
-                  'default' => 0,
                   'description' => 'The Unix timestamp when the filter was most recently saved.',
               ),
           ),

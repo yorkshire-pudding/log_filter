@@ -500,18 +500,16 @@ var LogFilter = function($) {
               _.mode = elm.value;
               break;
             case "onlyOwn": // May not exist.
-              //  Submit if user checks filter_only_own.
+              //  Submit if user (un)checks filter_only_own.
               jq.change(function() {
-                if(this.checked) {
-                  if(_.mode === "stored") {
-                    _elements.settings.mode.value = "adhoc";
-                    Judy.fieldValue(_elements.filter.filter, null, "");
-                    _elements.filter.origin.value = _.name; // Pass name to origin.
-                    _elements.filter.name.value = "";
-                  }
-                  Judy.enable(_elements.buttons.update_list);
-                  _submit();
+                if(_.mode === "stored") {
+                  _elements.settings.mode.value = "adhoc";
+                  Judy.fieldValue(_elements.filter.filter, null, "");
+                  _elements.filter.origin.value = _.name; // Pass name to origin.
+                  _elements.filter.name.value = "";
                 }
+                Judy.enable(_elements.buttons.update_list);
+                _submit();
               });
               break;
             case "delete_logs_max": // May not exist.
@@ -1768,10 +1766,10 @@ var LogFilter = function($) {
           _local[nm] = s = Drupal.t("User ID must be a positive number, or empty.");
           break;
         case "invalid_location":
-          _local[nm] = s = Drupal.t("Location must be a URL, or empty.");
+          _local[nm] = s = Drupal.t("Requested URL must be a URL, or empty.");
           break;
         case "invalid_referer":
-          _local[nm] = s = Drupal.t("Referrer must be a URL, or empty.");
+          _local[nm] = s = Drupal.t("Referrer URL must be a URL, 'none', or empty.");
           break;
         case "error_machine_name_composition":
           //  { "!illegals": "default, adhoc" }
