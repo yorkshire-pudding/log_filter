@@ -1243,6 +1243,7 @@ var LogFilter = function($) {
           break;
         case "stored":
           _setMode("adhoc");
+          //_setMode("edit"); @todo: should change mode to edit, otherwise counterintuitive
           break;
         case "create":
           break;
