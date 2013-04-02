@@ -1,3 +1,7 @@
+log_filter 7.x-1.x, 2013-04-02
+------------------------------
+* Changing a criterion of a stored filter now triggers edit mode, not adhoc mode.
+
 log_filter 7.x-1.x, 2013-04-01
 ------------------------------
 * _listFilters().

@@ -156,7 +156,7 @@ var LogFilter = function($) {
       edit: "input[name='log_filter_edit']",
       delete_filter: "input[name='log_filter_delete']",
       cancel: "input[name='log_filter_cancel']",
-      save: "input[name='log_filter_save']",
+      save: "input[name='log_filter_save']", // Doesnt exist if user isnt permitted to create|edit|save filter.
       delete_logs_button: "input[name='log_filter_delete_logs_button']"
     },
     misc: {
@@ -405,10 +405,12 @@ var LogFilter = function($) {
 	};
   /**
    * @ignore
+   * @param {boolean} [top]
+   *  - default: false (~ use current window's location, not top.location)
    * @return {string}
    */
-  _url = function(params) {  // @todo: use location, not window.location, all over the place, to respect overlay iframe.
-    var loc = window.location, v;
+  _url = function(top) {
+    var loc = (!top ? window : top).location, v;
     return loc.protocol + "//" + loc.hostname + (!(v = loc.port) ? "" : (":" + v)) + loc.pathname.replace(/\/dblog(\/.+)?$/, "/dblog/log_filter");
   };
   /**
@@ -473,7 +475,6 @@ var LogFilter = function($) {
               jq.keyup(_machineNameConvert);
               break;
             case "description": // May not exist.
-              _.crudFilters = true;
               _textareaRemoveWrapper(elm); // Remove parent form-textarea-wrapper.
               jq.change(function() {
                 var v;
@@ -870,10 +871,9 @@ var LogFilter = function($) {
                 case "delete_filter":
                 case "cancel":
                 case "save":
-                  if(_.crudFilters) {
-                    oElms.crudFilters.push(elm);
-                    jq.click(_crudRelay); // Set our common button handler.
-                  }
+                  _.crudFilters = true;
+                  oElms.crudFilters.push(elm);
+                  jq.click(_crudRelay); // Set our common button handler.
                   break;
                 case "delete_logs_button":
                   _.delLogs = true;
@@ -922,7 +922,7 @@ var LogFilter = function($) {
         return;
       }
       if(!initially && mode !== "delete_filter") {
-        if(!submit) {
+        if(!submit && _.crudFilters) {
           //  Hide all filter buttons.
           $(_elements.buttons.crudFilters).hide();
         }
@@ -1010,8 +1010,8 @@ var LogFilter = function($) {
             }
             Judy.enable(_elements.buttons.update_list);
           }
-          $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
           if(_.crudFilters) {
+            $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
             $(_elements.settings.onlyOwn.parentNode).show();
             $(_elements.buttons.create).show();
             $(_elements.buttons.edit).show();
@@ -1247,8 +1247,8 @@ var LogFilter = function($) {
           }
           break;
         case "stored":
-          _setMode("adhoc");
-          //_setMode("edit"); @todo: should change mode to edit, otherwise counterintuitive
+          //  A change of a stored filter triggers edit mode if the user is allowed to edit filters.
+          _setMode(!_.crudFilters ? "adhoc" : "edit");
           break;
         case "create":
           break;
@@ -1311,11 +1311,8 @@ var LogFilter = function($) {
     if(mode) {
       _setMode(mode);
     }
-    else if(_.mode === "adhoc") {
-      _setMode("default");
-    }
     else {
-      _setMode("adhoc");
+      _setMode("default");
     }
   };
   /**
@@ -1425,6 +1422,7 @@ var LogFilter = function($) {
     //  thus the user cannot inspect the filter while the confirm() is up.
 
     //  Actual deletion is performed via an ordinary page request; the backend submit method deletes the logs (if the field delete_logs is on).
+    //  Nope, that's silly, do it via AJAX
 
     if(!o.nConditions) { // Even stored filters go here; if a stored filter has no conditions, than THAT is the important thing.
       //  We warn every time, when no conditions at all.
@@ -1580,7 +1578,6 @@ var LogFilter = function($) {
           });
           break;
         // default: Let action function handle the error, and optionally return false if it doesnt know that error code.
-
       }
     }
     if(_ajaxResponse.hasOwnProperty(action)) { // IE<9 wont like that, has no function.hasOwnProperty() method ;-)
@@ -2149,8 +2146,6 @@ var LogFilter = function($) {
     _filters = filters || [];
     _prepareForm();
     _setMode(_.mode, false, true);
-
- //   _formToken = Judy.fieldValue("input[name='form_token']");
 
     _resize(null, true); // Hides overlay.
 

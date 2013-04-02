@@ -23,11 +23,6 @@ class LogFilter {
    */
   const PAGER_RANGE_DEFAULT = 100;
 
-
-  //  @todo: frontend set name must continue to save via AJAX, but it must send criteria (dont simply make a default filter).
-  //  Name suggest must use ordinary save button, not that stupid 'set' button.
-  //  But saving upon edit must be an ordinary page post request (primarily because much easier).
-
   /**
    * @type array $_errorCodes
    */
