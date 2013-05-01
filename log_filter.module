@@ -154,10 +154,7 @@ function log_filter_form_field_after_build($element) {
 /**
  * Access permission: 'access site reports'.
  *
- *  Expects (requires) POST vars on actions:
- *  - create: form_token, name, require_admin
- *
- * @see LogFilter::ajaxCallback
+ * @see LogFilter::ajaxCallback()
  * @param string $action
  * @return void
  *  - sends 403 header if the expected POST vars arent set or their sanitized values evaluates to empty

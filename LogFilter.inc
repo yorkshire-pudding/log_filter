@@ -21,7 +21,12 @@ class LogFilter {
   /**
    * @type integer
    */
-  const PAGER_RANGE_DEFAULT = 100;
+  const PAGE_RANGE_DEFAULT = 20;
+
+  /**
+   * @type integer
+   */
+  const LIST_MESSAGE_TRUNCATE = 100;
 
   /**
    * @type array $_errorCodes
@@ -74,7 +79,7 @@ class LogFilter {
     'settings' => array(
       'only_own',
       'delete_logs_max',
-      'cache',
+      'translate',
       'pager_range',
     ),
     'filter' => array(
@@ -132,6 +137,14 @@ class LogFilter {
         array('type' => 'file', 'group' => CSS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
       );
     }
+    drupal_add_js(
+      array(
+        'LogFilter' => array(
+          'list_message_truncate' => variable_get('log_filter_trnct', self::LIST_MESSAGE_TRUNCATE)
+        )
+      ),
+      'setting'
+    );
     drupal_add_js(
       $path . '/js/log_filter.js',
       array('type' => 'file', 'group' => JS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
@@ -774,8 +787,7 @@ class LogFilter {
           '#type' => 'textfield',
           '#name' => 'log_filter_delete_logs_max',
           '#title' => t('Max.'),
-          '#default_value' => $settings['delete_logs_max'],
-          '#size' => 7,
+          '#default_value' =>  $settings && array_key_exists('delete_logs_max', $settings) ? $settings['delete_logs_max'] : '',
           '#attributes' => array(
             'autocomplete' => 'off',
             'maxlength' => 11,
@@ -788,7 +800,7 @@ class LogFilter {
         ),
       );
 
-      $title_cache = t('Easier on performance, despite translated logs are being cached.');
+      $title_translate = t('Translating messages is heavy performance-wise.');
 
       $form['log_filter_list_controls'] = array(
         'frontend_setup' => array(
@@ -801,7 +813,7 @@ class LogFilter {
   $(document).bind("ready", function() {
     var elm;
     //  Set hover title on some field labels.
-    $("div.form-item-log-filter-cache label").get(0).setAttribute("title", "' . str_replace(array("\n", "\r", '"'), '', $title_cache) . '");
+    $("div.form-item-log-filter-translate label").get(0).setAttribute("title", "' . str_replace(array("\n", "\r", '"'), '', $title_translate) . '");
     ' . (!$allow_filter_edit ? '' :
     ('if((elm = $("div.form-item-log-filter-require-admin label").get(0))) {
       elm.setAttribute("title", "' . str_replace(array("\n", "\r", '"'), '', $title_require_admin) . '");
@@ -836,17 +848,18 @@ class LogFilter {
         'log_filter_pager_range' => array(
           '#type' => 'textfield',
           '#title' => t('Logs per page'),
-          '#default_value' => 100,
+          '#default_value' => $settings && array_key_exists('pager_range', $settings) ?
+            $settings['pager_range'] : variable_get('log_filter_pgrng', self::PAGE_RANGE_DEFAULT),
           '#attributes' => array('autocomplete' => 'off'),
           '#size' => 4,
         ),
-        'log_filter_cache' => array(
+        'log_filter_translate' => array(
           '#type' => 'checkbox',
-          '#title' => t('Don\'t translate messages') . '<span>?</span>',
-          '#default_value' => $settings && array_key_exists('cache', $settings) ? !$settings['cache'] : FALSE, // Reverse the value;
+          '#title' => t('Translate messages') . '<span>?</span>',
+          '#default_value' => $settings && array_key_exists('translate', $settings) ? $settings['translate'] : variable_get('log_filter_trnslt', 0),
           '#attributes' => array(
             'autocomplete' => 'off',
-            'title' => $title_cache,
+            'title' => $title_translate,
           ),
         ),
         'log_filter_update_list_right' => array(
@@ -874,118 +887,24 @@ class LogFilter {
 
       $logList = '';
       for ($i = 97; $i < 97 + 26; $i++) {
-        $logList .= '<div class="' . str_repeat(chr($i), 3) . '">' . str_repeat(chr($i), 3) . '</div>';
+        //$logList .= '<div class="' . str_repeat(chr($i), 3) . '">' . str_repeat(chr($i), 3) . '</div>';
       }
 
 
       $form['log_filter_log_list'] = array(
         '#type' => 'markup',
-        '#markup' => '<div id="log_filter_log_list" class="scrollable">' . $logList . '</div><div id="log_filter_rubbish">&nbsp;</div>',
+        '#markup' => '<div id="log_filter_log_list" class="scrollable">' . $logList . '</div>',
       );
 
       //  Add our submit form;
       $form['#submit'][] = '_log_filter_form_submit';
       return $form;
-
-//  NOT FINISHED, NAD MUST be in other method.
-      if (!$filter) {
-        $filter = new stdClass();
-        $filter->conditions = array();
-        $filter->order_by = array('timestamp' => 'DESC');
-      }
-
-      if (($nFiltered = $nTotal = db_select('watchdog')
-        ->countQuery()->execute()->fetchField())) {
-        //  List of watch ids of logs; by filter.
-        $ids = db_select('watchdog')
-          ->fields('watchdog', array('wid'));
-        if ($filter->conditions) {
-          foreach ($filter->conditions as $k => $v) {
-            $ids->condition($arr[0], $arr[1], $arr[2]); // 'field name', value, '='
-
-            switch ($k) {
-              case 'severity':
-              case 'type':
-                if ($v) {
-                  $ids->condition($k, $v, 'IN');
-                }
-                break;
-              case 'roles':
-                if ($v) {
-                  if (($uids = db_select('users_roles')
-                    ->fields('uid')
-                    ->condition('rid', $v, 'IN')
-                    ->distinct()
-                    ->execute()->fetchAll())
-                  ) {
-                    $ids->condition($k, join(',', $uids), 'IN');
-                  }
-                  else {
-                    //  No user exists having any of the selected roles.
-                    drupal_set_message(t('No user exists having any of the selected roles.'), 'warning');
-                    //  Make un-matchable condition, and get out.
-                    $ids->condition($k, -1, '=');
-                    break 2;
-                  }
-                }
-                break;
-              case 'time_from':
-                $ids->condition($k, $v, '>=');
-                break;
-              case 'time_to':
-                $ids->condition($k, $v, '<=');
-                break;
-              default:
-                $ids->condition($k, $v, '=');
-            }
-          }
-        }
-        if (($nFiltered = count($ids = $ids->orderBy($filter->order_by[0], $filter->order_by[1])->execute()->fetchAll()))) {
-
-          $logs = array();
-
-          //  Fetch all matched cached logs.
-          if (($cached = db_select('log_filter_cache'/* , null, array('fetch' => PDO::FETCH_OBJ) */)
-            ->fields('data')
-            ->condition('wid', $ids, 'IN')
-            ->distinct() // There may be dupes.
-            ->execute()->fetchAllAssoc('wid'))) {
-            $logs =& $cached;
-          }
-          //  Fetched all non-cached.
-          if (count($logs) < $nFiltered) {
-          }
-        }
-
-      }
-
-      if (!$filter) {
-        $nFiltered = $nTotal;
-      }
-      else {
-        $nFiltered = db_select('watchdog')
-          //->condition($idField, $entityId, '=')
-          //->condition($typeField, $excluded, 'IN')
-          ->countQuery()->execute()->fetchField();
-      }
-
-      if (!$nFiltered) {
-        //$list = t('No log(s) mach')
-      }
-
     }
     catch (Exception $xc) {
       self::_errorHandler($xc);
       drupal_set_message($xc->getMessage(), 'error');
       return array();
     }
-    /*
-    $arr = db_select('watchdog', null, array('fetch' => PDO::FETCH_OBJ))
-      ->fields('watchdog', array('wid'))
-      ->orderBy('timestamp', 'DESC')
-      ->range(1, 10)
-      ->execute();
-     */
   }
 
   /**
@@ -1006,9 +925,9 @@ class LogFilter {
       $settings = array(
         'only_own' => !array_key_exists($prefix . 'only_own', $values) ? FALSE : $values[$prefix . 'only_own'],
         'delete_logs_max' => !array_key_exists($prefix . 'delete_logs_max', $values) ? '' : $values[$prefix . 'delete_logs_max'],
-        'cache' => !$values[$prefix . 'cache'], // Reverse the value.
+        'translate' => $values[$prefix . 'translate'],
         'only_own' => !array_key_exists($prefix . 'only_own', $values) ? FALSE : $values[$prefix . 'only_own'],
-        'pager_range' => ($v = (int)$values[$prefix . 'pager_range']) > -1 ? $v : self::PAGER_RANGE_DEFAULT,
+        'pager_range' => ($v = (int)$values[$prefix . 'pager_range']) > -1 ? $v : variable_get('log_filter_pgrng', self::PAGE_RANGE_DEFAULT),
       );
 
       $submitted = array(
@@ -1429,7 +1348,7 @@ class LogFilter {
             }
             //  Use array values, but convert 'zero' to zero.
             //  And make sure it's all integers.
-            $fields[$key] = preg_replace('/[^\d,]/', '', join(',', str_replace('zero', '0', $v)));
+            $fields[$key] = preg_replace('/[^\d,]/', '', str_replace('zero', '0', join(',', $v)));
           }
           else {
             $fields[$key] = '';
@@ -1518,11 +1437,142 @@ class LogFilter {
     }
   }
 
+  /**
+   * @param array $conditions
+   * @param array $order_by
+   * @param integer $offset
+   * @param integer $count
+   * @param boolean $translate
+   *  - default: FALSE
+   * @return array
+   */
+  protected static function _listLogs($conditions, $order_by, $offset, $count, $translate = FALSE) {
+    $query = db_select('watchdog', 'w');
+    $query->leftJoin('users', 'u', 'w.uid = u.uid');
+    $query->fields('w') // Wildcard columns.
+      //->fields('w', array('wid', 'uid', 'type', 'message', 'variables', 'severity', 'link', 'location', 'referer', 'hostname', 'timestamp'))
+      ->addField('u', 'name');
 
-  protected static function _listLogs() {
-    //  @todo: order by time must always be combined with order by log id, otherwise the actual temporal order may get wrong.
+    //  Conditions.
+    $names =& self::$_fields['conditions'];
+    foreach ($names as $key) {
+      switch ($key) {
+        case 'severity':
+          if (!empty($conditions[$key])) {
+            if (!is_array($v = $conditions[$key])) {
+              throw new Exception('Non-empty condition[' . $key . '], type[' . gettype($v) . '], must be array.',
+                self::$_errorCodes['bad_filter_condition']);
+            }
+            //  Convert 'zero' to zero.
+            $query->condition('w.' . $key, explode(',', str_replace('zero', '0', join(',', $v))), 'IN');
+          }
+          break;
+        case 'type':
+          if (!empty($conditions[$key])) {
+            if (!is_array($v = $conditions[$key])) {
+              throw new Exception('Non-empty condition[' . $key . '], type[' . gettype($v) . '], must be array.',
+                self::$_errorCodes['bad_filter_condition']);
+            }
+            $query->condition('w.' . $key, explode(',', check_plain(join(',', $v))), 'IN');
+          }
+          break;
+        case 'time_range':
+          if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v < 1000) {
+            if (!is_array($v = $conditions[$key])) {
+              throw new Exception('Non-empty condition[' . $key . '], type[' . gettype($v) . '], must be array.',
+                self::$_errorCodes['bad_filter_condition']);
+            }
+            $query->condition('w.' . $key, REQUEST_TIME - ($v * 60 * 60), '>=');
+          }
+          break;
+        case 'time_from':
+          if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v <= PHP_INT_MAX) {
+            $query->condition('w.' . 'timestamp', $v, '>=');
+          }
+          break;
+        case 'time_to':
+          if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v <= PHP_INT_MAX) {
+            $query->condition('w.' . 'timestamp', $v, '<=');
+          }
+          break;
+        case 'role':
+          if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v <= PHP_INT_MAX) {
+            $query->join('users_roles', 'ur', 'w.uid = ur.uid AND ur.rid = :rid', array(':rid' => 9));
+          }
+          break;
+        case 'uid':
+          if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v <= PHP_INT_MAX) {
+            $query->condition('w.' . $key, $v, '=');
+          }
+          break;
+        case 'hostname':
+        case 'location':
+          if (!empty($conditions[$key]) && ($v = check_plain($conditions[$key]))) {
+            $query->condition('w.' . $key, $v, '=');
+          }
+          break;
+        case 'referer': // Support strictly empty value 'none'
+          if (!empty($conditions[$key]) && ($v = check_plain($conditions[$key]))) {
+            if ($v != 'none') {
+              $query->condition('w.' . $key, $v, '=');
+            }
+            else {
+              $query->condition(db_or()->condition('w.' . $key, '', '=')->isNull('w.' . $key));
+            }
+          }
+          break;
+        default:
+          //  Ignore.
+      }
+    }
 
-    //  @todo: referer condition must support strictly empty value (filter referer value 'none')
+    //  Order by.
+    //  Will always be qualified extra by log id order, to secure correct (sub) order.
+    if (!empty($order_by)) {
+      $timeAscending = FALSE;
+      foreach($order_by as &$orderBy) {
+        if (preg_match('/^[a-z\d_]{2,32}$/', $k = $orderBy[0]) && (($v = $orderBy[1]) === 'DESC' || $v === 'ASC')) {
+          if ($k == 'time' || $k == 'timestamp') {
+            $query->orderBy('timestamp', $v);
+            if ($v == 'ASC') {
+              $timeAscending = TRUE;
+            }
+          }
+          else {
+            $query->orderBy($k, $v);
+          }
+        }
+      }
+      unset($orderBy);
+      $query->orderBy('wid', !$timeAscending ? 'DESC' : 'ASC');
+    }
+    else {
+      $query->orderBy('timestamp', 'DESC')->orderBy('wid', 'DESC');
+    }
+
+    //  @todo: Find total count of result?
+
+    //  Work on event buckets.
+    if (($rows = $query->range($offset, $count)->execute()->fetchAll())) {
+      foreach($rows as &$event) {
+        //  Translate?
+        if (($vars = $event->variables) === 'N;') {
+          $event->variables = '';
+        }
+        elseif (!$translate) { // Do variables replacement frontend.
+          $event->variables = unserialize($vars);
+        }
+        else { // Do translate if any variables
+          $event->message = t($event->message, unserialize($vars));
+        }
+        //  Filter link.
+        if ($event->link) {
+          $event->link = filter_xss($event->link);
+        }
+      }
+      unset($event); // Clear reference.
+    }
+    return $rows;
   }
 
   /**
@@ -1532,6 +1582,7 @@ class LogFilter {
    *
    *  Expects (requires) POST vars on actions:
    *  - filter_create|filter_edit: name, filter, conditions, order_by
+   *  - list_logs: conditions, order_by, offset, count
    *
    * @see LogFilter::ajaxCallback
    * @param string $action
@@ -1577,7 +1628,9 @@ class LogFilter {
               || !array_key_exists('description', $filter)
                 || ( ($description = $filter['description']) !== '' && (!drupal_validate_utf8($description) || drupal_strlen($description) > 255) )
               || !array_key_exists('conditions', $_POST)
+                || (($conditions = $_POST['conditions']) && !is_array($conditions)) // _saveFilter() checks/filters conditions buckets vs. xss.
               || !array_key_exists('order_by', $_POST)
+                || (($order_by = $_POST['order_by']) && !is_array($order_by)) // _saveFilter() checks/filters order_by buckets vs. xss.
             ) {
               header('HTTP/1.1 403 Forbidden');
               exit;
@@ -1595,13 +1648,6 @@ class LogFilter {
             else {
               $oResp->name = $name = check_plain(strtolower($name)); // Deliberately not drupal_...().
               $oResp->description = !$description ? '' : check_plain(trim(str_replace(array("\r", "\n", "\t"), ' ', $description)));
-              /*
-              inspect(array(
-                  $_POST['conditions'],
-                  $_POST['order_by']
-              ));
-              break;
-              */
               self::_saveFilter(
                 $name,
                 array(
@@ -1609,11 +1655,53 @@ class LogFilter {
                     'require_admin' => $require_admin,
                     'description' => $description
                   ),
-                  'conditions' => ($v = $_POST['conditions']) ? $v : array(),
-                  'order_by' => ($v = $_POST['order_by']) ? $v : array(),
+                  'conditions' => $conditions ? $conditions : array(), // _saveFilter() checks/filters conditions buckets vs. xss.
+                  'order_by' => $order_by ? $order_by : array(), // _saveFilter() checks/filters order_by buckets vs. xss.
                 ),
                 $action == 'filter_create'
               );
+            }
+            break;
+          case 'list_logs':
+            if (
+              !array_key_exists('conditions', $_POST)
+                || (($conditions = $_POST['conditions']) && !is_array($conditions)) // _listLogs() checks/filters conditions buckets vs. xss.
+              || !array_key_exists('order_by', $_POST)
+                || (($order_by = $_POST['order_by']) && !is_array($order_by)) // _listLogs() checks/filters order_by buckets vs. xss.
+              || !array_key_exists('offset', $_POST) || ($offset = (int)$_POST['offset']) < 0 || $offset > PHP_INT_MAX
+              || !array_key_exists('count', $_POST) || ($count = (int)$_POST['count']) < 1 || $count > PHP_INT_MAX
+              || !array_key_exists('translate', $_POST)
+            ) {
+              header('HTTP/1.1 403 Forbidden');
+              exit;
+            }
+            $oResp->log_list = self::_listLogs(
+              $conditions ? $conditions : array(),
+              $order_by ? $order_by : array(),
+              $offset,
+              $count,
+              $translate = (bool)$_POST['translate']
+            );
+            //  Save pager_range and translate to session.
+            $session = array(
+              'settings' => array(
+                'pager_range' => $count,
+                'translate' => $translate,
+              ),
+            );
+            if (module_exists('state')) {
+              State::sessionSet('module', 'log_filter', $session);
+            }
+            else {
+              drupal_session_start();
+              if (!isset($_SESSION['module'])) {
+                $_SESSION['module'] = array(
+                  'log_filter' => $session,
+                );
+              }
+              else {
+                $_SESSION['module']['log_filter'] = $session;
+              }
             }
             break;
           default:
@@ -1642,8 +1730,7 @@ class LogFilter {
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: private, no-store, no-cache, must-revalidate');
     header('Expires: Thu, 01 Jan 1970 00:00:01 GMT');
-    //  No reason to use drupal_json_encode(), because we dont send html strings.
-    echo json_encode($oResp);
+    echo drupal_json_encode($oResp);
     flush();
     exit;
   }

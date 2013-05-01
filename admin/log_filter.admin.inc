@@ -13,6 +13,7 @@
  *   - the return value of system_settings_form()
  */
 function _log_filter_admin_form($form, &$form_state) {
+  module_load_include('inc', 'log_filter', 'LogFilter');
   if (variable_get('log_filter_css', TRUE)) {
     drupal_add_css(
       ($path = drupal_get_path('module', 'log_filter')) . '/admin/log_filter.admin.css',
@@ -42,19 +43,39 @@ function _log_filter_admin_form($form, &$form_state) {
       '#default_value' => variable_get('log_filter_hidedblog', FALSE),
       '#attributes' => array('autocomplete' => 'off'),
     ),
-    'log_filter_trnct' => array(
-      '#type' => 'textfield',
-      '#title' => t('List view message truncation'),
-      '#default_value' => variable_get('log_filter_trnct', 100),
-      '#attributes' => array('autocomplete' => 'off'),
-      '#size' => 3,
-    ),
     'log_filter_css' => array(
       '#type' => 'checkbox',
       '#title' => t('Link this module\'s default stylesheet'),
       '#description' => t('Otherwise, implement styling in the site\'s theme layer.'),
       '#default_value' => variable_get('log_filter_css', TRUE),
       '#attributes' => array('autocomplete' => 'off'),
+    ),
+  );
+  $form['log_list'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Log list settings'),
+    '#collapsible' => FALSE,
+    '#collapsed' => FALSE,
+    'log_filter_pgrng' => array(
+      '#type' => 'textfield',
+      '#title' => t('Default log list page range'),
+      '#default_value' => variable_get('log_filter_pgrng', LogFilter::PAGE_RANGE_DEFAULT),
+      '#attributes' => array('autocomplete' => 'off'),
+      '#size' => 3,
+    ),
+    'log_filter_trnslt' => array(
+      '#type' => 'checkbox',
+      '#title' => t('Default to translate log message'),
+      '#description' => t('Translating log messages is heavy performance-wise'),
+      '#default_value' => variable_get('log_filter_trnslt', FALSE),
+      '#attributes' => array('autocomplete' => 'off'),
+    ),
+    'log_filter_trnct' => array(
+      '#type' => 'textfield',
+      '#title' => t('List view message truncation'),
+      '#default_value' => variable_get('log_filter_trnct', LogFilter::LIST_MESSAGE_TRUNCATE),
+      '#attributes' => array('autocomplete' => 'off'),
+      '#size' => 3,
     ),
   );
 

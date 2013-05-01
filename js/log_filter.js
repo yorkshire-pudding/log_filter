@@ -74,14 +74,9 @@ var LogFilter = function($) {
       orderBy: []
     },
     warned_deleteNoMax: false,
-    saveEditFilterAjaxed: false // Save/update filter using AJAX or ordinary POST request?
+    saveEditFilterAjaxed: false, // Save/update filter using AJAX or ordinary POST request?
+    pagerOffset: 0
   },
-  /**
-   * @ignore
-   * @private
-   * @type {str}
-   */
-  _formToken = "",
   /**
    * @ignore
    * @private
@@ -114,7 +109,8 @@ var LogFilter = function($) {
       mode: "input[name='log_filter_mode']",
       onlyOwn: "input[name='log_filter_only_own']",
       delete_logs_max: "input[name='log_filter_delete_logs_max']", // May not exist.
-      cache: "input[name='log_filter_cache']"
+      translate: "input[name='log_filter_translate']",
+      pager_range: "input[name='log_filter_pager_range']"
     },
     filter: {
       filter: "select[name='log_filter_filter']",
@@ -188,6 +184,7 @@ var LogFilter = function($) {
   _validateTimeSequence,
   _resize,
   _url, _submit, _prepareForm, _setMode, _crudRelay, _changedCriterion, _resetCriteria, _getCriteria, _deleteLogs,
+  _getLogList, _listLogs, _formatList,
   _ajaxResponse, _ajaxRequest;
   /**
    * @see inspect.errorHandler
@@ -267,50 +264,12 @@ var LogFilter = function($) {
   _toAscii.needles = [
     //  iso-8859-1
 //JSLINT_IGNORE--- jslint unsafe chars, but _toAscii() starts out converting them to \uNNNN regexes.
-    "Ä","Æ",
-    "ä","æ",
-    "Ö","Ø",
-    "ö","ø",
-    "Ü", "ü", "ß", "Å", "å",
-    "À","Á","Â","Ã",
-    "à","á","â","ã",
-    "Ç", "ç", "Ð", "ð",
-    "È","É","Ê","Ë",
-    "è","é","ê","ë",
-    "Ì","Í","Î","Ï",
-    "ì","í","î","ï",
-    "Ñ", "ñ",
-    "Ò","Ó","Ô","Õ",
-    "ò","ó","ô","õ",
-    "Ù","Ú","Û",
-    "ù","ú","û",
-    "Ý",
-    "ý","ÿ",
-    "Þ", "þ"
+    "Ä","Æ",,"ä","æ",,"Ö","Ø",,"ö","ø",,"Ü", "ü", "ß", "Å", "å",,"À","Á","Â","Ã",,"à","á","â","ã",,"Ç", "ç", "Ð", "ð",,"È","É","Ê","Ë",,"è","é","ê","ë",,"Ì","Í","Î","Ï",,"ì","í","î","ï",,"Ñ", "ñ",,"Ò","Ó","Ô","Õ",,"ò","ó","ô","õ",,"Ù","Ú","Û",,"ù","ú","û",,"Ý",,"ý","ÿ",,"Þ", "þ"
 //---JSLINT_IGNORE
   ];
   _toAscii.replacers = [
     //  iso-8859-1
-    "Ae","Ae",
-    "ae","ae",
-    "Oe","Oe",
-    "oe","oe",
-    "Ue", "ue", "ss", "Aa", "aa",
-    "A","A","A","A",
-    "a","a","a","a",
-    "C", "c", "D", "d",
-    "E","E","E","E",
-    "e","e","e","e",
-    "I","I","I","I",
-    "i","i","i","i",
-    "N", "n",
-    "O","O","O","O",
-    "o","o","o","o",
-    "U","U","U",
-    "u","u","u",
-    "Y",
-    "y","y",
-    "Th", "th"
+    "Ae","Ae","ae","ae","Oe","Oe","oe","oe","Ue", "ue", "ss", "Aa", "aa","A","A","A","A","a","a","a","a","C", "c", "D", "d","E","E","E","E","e","e","e","e","I","I","I","I","i","i","i","i","N", "n","O","O","O","O","o","o","o","o","U","U","U","u","u","u","Y","y","y","Th", "th"
   ];
   /**
    * @ignore
@@ -355,10 +314,10 @@ var LogFilter = function($) {
       if(!noFeedback) {
         //alert( self.local("error_machine_name_composition", {"!illegals": _machineNameIllegals.join(", ")}) );
         self.Message.set( self.local("error_machine_name_composition", {"!illegals": _machineNameIllegals.join(", ")}), "warning", {
-            modal: true,
-            close: function() {
-              Judy.focus(_elements.filter.name_suggest);
-            }
+          modal: true,
+          close: function() {
+            Judy.focus(_elements.filter.name_suggest);
+          }
         });
       }
       return false;
@@ -393,9 +352,9 @@ var LogFilter = function($) {
     if(_.useModuleCss) {
       o = (jq = $("#log_filter_criteria")).offset();
       $("#page")[
-          (o.left + jq.outerWidth(true) + $("div#log_filter_filters_cell_0").outerWidth(true)) >
-              (Judy.innerWidth(window) - 20) ? // 20 ~ To prevent ambiguity.
-              "addClass" : "removeClass"
+        (o.left + jq.outerWidth(true) + $("div#log_filter_filters_cell_0").outerWidth(true)) >
+          (Judy.innerWidth(window) - 20) ? // 20 ~ To prevent ambiguity.
+          "addClass" : "removeClass"
       ]("log-filter-viewport-small");
     }
     if(initially) {
@@ -433,8 +392,8 @@ var LogFilter = function($) {
         break;
     }
     _elements.form.setAttribute(
-        "action",
-        _elements.form.getAttribute("action").replace(/\/dblog(\/[^\?\&]+)([\?\&].+)?$/, "/dblog/log_filter/" + nm + "$2")
+      "action",
+      _elements.form.getAttribute("action").replace(/\/dblog(\/[^\?\&]+)([\?\&].+)?$/, "/dblog/log_filter/" + nm + "$2")
     );
     //  Delay; otherwise it may in some situations not submit, presumably because Judy.enable() hasnt finished it's job yet(?).
     setTimeout(function() {
@@ -548,11 +507,11 @@ var LogFilter = function($) {
                   }
                   else {
                     (o = _elements.conditions).time_from.value =
-                        o.time_from_proxy.value =
-                        o.time_from_time.value =
-                        o.time_to.value =
-                        o.time_to_proxy.value =
-                        o.time_to_time.value = "";
+                      o.time_from_proxy.value =
+                      o.time_from_time.value =
+                      o.time_to.value =
+                      o.time_to_proxy.value =
+                      o.time_to_time.value = "";
                   }
                 }
                 if(v !== _.recordedValues.time_range) {
@@ -858,8 +817,10 @@ var LogFilter = function($) {
               oElms.update_list.push(elm);
               elm.setAttribute("type", "button");
               jq.unbind(); // Remove Drupal native button handlers.
-              //  AJAX request instead of this...:
-              jq.click(_submit);
+              jq.click(function() {
+                _ajaxRequestingBlocking = true; // Prevent consecutive clicks on update buttons.
+                _getLogList();
+              });
               break;
             default:
               oElms[nm] = elm;
@@ -1473,6 +1434,91 @@ var LogFilter = function($) {
 
   /**
    * @ignore
+   * @return {void}
+   */
+  _getLogList = function() {
+    var v = _getCriteria();
+    _ajaxRequest("list_logs", {
+      conditions: v.conditions,
+      order_by: v.order_by,
+      offset: _.pagerOffset,
+      count: _elements.settings.pager_range.value,
+      translate: Judy.fieldValue(_elements.settings.translate)
+    });
+  };
+
+
+  /**
+   * @ignore
+   * @param {array} logs
+   * @return {void}
+   */
+  _listLogs = function(logs) {
+    var le = logs.length, i, o, v;
+    for(i = 0; i < le; i++) {
+      o = logs[i];
+      //  Replace variables if exist and not done already by backend (is done if translate is on).
+      if(o.variables) {
+        o.message = Drupal.formatString(o.message, o.variables);
+      }
+      delete o.variables;
+      //  Resolve severity.
+      switch(o.severity) {
+        case 1: // WATCHDOG_ALERT
+          v = "alert";
+          break;
+        case 2: // WATCHDOG_CRITICAL
+          v = "critical";
+          break;
+        case 3: // WATCHDOG_ERROR
+          v = "error";
+          break;
+        case 4: // WATCHDOG_WARNING
+          v = "warning";
+          break;
+        case 5: // WATCHDOG_NOTICE
+          v = "notice";
+          break;
+        case 6: // WATCHDOG_INFO
+          v = "info";
+          break;
+        case 7: // WATCHDOG_DEBUG
+          v = "debug";
+          break;
+        default: // 0 ~ WATCHDOG_EMERGENCY
+          v = "emergency";
+      }
+      o.severity = v;
+    }
+    //inspect(logs);
+    $("#log_filter_log_list").html(_formatList(logs));
+    setTimeout(function() {
+      //Judy.scrollTrap("#log_filter_log_list");
+    }, 100);
+  };
+
+  _formatList = function(logs) {
+    var le = logs.length, i, o, v, s = '<table>', css = 'log-filter-list', trnc = Drupal.settings.LogFilter.list_message_truncate;
+    for(i = 0; i < le; i++) {
+      o = logs[i];
+
+      if(!i) {
+        inspect(o.wid)
+      }
+
+      s += "<tr>" +
+        '<td class="' + css + '-severity ' + css + '-' + (v = o.severity) + '" title="' + self.local('sev_' + v) + '">&#160;</td>' +
+        '<td class="' + css + '-type">' + o.type + '</td>' +
+        '<td class="' + css + '-time">' + Judy.dateTime(new Date(o.timestamp * 1000)) + '</td>' +
+        '<td class="' + css + '-user"><a href="/user/' + o.uid + '">' + o.name + '</td>' +
+        '<td class="' + css + '-message" onclick="function(){};"><div>' + Judy.stripTags(o.message.replace(/\r?\n/g, " ")).substr(0, trnc) + '</div></td>' +
+        '</tr>';
+    }
+    return s + "</table>";
+  };
+
+  /**
+   * @ignore
    * @param {string} action
    * @param {object} oData
    * @return {void}
@@ -1550,7 +1596,6 @@ var LogFilter = function($) {
                 window.location.href = url;
               }
           });
-          window.location.href = url;
           return;
         case _errorCodes.form_expired:
           self.Message.set( self.local("error_form_expired", { "!url": url = _url() }), "warning", {
@@ -1666,6 +1711,22 @@ var LogFilter = function($) {
             window.location.href = _url(); // Reload to make get out of that situation.
           }
       });
+    }
+    else {
+      return false;
+    }
+    _ajaxRequestingBlocking = false;
+    return true;
+  };
+  /**
+   * @ignore
+   * @param {object} oResp
+   * @return {boolean}
+   */
+  _ajaxResponse.list_logs = function(oResp) {
+    var nm = oResp.name;
+    if(oResp.success) {
+      _listLogs(oResp.log_list);
     }
     else {
       return false;
@@ -1836,11 +1897,35 @@ var LogFilter = function($) {
         case "error_unknown":
           _local[nm] = s = Drupal.t("Sorry, something unexpected happened.");
           break;
+        case "emergency":
+          _local[nm] = s = Drupal.t("Emergency");
+          break;
+        case "alert":
+          _local[nm] = s = Drupal.t("Alert");
+          break;
+        case "critical":
+          _local[nm] = s = Drupal.t("Critical");
+          break;
+        case "error":
+          _local[nm] = s = Drupal.t("Error");
+          break;
+        case "warning":
+          _local[nm] = s = Drupal.t("Warning");
+          break;
+        case "notice":
+          _local[nm] = s = Drupal.t("Notice");
+          break;
+        case "info":
+          _local[nm] = s = Drupal.t("Info");
+          break;
+        case "debug":
+          _local[nm] = s = Drupal.t("Debug");
+          break;
         default:
           s = "[LOCAL: " + nm + "]";
       }
     }
-    return s.replace(/\!newline/g, "\n");
+    return !replacers ? s : s.replace(/\!newline/g, "\n");
   };
 
   /**
@@ -2166,9 +2251,7 @@ var LogFilter = function($) {
     }
 
     //  Prepare log list.
-   /* $( $("div#log_filter_list_controls").get(0).parentNode ).append(
-      "<div id=\"log_filter_log_list\"><div></div></div>"
-    );*/
+    _getLogList();
   };
 }
 window.LogFilter = new LogFilter($);

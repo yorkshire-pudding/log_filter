@@ -133,7 +133,7 @@ function log_filter_schema() {
           'name' => array('name'),
       ),
     ),
-    'log_filter_cache' => array(
+    /* 'log_filter_cache' => array(
       'description' => 'Cached logs - Log Filter doesn\'t use the Cache API because it\'s inefficient for working with multiple items.',
       'fields' => array(
         'lid' => array(
@@ -163,7 +163,7 @@ function log_filter_schema() {
       'unique keys' => array(
         'log_by_lang' => array('wid', 'lang'),
       ),
-    ),
+    ), */
   );
 }
 
@@ -182,6 +182,8 @@ function log_filter_install() {
  */
 function log_filter_uninstall() {
   variable_del('log_filter_hidedblog');
-  variable_del('log_filter_trnct');
   variable_del('log_filter_css');
+  variable_del('log_filter_trnslt');
+  variable_del('log_filter_pgrng');
+  variable_del('log_filter_trnct');
 }
