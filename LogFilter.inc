@@ -27,22 +27,22 @@ class LogFilter {
    * @type array $_errorCodes
    */
   protected static $_errorCodes = array(
-      'unknown' => 1,
-      //  Programmatic errors and wrong use of program.
-      'algo' => 100,
-      'use' => 101,
-      //  Missing permission.
-      'perm_general' => 200,
-      'form_expired' => 201,
-      'perm_filter_crud' => 202,
-      'perm_filter_restricted' => 203,
-      //  Database.
-      'db_general' => 500,
-      //  Misc.
-      'filter_name_composition' => 1001,
-      'filter_name_nonunique' => 1002,
-      'filter_doesnt_exist' => 1003,
-      'bad_filter_condition' => 1010,
+    'unknown' => 1,
+    //  Programmatic errors and wrong use of program.
+    'algo' => 100,
+    'use' => 101,
+    //  Missing permission.
+    'perm_general' => 200,
+    'form_expired' => 201,
+    'perm_filter_crud' => 202,
+    'perm_filter_restricted' => 203,
+    //  Database.
+    'db_general' => 500,
+    //  Misc.
+    'filter_name_composition' => 1001,
+    'filter_name_nonunique' => 1002,
+    'filter_doesnt_exist' => 1003,
+    'bad_filter_condition' => 1010,
   );
 
   /**
@@ -71,38 +71,38 @@ class LogFilter {
    * @type array
    */
   protected static $_fields = array(
-      'settings' => array(
-          'only_own',
-          'delete_logs_max',
-          'cache',
-          'pager_range',
-      ),
-      'filter' => array(
-          'name', // Hidden.
-          'origin',
-          'name_suggest',
-          'description',
-          'require_admin',
-      ),
-      'conditions' => array(
-          'time_range',
-          'time_from',
-          'time_from_proxy', // Skip in actual conditions.
-          'time_to',
-          'time_to_proxy', // Skip in actual conditions.
-          'severity',
-          'type_wildcard', // Skip in actual conditions.
-          'type',
-          'role', // Default in database: -1.
-          'uid', // Default in database: -1.
-          'hostname',
-          'location',
-          'referer',
-      ),
-      'order_by' => array(
-          'orderby_',
-          'descending_',
-      ),
+    'settings' => array(
+      'only_own',
+      'delete_logs_max',
+      'cache',
+      'pager_range',
+    ),
+    'filter' => array(
+      'name', // Hidden.
+      'origin',
+      'name_suggest',
+      'description',
+      'require_admin',
+    ),
+    'conditions' => array(
+      'time_range',
+      'time_from',
+      'time_from_proxy', // Skip in actual conditions.
+      'time_to',
+      'time_to_proxy', // Skip in actual conditions.
+      'severity',
+      'type_wildcard', // Skip in actual conditions.
+      'type',
+      'role', // Default in database: -1.
+      'uid', // Default in database: -1.
+      'hostname',
+      'location',
+      'referer',
+    ),
+    'order_by' => array(
+      'orderby_',
+      'descending_',
+    ),
   );
 
   /**
@@ -120,21 +120,21 @@ class LogFilter {
     drupal_add_library('system', 'ui.datepicker');
     //  Have to include own datepicker localisation, because it doesnt seem to exist in neither core nor the Date Popup module.
     drupal_add_js(
-        $path . '/js/jquery_ui_datepicker_i18n/jquery.ui.datepicker-' . $GLOBALS['language']->language . '.min.js',
-        array('type' => 'file', 'group' => JS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
+      $path . '/js/jquery_ui_datepicker_i18n/jquery.ui.datepicker-' . $GLOBALS['language']->language . '.min.js',
+      array('type' => 'file', 'group' => JS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
     );
     //  Get jQuery UI dialog - because gecko's confirm()-dialog isnt draggable :-(
     drupal_add_library('system', 'ui.dialog');
 
     if (($use_module_css = variable_get('log_filter_css', TRUE))) {
       drupal_add_css(
-          $path . '/css/log_filter.css',
-          array('type' => 'file', 'group' => CSS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
+        $path . '/css/log_filter.css',
+        array('type' => 'file', 'group' => CSS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
       );
     }
     drupal_add_js(
-        $path . '/js/log_filter.js',
-        array('type' => 'file', 'group' => JS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
+      $path . '/js/log_filter.js',
+      array('type' => 'file', 'group' => JS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
     );
 
     try {
@@ -171,9 +171,10 @@ class LogFilter {
 
       //  Get current filter name from url, if any.
       $filter_name = $submitted ? $submitted['filter']['name'] :
-          (($le = strlen($v = arg(self::FILTER_NAME_ARG))) && $le <= 32
-              && $v != 'log_filter' && $v != 'default' && $v != 'adhoc'
-              && preg_match('/^[a-z\d_]+$/', $v) ? $v : '');
+        (($le = strlen($v = arg(self::FILTER_NAME_ARG))) // Deliberately not drupal_...().
+          && $le <= 32
+          && $v != 'log_filter' && $v != 'default' && $v != 'adhoc'
+          && preg_match('/^[a-z\d_]+$/', $v) ? $v : '');
 
       $require_admin = $submitted ? $submitted['filter']['require_admin'] : FALSE;
       $user_admin_permission = user_access('log_filter administer');
@@ -207,9 +208,9 @@ class LogFilter {
         }
         if ($success) {
           $filter = array(
-              'origin' => '',
-              'description' => $stored_filter['description'],
-              'require_admin' => $require_admin = $stored_filter['require_admin'],
+            'origin' => '',
+            'description' => $stored_filter['description'],
+            'require_admin' => $require_admin = $stored_filter['require_admin'],
           );
           $fields_conditions =& self::$_fields['conditions'];
           $conditions = array();
@@ -223,12 +224,12 @@ class LogFilter {
                 $conditions[$name] = ($v = $stored_filter[$name]) > 0 ? $v : '';
                 break;
               case 'severity':
-                if (!strlen($v = $stored_filter['severity'])) {
+                if (!strlen($v = $stored_filter['severity'])) { // Deliberately not drupal_...().
                   $v = array('-1');
                 }
                 else {
                   $v = str_replace(',0,', ',zero,', ',' . $v . ',');
-                  $v = explode(',', substr($v, 1, strlen($v) - 1));
+                  $v = explode(',', substr($v, 1, strlen($v) - 1)); // Deliberately not drupal_...().
                 }
                 $conditions['severity'] = $v;
                 break;
@@ -254,8 +255,8 @@ class LogFilter {
             for ($i = 0; $i < $le; $i++) {
               $v = explode(':', $arr[$i]);
               $order_by[] = array(
-                  $v[0],
-                  $v[1] == 'DESC' // ~ To boolean.
+                $v[0],
+                $v[1] == 'DESC' // ~ To boolean.
               );
             }
           }
@@ -271,9 +272,9 @@ class LogFilter {
       switch ($mode) {
         case 'default':
           $filter = array(
-              'origin' => '',
-              'description' => '',
-              'require_admin' => FALSE,
+            'origin' => '',
+            'description' => '',
+            'require_admin' => FALSE,
           );
           $fields_conditions =& self::$_fields['conditions'];
           $conditions = array();
@@ -294,7 +295,7 @@ class LogFilter {
           }
           unset($fields_conditions);
           $order_by = array(
-              array('time', TRUE),
+            array('time', TRUE),
           );
           $title = t('Default');
           break;
@@ -340,20 +341,20 @@ class LogFilter {
           }
         }
       }
-      else if ($conditions['type']) {
+      elseif ($conditions['type']) {
         $options_type = $conditions['type'];
       }
       //  Severity.
       $options_severity = array(
-          '-1' => t('Any'),
-          'zero' => t('emergency'),
-          '1' => t('alert'),
-          '2' => t('critical'),
-          '3' => t('error'),
-          '4' => t('warning'),
-          '5' => t('notice'),
-          '6' => t('info'),
-          '7' => t('debug'),
+        '-1' => t('Any'),
+        'zero' => t('emergency'),
+        '1' => t('alert'),
+        '2' => t('critical'),
+        '3' => t('error'),
+        '4' => t('warning'),
+        '5' => t('notice'),
+        '6' => t('info'),
+        '7' => t('debug'),
       );
       //  Role.
       //  Put anonymous user and authenticated user roles at top.
@@ -362,24 +363,24 @@ class LogFilter {
       $auth_user = $options_role[DRUPAL_AUTHENTICATED_RID];
       unset( $options_role[DRUPAL_ANONYMOUS_RID], $options_role[DRUPAL_AUTHENTICATED_RID] );
       $options_role = array_merge(
-          array(
-              '' => t('Any'),
-              DRUPAL_ANONYMOUS_RID => $anon_user,
-              DRUPAL_AUTHENTICATED_RID => $auth_user,
-          ),
-          $options_role
+        array(
+          '' => t('Any'),
+          DRUPAL_ANONYMOUS_RID => $anon_user,
+          DRUPAL_AUTHENTICATED_RID => $auth_user,
+        ),
+        $options_role
       );
       //  Order by.
       $options_order_by = array(
-          '' => '',
-          'time' => t('Time'),
-          'severity' => t('Severity'),
-          'type' => t('Type'),
-          'role' => t('User role'),
-          'uid' => t('User ID'),
-          'hostname' => t('Visitor\'s hostname'),
-          'location' => t('Requested URL'),
-          'referer' => t('Referrer URL'),
+        '' => '',
+        'time' => t('Time'),
+        'severity' => t('Severity'),
+        'type' => t('Type'),
+        'role' => t('User role'),
+        'uid' => t('User ID'),
+        'hostname' => t('Visitor\'s hostname'),
+        'location' => t('Requested URL'),
+        'referer' => t('Referrer URL'),
       );
       $length_order_by = count($order_by);
 
@@ -392,8 +393,8 @@ class LogFilter {
       if ( ($options_filters = self::_listFilters(!$value_only_own ? NULL : array($uid), array('name'), array(array('name')), $uid) ) ) {
         $js_filters = '["' . join('","', $options_filters) . '"]';
         $options_filters = array_merge(
-            array('' => t('Default')),
-            array_combine($options_filters, $options_filters)
+          array('' => t('Default')),
+          array_combine($options_filters, $options_filters)
         );
       }
       else {
@@ -408,389 +409,391 @@ class LogFilter {
       $title_require_admin = '';
 
       $form['log_filter_filter_edit'] = array(
-          '#type' => 'fieldset',
-          '#title' => t('Filter') . ': <span id="log_filter_title_display">' . $title . '</span>',
-          '#collapsible' => TRUE,
-          '#collapsed' => FALSE,
-          'frontend_init' => array(
-              '#type' => 'markup',
-              '#markup' => '<script type="text/javascript"> LogFilter.init(' . (int)$use_module_css . ', "' . $theme . '"); </script>',
+        '#type' => 'fieldset',
+        '#title' => t('Filter') . ': <span id="log_filter_title_display">' . $title . '</span>',
+        '#collapsible' => TRUE,
+        '#collapsed' => FALSE,
+        'frontend_init' => array(
+          '#type' => 'markup',
+          '#markup' => '<script type="text/javascript"> LogFilter.init(' . (int)$use_module_css . ', "' . $theme . '"); </script>',
+        ),
+        //  Control vars.
+        'log_filter_mode' => array(
+          '#type' => 'hidden',
+          '#default_value' => $mode,
+          '#attributes' => array('autocomplete' => 'off'),
+        ),
+        'log_filter_name' => array(
+          '#type' => 'hidden',
+          '#default_value' => $filter_name,
+          '#attributes' => array('autocomplete' => 'off'),
+        ),
+        'log_filter_origin' => array(
+          '#type' => 'hidden',
+          '#default_value' => $filter['origin'],
+          '#attributes' => array('autocomplete' => 'off'),
+        ),
+        'log_filter_delete_logs' => array(
+          '#type' => 'hidden',
+          '#default_value' => '',
+          '#attributes' => array('autocomplete' => 'off'),
+        ),
+        //  Conditions.
+        //  Time.
+        'log_filter_time_range' => array( // (3 open)
+          '#type' => 'textfield',
+          '#title' => t('Preceding hours'),
+          '#default_value' => $conditions['time_range'],
+          '#size' => 2,
+          '#attributes' => array('autocomplete' => 'off'),
+          '#prefix' => '<div id="log_filter_criteria"><div class="filter-conditions"><div class="form-item log-filter-time">'
+            . '<label>' . t('Time') . '</label>',
+        ),
+        'log_filter_time_from_proxy' => array(
+          '#type' => 'textfield',
+          '#title' => t('From') . '<span>?</span>',
+          '#default_value' => '', // Frontend sets it, if non-empty time_from.
+          '#size' => 10,
+          '#attributes' => array(
+            'autocomplete' => 'off',
           ),
-          //  Control vars.
-          'log_filter_mode' => array(
-              '#type' => 'hidden',
-              '#default_value' => $mode,
-              '#attributes' => array('autocomplete' => 'off'),
+          '#prefix' => '<div class="log-filter-time-or">' . t('or') . '</div>',
+        ),
+        'log_filter_time_from' => array(
+          '#type' => 'hidden',
+          '#default_value' => $conditions['time_from'],
+          '#attributes' => array('autocomplete' => 'off'),
+        ),
+        'log_filter_time_to_proxy' => array(
+          '#type' => 'textfield',
+          '#title' => t('To'),
+          '#default_value' => '', // Frontend sets it, if non-empty time_to.
+          '#size' => 10,
+          '#attributes' => array(
+            'autocomplete' => 'off',
           ),
-          'log_filter_name' => array(
-              '#type' => 'hidden',
-              '#default_value' => $filter_name,
-              '#attributes' => array('autocomplete' => 'off'),
+        ),
+        'log_filter_time_to' => array( // End: log-filter-time (2 open).
+          '#type' => 'hidden',
+          '#default_value' => $conditions['time_to'],
+          '#attributes' => array('autocomplete' => 'off'),
+          '#suffix' => '</div>',
+        ),
+        //  Severity.
+        'log_filter_severity' => array(
+          '#type' => 'checkboxes',
+          '#title' => t('Severity'),
+          '#multiple' => TRUE,
+          '#options' => $options_severity,
+          '#default_value' => $conditions['severity'],
+          '#attributes' => array('autocomplete' => 'off'),
+        ),
+        //  Type.
+        'log_filter_type_wildcard' => array( // (3 open).
+          '#type' => 'checkbox',
+          '#title' => t('Any'),
+          '#default_value' => $conditions['type_wildcard'],
+          '#attributes' => array('autocomplete' => 'off'),
+          '#prefix' => '<div class="form-item log-filter-type">'
+            . '<label>' . t('Type') . '</label>',
+        ),
+        'log_filter_type' => array( // End: log-filter-type (2 open).
+          '#type' => 'checkboxes',
+          '#options' => $options_type,
+          '#default_value' => $conditions['type'],
+          '#attributes' => array('autocomplete' => 'off'),
+          '#prefix' => '<div class="log-filter-type-container">',
+          '#suffix' => '</div></div>',
+        ),
+        //  Various.
+        'log_filter_role' => array( // (4 open).
+          '#type' => 'select',
+          '#title' => t('User role'),
+          '#options' => $options_role,
+          '#default_value' => $conditions['role'],
+          '#attributes' => array('autocomplete' => 'off'),
+          '#prefix' => '<div class="form-item log-filter-various"><div class="log-filter-user">',
+        ),
+        'log_filter_uid' => array( // End: log-filter-user (3 open).
+          '#type' => 'textfield',
+          '#title' => t('User ID'),
+          '#default_value' => $conditions['uid'],
+          '#size' => 11,
+          '#attributes' => array('autocomplete' => 'off'),
+          '#prefix' => '<div class="log-filter-role-or">' . t('or') . '</div>',
+          '#suffix' => '</div>',
+        ),
+        'log_filter_hostname' => array(
+          '#type' => 'textfield',
+          '#title' => t('Visitor\'s hostname'),
+          '#default_value' => $conditions['hostname'],
+          '#size' => 32,
+          '#attributes' => array('autocomplete' => 'off'),
+        ),
+        'log_filter_location' => array(
+          '#type' => 'textfield',
+          '#title' => t('Requested URL'),
+          '#default_value' => $conditions['location'],
+          '#size' => 64,
+          '#attributes' => array('autocomplete' => 'off'),
+        ),
+        'log_filter_referer' => array( // End: filter-conditions, (1 open).
+          '#type' => 'textfield',
+          '#title' => t('Referrer URL') . '<span title="' . t('Use \'none\' for empty referrer') . '">?</span>',
+          '#default_value' => $conditions['referer'],
+          '#size' => 64,
+          '#attributes' => array('autocomplete' => 'off'),
+          '#suffix' => '</div></div>',
+        ),
+        //  Order by.
+        'log_filter_orderby_1' => array( // (2 open)
+          '#type' => 'select',
+          '#options' => $options_order_by,
+          '#default_value' => $length_order_by ? array($order_by[0][0]) : array(),
+          '#attributes' => array('autocomplete' => 'off'),
+          '#prefix' => '<div class="filter-orderby"><label>' . t('Order by') . '</label>',
+        ),
+        'log_filter_descending_1' => array(
+          '#type' => 'checkbox',
+          '#default_value' => $length_order_by ? $order_by[0][1] : FALSE,
+          '#attributes' => array(
+            'autocomplete' => 'off',
+            'title' => t('Descending'),
           ),
-          'log_filter_origin' => array(
-              '#type' => 'hidden',
-              '#default_value' => $filter['origin'],
-              '#attributes' => array('autocomplete' => 'off'),
+        ),
+        'log_filter_orderby_2' => array(
+          '#type' => 'select',
+          '#options' => $options_order_by,
+          '#default_value' => $length_order_by > 1 ? array($order_by[1][0]) : array(),
+          '#attributes' => array('autocomplete' => 'off'),
+        ),
+        'log_filter_descending_2' => array(
+          '#type' => 'checkbox',
+          '#default_value' => $length_order_by > 1 ? $order_by[1][1] : FALSE,
+          '#attributes' => array(
+            'autocomplete' => 'off',
+            'title' => t('Descending'),
           ),
-          'log_filter_delete_logs' => array(
-              '#type' => 'hidden',
-              '#default_value' => '',
-              '#attributes' => array('autocomplete' => 'off'),
+        ),
+        'log_filter_orderby_3' => array(
+          '#type' => 'select',
+          '#options' => $options_order_by,
+          '#default_value' => $length_order_by > 2 ? array($order_by[2][0]) : array(),
+          '#attributes' => array('autocomplete' => 'off'),
+        ),
+        'log_filter_descending_3' => array(
+          '#type' => 'checkbox',
+          '#default_value' => $length_order_by > 2 ? $order_by[2][1] : FALSE,
+          '#attributes' => array(
+            'autocomplete' => 'off',
+            'title' => t('Descending'),
           ),
-          //  Conditions.
-          //  Time.
-          'log_filter_time_range' => array( // (3 open)
-              '#type' => 'textfield',
-              '#title' => t('Preceding hours'),
-              '#default_value' => $conditions['time_range'],
-              '#size' => 2,
-              '#attributes' => array('autocomplete' => 'off'),
-              '#prefix' => '<div id="log_filter_criteria"><div class="filter-conditions"><div class="form-item log-filter-time">'
-                  . '<label>' . t('Time') . '</label>',
+        ),
+        'log_filter_reset' => array( // End: log-filter-reset, filter-orderby, log_filter_criteria (0 open).
+          '#type' => 'button',
+          '#name' => 'log_filter_reset',
+          '#value' => t('Reset'),
+          '#button_type' => 'button', // Doesnt work; still type:submit.
+          '#attributes' => array(
+            'type' => 'button', // Doesnt work; still type:submit.
+            'class' => array('form-submit', 'edit-reset'),
           ),
-          'log_filter_time_from_proxy' => array(
-              '#type' => 'textfield',
-              '#title' => t('From') . '<span>?</span>',
-              '#default_value' => '', // Frontend sets it, if non-empty time_from.
-              '#size' => 10,
-              '#attributes' => array(
-                  'autocomplete' => 'off',
-               ),
-              '#prefix' => '<div class="log-filter-time-or">' . t('or') . '</div>',
+          '#prefix' => '<div class="log-filter-reset">',
+          '#suffix' => '</div></div></div>',
+        ),
+        //  Filters.
+        array(
+          '#type' => 'markup',
+          '#markup' => '<div id="log_filter_filters"><div id="log_filter_box_filter"><div id="log_filter_filters_cell_0">',
+        ),
+        'log_filter_filter' => array( // (2 open)
+          '#type' => 'select',
+          '#title' => t('Filter'),
+          '#options' => $options_filters,
+          '#default_value' => $filter_name,
+          '#attributes' => array(
+            'autocomplete' => 'off',
           ),
-          'log_filter_time_from' => array(
-              '#type' => 'hidden',
-              '#default_value' => $conditions['time_from'],
-              '#attributes' => array('autocomplete' => 'off'),
+        ),
+        'log_filter_only_own' => array(
+          '#access' => $allow_filter_edit,
+          '#type' => 'checkbox',
+          '#title' => t('List my filters only'),
+          '#default_value' => $value_only_own,
+          '#attributes' => array(
+            'autocomplete' => 'off',
           ),
-          'log_filter_time_to_proxy' => array(
-              '#type' => 'textfield',
-              '#title' => t('To'),
-              '#default_value' => '', // Frontend sets it, if non-empty time_to.
-              '#size' => 10,
-              '#attributes' => array(
-                  'autocomplete' => 'off',
-               ),
+        ),
+        array(
+          '#type' => 'markup',
+          '#markup' => '</div>' // End: log_filter_filters_cell_0
+            . '<div id="log_filter_filters_cell_1">',
+        ),
+        'log_filter_name_suggest' => array(
+          '#access' => $allow_filter_edit,
+          '#type' => 'textfield',
+          '#title' => t('Name'),
+          '#default_value' => '', // Only used frontend.
+          '#size' => 32,
+          '#attributes' => array(
+            'maxlength' => 32,
+            'autocomplete' => 'off',
           ),
-          'log_filter_time_to' => array( // End: log-filter-time (2 open).
-              '#type' => 'hidden',
-              '#default_value' => $conditions['time_to'],
-              '#attributes' => array('autocomplete' => 'off'),
-              '#suffix' => '</div>',
+        ),
+        'log_filter_require_admin' => array(
+          '#access' => $allow_filter_edit && $user_admin_permission,
+          '#type' => 'checkbox',
+          '#title' => t('Restrict access') . '<span>?</span>',
+          '#default_value' => $require_admin,
+          '#attributes' => array(
+            'autocomplete' => 'off',
+            'title' => ($title_require_admin = t('Require the \'Administer log filtering\' permission.')),
           ),
-          //  Severity.
-          'log_filter_severity' => array(
-              '#type' => 'checkboxes',
-              '#title' => t('Severity'),
-              '#multiple' => TRUE,
-              '#options' => $options_severity,
-              '#default_value' => $conditions['severity'],
-              '#attributes' => array('autocomplete' => 'off'),
+        ),
+        array( // End: log_filter_filters_cell_1
+          '#type' => 'markup',
+          '#markup' => '</div>',
+        ),
+        'log_filter_description' => array(
+          '#access' => $allow_filter_edit,
+          '#type' => 'textarea',
+          '#title' => t('Description'),
+          '#default_value' => $filter['description'],
+          '#rows' => 3,
+          '#cols' => 32,
+          '#resizable' => FALSE, // Otherwise styling too complicated, and browsers support it natively.
+          '#attributes' => array(
+            'autocomplete' => 'off',
           ),
-          //  Type.
-          'log_filter_type_wildcard' => array( // (3 open).
-              '#type' => 'checkbox',
-              '#title' => t('Any'),
-              '#default_value' => $conditions['type_wildcard'],
-              '#attributes' => array('autocomplete' => 'off'),
-              '#prefix' => '<div class="form-item log-filter-type">'
-                  . '<label>' . t('Type') . '</label>',
+        ),
+        array( // (3 open)
+          '#type' => 'markup',
+          '#markup' => '<div class="log-filter-edit-create">',
+        ),
+        'log_filter_edit' => array(
+          '#access' => $allow_filter_edit,
+          '#type' => 'button',
+          '#name' => 'log_filter_edit',
+          '#value' => t('Edit'),
+          '#button_type' => 'button', // Doesnt work; still type:submit.
+          '#attributes' => array(
+            'type' => 'button', // Doesnt work; still type:submit.
+            'class' => array('form-submit'),
+            'style' => 'display:none;',
           ),
-          'log_filter_type' => array( // End: log-filter-type (2 open).
-              '#type' => 'checkboxes',
-              '#options' => $options_type,
-              '#default_value' => $conditions['type'],
-              '#attributes' => array('autocomplete' => 'off'),
-              '#prefix' => '<div class="log-filter-type-container">',
-              '#suffix' => '</div></div>',
+        ),
+        'log_filter_create' => array( // (2 open)
+          '#access' => $allow_filter_edit,
+          '#type' => 'button',
+          '#name' => 'log_filter_create',
+          '#value' => t('Save as...'),
+          '#button_type' => 'button', // Doesnt work; still type:submit.
+          '#attributes' => array(
+            'type' => 'button', // Doesnt work; still type:submit.
+            'class' => array('form-submit'),
+            'style' => 'display:none;',
           ),
-          //  Various.
-          'log_filter_role' => array( // (4 open).
-              '#type' => 'select',
-              '#title' => t('User role'),
-              '#options' => $options_role,
-              '#default_value' => $conditions['role'],
-              '#attributes' => array('autocomplete' => 'off'),
-              '#prefix' => '<div class="form-item log-filter-various"><div class="log-filter-user">',
+        ),
+        array(
+          '#type' => 'markup',
+          '#markup' => '</div>' // End. log-filter-edit-create
+            . '<div class="log-filter-cancel-save'
+            . (strpos(strtolower(PHP_OS), 'win') === 0 ? ' log-filter-reversed-button-sequence' : '') // Deliberately not drupal_...().
+            . '">',
+        ),
+        'log_filter_cancel' => array( // (3 open)
+          '#access' => $allow_filter_edit,
+          '#type' => 'button',
+          '#name' => 'log_filter_cancel',
+          '#value' => t('Cancel'),
+          '#button_type' => 'button', // Doesnt work; still type:submit.
+          '#attributes' => array(
+            'type' => 'button', // Doesnt work; still type:submit.
+            'class' => array('form-submit', 'edit-cancel'),
+            'style' => 'display:none;',
           ),
-          'log_filter_uid' => array( // End: log-filter-user (3 open).
-              '#type' => 'textfield',
-              '#title' => t('User ID'),
-              '#default_value' => $conditions['uid'],
-              '#size' => 11,
-              '#attributes' => array('autocomplete' => 'off'),
-              '#prefix' => '<div class="log-filter-role-or">' . t('or') . '</div>',
-              '#suffix' => '</div>',
+        ),
+        'log_filter_save' => array(
+          '#access' => $allow_filter_edit,
+          '#type' => 'button',
+          '#name' => 'log_filter_save',
+          '#value' => t('Save'),
+          '#button_type' => 'button', // Doesnt work; still type:submit.
+          '#attributes' => array(
+            'type' => 'button', // Doesnt work; still type:submit.
+            'class' => array('form-submit'),
+            'style' => 'display:none;',
           ),
-          'log_filter_hostname' => array(
-              '#type' => 'textfield',
-              '#title' => t('Visitor\'s hostname'),
-              '#default_value' => $conditions['hostname'],
-              '#size' => 32,
-              '#attributes' => array('autocomplete' => 'off'),
+        ),
+        array(
+          '#type' => 'markup',
+          '#markup' => '</div>' // End: log-filter-cancel-save
+            . '<div class="log-filter-delete">',
+        ),
+        'log_filter_delete' => array(
+          '#access' => $allow_filter_edit,
+          '#type' => 'button',
+          '#name' => 'log_filter_delete',
+          '#value' => t('Delete filter'),
+          '#button_type' => 'button', // Doesnt work; still type:submit.
+          '#attributes' => array(
+            'type' => 'button', // Doesnt work; still type:submit.
+            'class' => array('form-submit', 'edit-delete'),
+            'style' => 'display:none;',
           ),
-          'log_filter_location' => array(
-              '#type' => 'textfield',
-              '#title' => t('Requested URL'),
-              '#default_value' => $conditions['location'],
-              '#size' => 64,
-              '#attributes' => array('autocomplete' => 'off'),
+        ),
+        array(
+          '#type' => 'markup',
+          '#markup' => '</div>' // End: log-filter-delete
+            . '</div>', // End: log_filter_box_filter
+        ),
+        array(
+          '#access' => ($allow_delete_logs = user_access('log_filter remove logs')),
+          '#type' => 'markup',
+          '#markup' => '<div id="log_filter_box_delete_logs">',
+        ),
+        array(
+          '#access' => !$allow_delete_logs,
+          '#type' => 'markup',
+          '#markup' => '<div id="log_filter_box_delete_logs" class="log-filter-delete-logs-none">&nbsp;',
+        ),
+        array( // (2 open)
+          '#access' => $allow_delete_logs,
+          '#type' => 'button',
+          '#name' => 'log_filter_delete_logs_button',
+          '#value' => t('Delete logs'),
+          '#button_type' => 'button', // Doesnt work; still type:submit.
+          '#attributes' => array(
+            'type' => 'button', // Doesnt work; still type:submit.
+            'class' => array('form-submit', 'edit-delete'),
+            'style' => 'display:none;',
           ),
-          'log_filter_referer' => array( // End: filter-conditions, (1 open).
-              '#type' => 'textfield',
-              '#title' => t('Referrer URL') . '<span title="' . t('Use \'none\' for empty referrer') . '">?</span>',
-              '#default_value' => $conditions['referer'],
-              '#size' => 64,
-              '#attributes' => array('autocomplete' => 'off'),
-              '#suffix' => '</div></div>',
+        ),
+        array(
+          '#access' => $allow_delete_logs,
+          '#type' => 'textfield',
+          '#name' => 'log_filter_delete_logs_max',
+          '#title' => t('Max.'),
+          '#default_value' => $settings['delete_logs_max'],
+          '#size' => 7,
+          '#attributes' => array(
+            'autocomplete' => 'off',
+            'maxlength' => 11,
           ),
-          //  Order by.
-          'log_filter_orderby_1' => array( // (2 open)
-              '#type' => 'select',
-              '#options' => $options_order_by,
-              '#default_value' => $length_order_by ? array($order_by[0][0]) : array(),
-              '#attributes' => array('autocomplete' => 'off'),
-              '#prefix' => '<div class="filter-orderby"><label>' . t('Order by') . '</label>',
-          ),
-          'log_filter_descending_1' => array(
-              '#type' => 'checkbox',
-              '#default_value' => $length_order_by ? $order_by[0][1] : FALSE,
-              '#attributes' => array(
-                  'autocomplete' => 'off',
-                  'title' => t('Descending'),
-              ),
-          ),
-          'log_filter_orderby_2' => array(
-              '#type' => 'select',
-              '#options' => $options_order_by,
-              '#default_value' => $length_order_by > 1 ? array($order_by[1][0]) : array(),
-              '#attributes' => array('autocomplete' => 'off'),
-          ),
-          'log_filter_descending_2' => array(
-              '#type' => 'checkbox',
-              '#default_value' => $length_order_by > 1 ? $order_by[1][1] : FALSE,
-              '#attributes' => array(
-                  'autocomplete' => 'off',
-                  'title' => t('Descending'),
-              ),
-          ),
-          'log_filter_orderby_3' => array(
-              '#type' => 'select',
-              '#options' => $options_order_by,
-              '#default_value' => $length_order_by > 2 ? array($order_by[2][0]) : array(),
-              '#attributes' => array('autocomplete' => 'off'),
-          ),
-          'log_filter_descending_3' => array(
-              '#type' => 'checkbox',
-              '#default_value' => $length_order_by > 2 ? $order_by[2][1] : FALSE,
-              '#attributes' => array(
-                  'autocomplete' => 'off',
-                  'title' => t('Descending'),
-              ),
-          ),
-          'log_filter_reset' => array( // End: log-filter-reset, filter-orderby, log_filter_criteria (0 open).
-              '#type' => 'button',
-              '#name' => 'log_filter_reset',
-              '#value' => t('Reset'),
-              '#button_type' => 'button', // Doesnt work; still type:submit.
-              '#attributes' => array(
-                  'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit', 'edit-reset'),
-              ),
-              '#prefix' => '<div class="log-filter-reset">',
-              '#suffix' => '</div></div></div>',
-          ),
-          //  Filters.
-          array(
-              '#type' => 'markup',
-              '#markup' => '<div id="log_filter_filters"><div id="log_filter_box_filter"><div id="log_filter_filters_cell_0">',
-          ),
-          'log_filter_filter' => array( // (2 open)
-              '#type' => 'select',
-              '#title' => t('Filter'),
-              '#options' => $options_filters,
-              '#default_value' => $filter_name,
-              '#attributes' => array(
-                  'autocomplete' => 'off',
-               ),
-          ),
-          'log_filter_only_own' => array(
-              '#access' => $allow_filter_edit,
-              '#type' => 'checkbox',
-              '#title' => t('List my filters only'),
-              '#default_value' => $value_only_own,
-              '#attributes' => array(
-                  'autocomplete' => 'off',
-               ),
-          ),
-          array(
-              '#type' => 'markup',
-              '#markup' => '</div>' // End: log_filter_filters_cell_0
-                  . '<div id="log_filter_filters_cell_1">',
-          ),
-          'log_filter_name_suggest' => array(
-              '#access' => $allow_filter_edit,
-              '#type' => 'textfield',
-              '#title' => t('Name'),
-              '#default_value' => '', // Only used frontend.
-              '#size' => 32,
-              '#attributes' => array(
-                  'maxlength' => 32,
-                  'autocomplete' => 'off',
-               ),
-          ),
-          'log_filter_require_admin' => array(
-              '#access' => $allow_filter_edit && $user_admin_permission,
-              '#type' => 'checkbox',
-              '#title' => t('Restrict access') . '<span>?</span>',
-              '#default_value' => $require_admin,
-              '#attributes' => array(
-                  'autocomplete' => 'off',
-                  'title' => ($title_require_admin = t('Require the \'Administer log filtering\' permission.')),
-               ),
-          ),
-          array( // End: log_filter_filters_cell_1
-              '#type' => 'markup',
-              '#markup' => '</div>',
-          ),
-          'log_filter_description' => array(
-              '#access' => $allow_filter_edit,
-              '#type' => 'textarea',
-              '#title' => t('Description'),
-              '#default_value' => $filter['description'],
-              '#rows' => 3,
-              '#cols' => 32,
-              '#resizable' => FALSE, // Otherwise styling too complicated, and browsers support it natively.
-              '#attributes' => array(
-                  'autocomplete' => 'off',
-               ),
-          ),
-          array( // (3 open)
-              '#type' => 'markup',
-              '#markup' => '<div class="log-filter-edit-create">',
-          ),
-          'log_filter_edit' => array(
-              '#access' => $allow_filter_edit,
-              '#type' => 'button',
-              '#name' => 'log_filter_edit',
-              '#value' => t('Edit'),
-              '#button_type' => 'button', // Doesnt work; still type:submit.
-              '#attributes' => array(
-                  'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit'),
-                  'style' => 'display:none;',
-              ),
-          ),
-          'log_filter_create' => array( // (2 open)
-              '#access' => $allow_filter_edit,
-              '#type' => 'button',
-              '#name' => 'log_filter_create',
-              '#value' => t('Save as...'),
-              '#button_type' => 'button', // Doesnt work; still type:submit.
-              '#attributes' => array(
-                  'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit'),
-                  'style' => 'display:none;',
-              ),
-          ),
-          array(
-              '#type' => 'markup',
-              '#markup' => '</div>' // End. log-filter-edit-create
-                  . '<div class="log-filter-cancel-save' . (strpos(strtolower(PHP_OS), 'win') === 0 ? ' log-filter-reversed-button-sequence' : '') . '">',
-          ),
-          'log_filter_cancel' => array( // (3 open)
-              '#access' => $allow_filter_edit,
-              '#type' => 'button',
-              '#name' => 'log_filter_cancel',
-              '#value' => t('Cancel'),
-              '#button_type' => 'button', // Doesnt work; still type:submit.
-              '#attributes' => array(
-                  'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit', 'edit-cancel'),
-                  'style' => 'display:none;',
-              ),
-          ),
-          'log_filter_save' => array(
-              '#access' => $allow_filter_edit,
-              '#type' => 'button',
-              '#name' => 'log_filter_save',
-              '#value' => t('Save'),
-              '#button_type' => 'button', // Doesnt work; still type:submit.
-              '#attributes' => array(
-                  'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit'),
-                  'style' => 'display:none;',
-              ),
-          ),
-          array(
-              '#type' => 'markup',
-              '#markup' => '</div>' // End: log-filter-cancel-save
-                  . '<div class="log-filter-delete">',
-          ),
-          'log_filter_delete' => array(
-              '#access' => $allow_filter_edit,
-              '#type' => 'button',
-              '#name' => 'log_filter_delete',
-              '#value' => t('Delete filter'),
-              '#button_type' => 'button', // Doesnt work; still type:submit.
-              '#attributes' => array(
-                  'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit', 'edit-delete'),
-                  'style' => 'display:none;',
-              ),
-          ),
-          array(
-              '#type' => 'markup',
-              '#markup' => '</div>' // End: log-filter-delete
-                  . '</div>', // End: log_filter_box_filter
-          ),
-          array(
-              '#access' => ($allow_delete_logs = user_access('log_filter remove logs')),
-              '#type' => 'markup',
-              '#markup' => '<div id="log_filter_box_delete_logs">',
-          ),
-          array(
-              '#access' => !$allow_delete_logs,
-              '#type' => 'markup',
-              '#markup' => '<div id="log_filter_box_delete_logs" class="log-filter-delete-logs-none">&nbsp;',
-          ),
-          array( // (2 open)
-              '#access' => $allow_delete_logs,
-              '#type' => 'button',
-              '#name' => 'log_filter_delete_logs_button',
-              '#value' => t('Delete logs'),
-              '#button_type' => 'button', // Doesnt work; still type:submit.
-              '#attributes' => array(
-                  'type' => 'button', // Doesnt work; still type:submit.
-                  'class' => array('form-submit', 'edit-delete'),
-                  'style' => 'display:none;',
-              ),
-          ),
-          array(
-              '#access' => $allow_delete_logs,
-              '#type' => 'textfield',
-              '#name' => 'log_filter_delete_logs_max',
-              '#title' => t('Max.'),
-              '#default_value' => $settings['delete_logs_max'],
-              '#size' => 7,
-              '#attributes' => array(
-                  'autocomplete' => 'off',
-                  'maxlength' => 11,
-              ),
-          ),
-          array(
-              '#type' => 'markup',
-              '#markup' => '</div>' // End: log_filter_box_delete_logs
-                  . '</div>', // End: log_filter_filters
-          ),
+        ),
+        array(
+          '#type' => 'markup',
+          '#markup' => '</div>' // End: log_filter_box_delete_logs
+            . '</div>', // End: log_filter_filters
+        ),
       );
 
       $title_cache = t('Easier on performance, despite translated logs are being cached.');
 
       $form['log_filter_list_controls'] = array(
-          'frontend_setup' => array(
-              '#type' => 'markup',
-              '#markup' => '<script type="text/javascript">
+        'frontend_setup' => array(
+          '#type' => 'markup',
+          '#markup' => '<script type="text/javascript">
 (function($) {
   if(!$) {
     return;
@@ -814,60 +817,72 @@ class LogFilter {
 })(jQuery);
 </script>
 ',
+        ),
+        'log_filter_update_list' => array(
+          '#type' => 'button',
+          '#name' => 'log_filter_update_list',
+          '#value' => t('Update list'),
+          '#button_type' => 'button', // Doesnt work; still type:submit.
+          '#attributes' => array(
+            'class' => array('form-submit'),
           ),
-          'log_filter_update_list' => array(
-              '#type' => 'button',
-              '#name' => 'log_filter_update_list',
-              '#value' => t('Update list'),
-              '#button_type' => 'button', // Doesnt work; still type:submit.
-              '#attributes' => array(
-                  'class' => array('form-submit'),
-              ),
-              '#prefix' => '<div class="log-filter-button log-filter-update-list">',
-              '#suffix' => '</div>',
-          ),
-          'log_filter_pager_controls' => array(
-              '#type' => 'markup',
-              '#markup' => '<div class="log-filter-pager-controls">pager</div>',
-          ),
-          'log_filter_pager_range' => array(
-            '#type' => 'textfield',
-            '#title' => t('Logs per page'),
-            '#default_value' => 100,
-            '#attributes' => array('autocomplete' => 'off'),
-            '#size' => 4,
-          ),
-          'log_filter_cache' => array(
-              '#type' => 'checkbox',
-              '#title' => t('Don\'t translate messages') . '<span>?</span>',
-              '#default_value' => $settings && array_key_exists('cache', $settings) ? !$settings['cache'] : FALSE, // Reverse the value;
-              '#attributes' => array(
-                  'autocomplete' => 'off',
-                  'title' => $title_cache,
-              ),
-          ),
-          'log_filter_update_list_right' => array(
-              '#type' => 'button',
-              '#name' => 'log_filter_update_list_right',
-              '#value' => t('Update list'),
-              '#button_type' => 'button', // Doesnt work; still type:submit.
-              '#attributes' => array(
-                  'class' => array('form-submit'),
-              ),
-              '#prefix' => '<div class="log-filter-button log-filter-update-list-right">',
-              '#suffix' => '</div>',
-          ),
-          'actions' => array(
-              '#type' => 'actions',
-              'submit' => array(
-                  '#type' => 'submit',
-                  '#value' => t('Update list'),
-                  '#attributes' => array('style' => 'display:none;'),
-              ),
-          ),
-          '#prefix' => '<div id="log_filter_list_controls">',
+          '#prefix' => '<div class="log-filter-button log-filter-update-list">',
           '#suffix' => '</div>',
+        ),
+        'log_filter_pager_controls' => array(
+          '#type' => 'markup',
+          '#markup' => '<div class="log-filter-pager-controls">pager</div>',
+        ),
+        'log_filter_pager_range' => array(
+          '#type' => 'textfield',
+          '#title' => t('Logs per page'),
+          '#default_value' => 100,
+          '#attributes' => array('autocomplete' => 'off'),
+          '#size' => 4,
+        ),
+        'log_filter_cache' => array(
+          '#type' => 'checkbox',
+          '#title' => t('Don\'t translate messages') . '<span>?</span>',
+          '#default_value' => $settings && array_key_exists('cache', $settings) ? !$settings['cache'] : FALSE, // Reverse the value;
+          '#attributes' => array(
+            'autocomplete' => 'off',
+            'title' => $title_cache,
+          ),
+        ),
+        'log_filter_update_list_right' => array(
+          '#type' => 'button',
+          '#name' => 'log_filter_update_list_right',
+          '#value' => t('Update list'),
+          '#button_type' => 'button', // Doesnt work; still type:submit.
+          '#attributes' => array(
+            'class' => array('form-submit'),
+          ),
+          '#prefix' => '<div class="log-filter-button log-filter-update-list-right">',
+          '#suffix' => '</div>',
+        ),
+        'actions' => array(
+          '#type' => 'actions',
+          'submit' => array(
+            '#type' => 'submit',
+            '#value' => t('Update list'),
+            '#attributes' => array('style' => 'display:none;'),
+          ),
+        ),
+        '#prefix' => '<div id="log_filter_list_controls">',
+        '#suffix' => '</div>',
       );
+
+      $logList = '';
+      for ($i = 97; $i < 97 + 26; $i++) {
+        $logList .= '<div class="' . str_repeat(chr($i), 3) . '">' . str_repeat(chr($i), 3) . '</div>';
+      }
+
+
+      $form['log_filter_log_list'] = array(
+        '#type' => 'markup',
+        '#markup' => '<div id="log_filter_log_list" class="scrollable">' . $logList . '</div><div id="log_filter_rubbish">&nbsp;</div>',
+      );
+
       //  Add our submit form;
       $form['#submit'][] = '_log_filter_form_submit';
       return $form;
@@ -880,10 +895,10 @@ class LogFilter {
       }
 
       if (($nFiltered = $nTotal = db_select('watchdog')
-          ->countQuery()->execute()->fetchField())) {
+        ->countQuery()->execute()->fetchField())) {
         //  List of watch ids of logs; by filter.
         $ids = db_select('watchdog')
-              ->fields('watchdog', array('wid'));
+          ->fields('watchdog', array('wid'));
         if ($filter->conditions) {
           foreach ($filter->conditions as $k => $v) {
             $ids->condition($arr[0], $arr[1], $arr[2]); // 'field name', value, '='
@@ -898,10 +913,11 @@ class LogFilter {
               case 'roles':
                 if ($v) {
                   if (($uids = db_select('users_roles')
-                      ->fields('uid')
-                      ->condition('rid', $v, 'IN')
-                      ->distinct()
-                      ->execute()->fetchAll())) {
+                    ->fields('uid')
+                    ->condition('rid', $v, 'IN')
+                    ->distinct()
+                    ->execute()->fetchAll())
+                  ) {
                     $ids->condition($k, join(',', $uids), 'IN');
                   }
                   else {
@@ -929,11 +945,11 @@ class LogFilter {
           $logs = array();
 
           //  Fetch all matched cached logs.
-          if (($cached = db_select('log_filter_cache'/*, null, array('fetch' => PDO::FETCH_OBJ)*/)
-              ->fields('data')
-              ->condition('wid', $ids, 'IN')
-              ->distinct() // There may be dupes.
-              ->execute()->fetchAllAssoc('wid'))) {
+          if (($cached = db_select('log_filter_cache'/* , null, array('fetch' => PDO::FETCH_OBJ) */)
+            ->fields('data')
+            ->condition('wid', $ids, 'IN')
+            ->distinct() // There may be dupes.
+            ->execute()->fetchAllAssoc('wid'))) {
             $logs =& $cached;
           }
           //  Fetched all non-cached.
@@ -948,9 +964,9 @@ class LogFilter {
       }
       else {
         $nFiltered = db_select('watchdog')
-            //->condition($idField, $entityId, '=')
-            //->condition($typeField, $excluded, 'IN')
-            ->countQuery()->execute()->fetchField();
+          //->condition($idField, $entityId, '=')
+          //->condition($typeField, $excluded, 'IN')
+          ->countQuery()->execute()->fetchField();
       }
 
       if (!$nFiltered) {
@@ -965,10 +981,10 @@ class LogFilter {
     }
     /*
     $arr = db_select('watchdog', null, array('fetch' => PDO::FETCH_OBJ))
-        ->fields('watchdog', array('wid'))
-        ->orderBy('timestamp', 'DESC')
-        ->range(1, 10)
-        ->execute();
+      ->fields('watchdog', array('wid'))
+      ->orderBy('timestamp', 'DESC')
+      ->range(1, 10)
+      ->execute();
      */
   }
 
@@ -988,22 +1004,22 @@ class LogFilter {
       $messages = array();
 
       $settings = array(
-          'only_own' => !array_key_exists($prefix . 'only_own', $values) ? FALSE : $values[$prefix . 'only_own'],
-          'delete_logs_max' => !array_key_exists($prefix . 'delete_logs_max', $values) ? '' : $values[$prefix . 'delete_logs_max'],
-          'cache' => !$values[$prefix . 'cache'], // Reverse the value.
-          'only_own' => !array_key_exists($prefix . 'only_own', $values) ? FALSE : $values[$prefix . 'only_own'],
-          'pager_range' => ($v = (int)$values[$prefix . 'pager_range']) > -1 ? $v : self::PAGER_RANGE_DEFAULT,
+        'only_own' => !array_key_exists($prefix . 'only_own', $values) ? FALSE : $values[$prefix . 'only_own'],
+        'delete_logs_max' => !array_key_exists($prefix . 'delete_logs_max', $values) ? '' : $values[$prefix . 'delete_logs_max'],
+        'cache' => !$values[$prefix . 'cache'], // Reverse the value.
+        'only_own' => !array_key_exists($prefix . 'only_own', $values) ? FALSE : $values[$prefix . 'only_own'],
+        'pager_range' => ($v = (int)$values[$prefix . 'pager_range']) > -1 ? $v : self::PAGER_RANGE_DEFAULT,
       );
 
       $submitted = array(
-          'mode' => $values[$prefix . 'mode'],
-          'filter' => array(
-              'name' => '',
-              'origin' => '',
-              'name_suggest' => '',
-              'description' => '',
-              'require_admin' => !array_key_exists($prefix . 'require_admin', $values) ? FALSE : $values[$prefix . 'require_admin'],
-          ),
+        'mode' => $values[$prefix . 'mode'],
+        'filter' => array(
+          'name' => '',
+          'origin' => '',
+          'name_suggest' => '',
+          'description' => '',
+          'require_admin' => !array_key_exists($prefix . 'require_admin', $values) ? FALSE : $values[$prefix . 'require_admin'],
+        ),
       );
 
       $use_form_values = $save = FALSE;
@@ -1043,41 +1059,41 @@ class LogFilter {
             switch ($mode) {
               case 'edit':
                 watchdog(
-                    'log_filter',
-                    'Won\'t edit the filter \'!name\' because user !user doesn\'t have \'log_filter edit filters\' permission.',
-                    array('!name' => $filter_name, '!user' => $GLOBALS['user']->name),
-                    WATCHDOG_WARNING
+                  'log_filter',
+                  'Won\'t edit the filter \'!name\' because user !user doesn\'t have \'log_filter edit filters\' permission.',
+                  array('!name' => $filter_name, '!user' => $GLOBALS['user']->name),
+                  WATCHDOG_WARNING
                 );
                 drupal_set_message(
-                    t('Cannot edit the filter \'!name\', because you don\'t have permission to edit log filters.', array('!name' => $filter_name)),
-                    'warning'
+                  t('Cannot edit the filter \'!name\', because you don\'t have permission to edit log filters.', array('!name' => $filter_name)),
+                  'warning'
                 );
                 break;
               default: // delete
                 watchdog(
-                    'log_filter',
-                    'Won\'t delete the filter \'!name\' because user !user doesn\'t have \'log_filter edit filters\' permission.',
-                    array('!name' => $filter_name, '!user' => $GLOBALS['user']->name),
-                    WATCHDOG_WARNING
+                  'log_filter',
+                  'Won\'t delete the filter \'!name\' because user !user doesn\'t have \'log_filter edit filters\' permission.',
+                  array('!name' => $filter_name, '!user' => $GLOBALS['user']->name),
+                  WATCHDOG_WARNING
                 );
                 drupal_set_message(
-                    t('Cannot delete the filter \'!name\', because you don\'t have permission to edit log filters.', array('!name' => $filter_name)),
-                    'warning'
+                  t('Cannot delete the filter \'!name\', because you don\'t have permission to edit log filters.', array('!name' => $filter_name)),
+                  'warning'
                 );
             }
           }
           //  Check if exists, and get require_admin field.
           elseif (!($require_admin = db_select('log_filter')
-              ->fields('log_filter', array('require_admin'))
-              ->condition('name', $filter_name, '=')
-              ->execute()->fetchField())
+            ->fields('log_filter', array('require_admin'))
+            ->condition('name', $filter_name, '=')
+            ->execute()->fetchField())
           ) {
             if ($require_admin === FALSE) { // Doesn't exist.
               $success = FALSE;
-              /*drupal_set_message(
+              /* drupal_set_message(
                   t('The filter \'!name\' doesn\'t exist.', array('!name' => $filter_name)),
                   'warning'
-              );*/
+              ); */
               $messages[] = array(
                   t('The filter \'!name\' doesn\'t exist.', array('!name' => $filter_name)),
                   'warning'
@@ -1101,10 +1117,10 @@ class LogFilter {
               default: // delete
                 db_delete('log_filter')->condition('name', $filter_name, '=')->execute();
                 watchdog(
-                    'log_filter',
-                    'User !user deleted the log filter \'!name\'.',
-                    array('!name' => $filter_name, '!user' => $GLOBALS['user']->name),
-                    WATCHDOG_INFO
+                  'log_filter',
+                  'User !user deleted the log filter \'!name\'.',
+                  array('!name' => $filter_name, '!user' => $GLOBALS['user']->name),
+                  WATCHDOG_INFO
                 );
                 $messages[] = array(
                     t('Deleted the filter \'!name\'.', array('!name' => $filter_name))
@@ -1221,8 +1237,8 @@ class LogFilter {
           self::_errorHandler($xc);
           $success = FALSE;
           $messages[] = array(
-              t('Failed to update filter \'!name\'.', array('!name' => $filter_name)),
-              'warning'
+            t('Failed to update filter \'!name\'.', array('!name' => $filter_name)),
+            'warning'
           );
         }
         //  Change mode.
@@ -1251,7 +1267,7 @@ class LogFilter {
         drupal_session_start();
         if (!isset($_SESSION['module'])) {
           $_SESSION['module'] = array(
-              'log_filter' => $session,
+            'log_filter' => $session,
           );
         }
         else {
@@ -1307,14 +1323,14 @@ class LogFilter {
     $list = ($singleColumned = ($fields && count($fields) == 1)) ? $list->execute()->fetchCol() : $list->execute()->fetchAll();
 
     if ($list && $latestAtTop !== NULL
-        && (!$creatorIds || in_array($latestAtTop, $creatorIds))
-        && (!$fields || in_array('name', $fields))
+      && (!$creatorIds || in_array($latestAtTop, $creatorIds))
+      && (!$fields || in_array('name', $fields))
     ) {
       if (($listLatest = db_select('log_filter')
-          ->fields('log_filter', array('name', 'changed'))
-          ->condition('editor', $latestAtTop, '=')
-          ->execute()
-          ->fetchAll()
+        ->fields('log_filter', array('name', 'changed'))
+        ->condition('editor', $latestAtTop, '=')
+        ->execute()
+        ->fetchAll()
       )) {
         $latestChange = $latestName = 0;
         foreach ($listLatest as $subObj) {
@@ -1360,10 +1376,10 @@ class LogFilter {
    */
   protected static function _readFilter($name) {
     return !(
-        $filter = db_select('log_filter')
-        ->fields('log_filter')
-        ->condition('name', $name, '=')
-        ->execute()->fetchAssoc()
+      $filter = db_select('log_filter')
+      ->fields('log_filter')
+      ->condition('name', $name, '=')
+      ->execute()->fetchAssoc()
     ) ? FALSE : $filter['require_admin'] && !user_access('log_filter administer') ? NULL : $filter;
   }
 
@@ -1383,17 +1399,17 @@ class LogFilter {
 
     if (!user_access('log_filter edit filters')) {
       throw new Exception(
-          'You\'re not allowed to edit filters.',
-          self::$_errorCodes['perm_filter_crud']
+        'You\'re not allowed to edit filters.',
+        self::$_errorCodes['perm_filter_crud']
       );
     }
 
     //  Filter metadata and last updated by.
     $fields = array(
-        'editor' => $uid,
-        'changed' => REQUEST_TIME,
-        'require_admin' => !empty($values['filter']['require_admin']) ? 1 : 0,
-        'description' => $values['filter']['description'],
+      'editor' => $uid,
+      'changed' => REQUEST_TIME,
+      'require_admin' => !empty($values['filter']['require_admin']) ? 1 : 0,
+      'description' => $values['filter']['description'],
     );
     if ($create) {
       $fields['creator'] = $uid;
@@ -1409,7 +1425,7 @@ class LogFilter {
           if (!empty($conditions[$key])) {
             if (!is_array($v = $conditions[$key])) {
               throw new Exception('Non-empty condition[' . $key . '], type[' . gettype($v) . '], must be array.',
-                  self::$_errorCodes['bad_filter_condition']);
+                self::$_errorCodes['bad_filter_condition']);
             }
             //  Use array values, but convert 'zero' to zero.
             //  And make sure it's all integers.
@@ -1423,7 +1439,7 @@ class LogFilter {
           if (!empty($conditions[$key])) {
             if (!is_array($v = $conditions[$key])) {
               throw new Exception('Non-empty condition[' . $key . '], type[' . gettype($v) . '], must be array.',
-                  self::$_errorCodes['bad_filter_condition']);
+                self::$_errorCodes['bad_filter_condition']);
             }
             //  Use array values, because key is simply numeric index.
             $fields[$key] = check_plain(join(',', $v));
@@ -1485,18 +1501,18 @@ class LogFilter {
         }
       }
     }
-    else if (!($filter = self::_readFilter($name))) {
+    elseif (!($filter = self::_readFilter($name))) {
       if ($filter === FALSE) {
         throw new Exception('Filter name[' . $name . '] doesnt exist.', self::$_errorCodes['filter_doesnt_exist']);
       }
       throw new Exception('User (' . $uid . ') ' . $GLOBALS['user']->name . ' is not allowed to use filter[' . $name . '].',
           self::$_errorCodes['perm_filter_restricted']);
     }
-    else if(
-        !db_update('log_filter')
-            ->fields($fields)
-            ->condition('name', $name)
-            ->execute()
+    elseif (
+      !db_update('log_filter')
+        ->fields($fields)
+        ->condition('name', $name)
+        ->execute()
     ) {
       throw new Exception('Failed to update filter[' . $name . '].', self::$_errorCodes['unknown']);
     }
@@ -1524,18 +1540,19 @@ class LogFilter {
    */
   public static function ajaxCallback($action) {
     if ( // Require permission.
-        !user_access('access site reports')
-        //  Require valid composition of the 'action' parameter (presumably a GET var).
-        || !$action || !($le = strlen($action)) || $le > 32 || !preg_match('/^[a-zA-Z\d_]+$/', $action)
-        //  Require valid composition of POST 'form_token'.
-        || !array_key_exists('form_token', $_POST) || !($le = strlen($form_token = $_POST['form_token'])) || $le > 100
-            || !preg_match('/^[\!-\~]+$/', $form_token)
+      !user_access('access site reports')
+      //  Require valid composition of the 'action' parameter (presumably a GET var).
+      || !$action || !($le = strlen($action)) // Deliberately not drupal_...().
+        || $le > 32 || !preg_match('/^[a-zA-Z\d_]+$/', $action)
+      //  Require valid composition of POST 'form_token'.
+      || !array_key_exists('form_token', $_POST) || !($le = strlen($form_token = check_plain($_POST['form_token']))) // Deliberately not drupal_...().
+        || $le > 100 //|| !preg_match('/^[\!-\~]+$/', $form_token) ???
     ) {
       header('HTTP/1.1 403 Forbidden');
       exit;
     }
     $oResp = new stdClass();
-    $oResp->action = $action;
+    $oResp->action = check_plain($action); // Redundant; vs. code review.
     $oResp->error = '';
 
     //  Check form_token.
@@ -1553,13 +1570,14 @@ class LogFilter {
           case 'filter_create':
           case 'filter_edit':
             if (
-                !array_key_exists('name', $_POST) || !($le = strlen($name = $_POST['name'])) || $le > 32
-                || !array_key_exists('filter', $_POST) || !is_array($filter = $_POST['filter'])
-                || !array_key_exists('require_admin', $filter) || !(($require_admin = (int)$filter['require_admin']) == 0 || $require_admin == 1)
-                || !array_key_exists('description', $filter)
-                    || ( ($description = $filter['description']) !== '' && (!drupal_validate_utf8($description) || drupal_strlen($description) > 255) )
-                || !array_key_exists('conditions', $_POST)
-                || !array_key_exists('order_by', $_POST)
+              !array_key_exists('name', $_POST) || !($le = strlen($name = $_POST['name'])) // Deliberately not drupal_...(). And composition is checked later.
+                || $le > 32
+              || !array_key_exists('filter', $_POST) || !is_array($filter = $_POST['filter']) // It is an array!
+              || !array_key_exists('require_admin', $filter) || !(($require_admin = (int)$filter['require_admin']) == 0 || $require_admin == 1)
+              || !array_key_exists('description', $filter)
+                || ( ($description = $filter['description']) !== '' && (!drupal_validate_utf8($description) || drupal_strlen($description) > 255) )
+              || !array_key_exists('conditions', $_POST)
+              || !array_key_exists('order_by', $_POST)
             ) {
               header('HTTP/1.1 403 Forbidden');
               exit;
@@ -1575,7 +1593,7 @@ class LogFilter {
               $oResp->name = check_plain($name);
             }
             else {
-              $oResp->name = $name = check_plain(strtolower($name));
+              $oResp->name = $name = check_plain(strtolower($name)); // Deliberately not drupal_...().
               $oResp->description = !$description ? '' : check_plain(trim(str_replace(array("\r", "\n", "\t"), ' ', $description)));
               /*
               inspect(array(
@@ -1585,16 +1603,16 @@ class LogFilter {
               break;
               */
               self::_saveFilter(
-                  $name,
-                  array(
-                    'filter' => array(
-                      'require_admin' => $require_admin,
-                      'description' => $description
-                    ),
-                    'conditions' => ($v = $_POST['conditions']) ? $v : array(),
-                    'order_by' => ($v = $_POST['order_by']) ? $v : array(),
+                $name,
+                array(
+                  'filter' => array(
+                    'require_admin' => $require_admin,
+                    'description' => $description
                   ),
-                  $action == 'filter_create'
+                  'conditions' => ($v = $_POST['conditions']) ? $v : array(),
+                  'order_by' => ($v = $_POST['order_by']) ? $v : array(),
+                ),
+                $action == 'filter_create'
               );
             }
             break;

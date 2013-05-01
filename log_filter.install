@@ -18,152 +18,152 @@ function log_filter_schema() {
   return $schema;
    */
   return array(
-      'log_filter' => array(
-          'description' => 'Log filters.',
-          'fields' => array(
-              'id' => array(
-                  'type' => 'serial',
-                  'not null' => TRUE,
-              ),
-              'name' => array(
-                  'type' => 'varchar',
-                  'length' => 32,
-                  'not null' => TRUE,
-              ),
-              'creator' => array(
-                  'type' => 'int',
-                  'not null' => TRUE,
-                  'description' => 'The user.uid that created the filter.',
-              ),
-              'description' => array(
-                  'type' => 'varchar',
-                  'length' => 255,
-                  'not null' => TRUE,
-                  'default' => '',
-              ),
-              'require_admin' => array(
-                  'type' => 'int',
-                  'size' => 'tiny',
-                  'not null' => TRUE,
-                  'default' => 0,
-                  'description' => 'Require the \'Administer log filtering\' role.',
-              ),
-              'severity' => array(
-                  'type' => 'varchar',
-                  'length' => 255,
-                  'not null' => TRUE,
-                  'default' => '',
-                  'description' => 'Comma-separated list.',
-              ),
-              'type' => array(
-                  'type' => 'text',
-                  'not null' => TRUE,
-                  //  Text fields don't support default value; at least not MySQL.
-                  'description' => 'Comma-separated list.',
-              ),
-              'time_range' => array(
-                  'type' => 'int',
-                  'not null' => TRUE,
-                  'default' => 0,
-              ),
-              'time_from' => array(
-                  'type' => 'int',
-                  'not null' => TRUE,
-                  'default' => 0,
-              ),
-              'time_to' => array(
-                  'type' => 'int',
-                  'not null' => TRUE,
-                  'default' => 0,
-              ),
-              'role' => array(
-                  'type' => 'int',
-                  'not null' => TRUE,
-                  'default' => -1,
-              ),
-              'uid' => array(
-                  'type' => 'int',
-                  'not null' => TRUE,
-                  'default' => -1,
-              ),
-              'hostname' => array(
-                  'type' => 'varchar',
-                  'length' => 255,
-                  'not null' => TRUE,
-                  'default' => '',
-              ),
-              'location' => array(
-                  'type' => 'varchar',
-                  'length' => 255,
-                  'not null' => TRUE,
-                  'default' => '',
-              ),
-              'referer' => array(
-                  'type' => 'varchar',
-                  'length' => 255,
-                  'not null' => TRUE,
-                  'default' => '',
-                  'description' => 'Url, \'none\' or empty.',
-              ),
-              'order_by' => array(
-                  'type' => 'varchar',
-                  'length' => 255,
-                  'not null' => TRUE,
-                  'default' => 'time:DESC',
-                  'description' => 'Comma-separated list, like: \'time:DESC,severity:ASC\'.',
-              ),
-              'editor' => array(
-                  'type' => 'int',
-                  'not null' => TRUE,
-                  'description' => 'The user.uid that most recently changed (or created) the filter.',
-              ),
-              'created' => array(
-                  'type' => 'int',
-                  'not null' => TRUE,
-                  'description' => 'The Unix timestamp when the filter was created.',
-              ),
-              'changed' => array(
-                  'type' => 'int',
-                  'not null' => TRUE,
-                  'description' => 'The Unix timestamp when the filter was most recently saved.',
-              ),
-          ),
-          'primary key' => array('id'),
-          'unique keys' => array(
-              'name' => array('name'),
-          ),
+    'log_filter' => array(
+      'description' => 'Log filters.',
+      'fields' => array(
+        'id' => array(
+          'type' => 'serial',
+          'not null' => TRUE,
+        ),
+        'name' => array(
+          'type' => 'varchar',
+          'length' => 32,
+          'not null' => TRUE,
+        ),
+        'creator' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'description' => 'The user.uid that created the filter.',
+        ),
+        'description' => array(
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+          'default' => '',
+        ),
+        'require_admin' => array(
+          'type' => 'int',
+          'size' => 'tiny',
+          'not null' => TRUE,
+          'default' => 0,
+          'description' => 'Require the \'Administer log filtering\' role.',
+        ),
+        'severity' => array(
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+          'default' => '',
+          'description' => 'Comma-separated list.',
+        ),
+        'type' => array(
+          'type' => 'text',
+          'not null' => TRUE,
+          //  Text fields don't support default value; at least not MySQL.
+          'description' => 'Comma-separated list.',
+        ),
+        'time_range' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+        'time_from' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+        'time_to' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+        'role' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'default' => -1,
+        ),
+        'uid' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'default' => -1,
+        ),
+        'hostname' => array(
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+          'default' => '',
+        ),
+        'location' => array(
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+          'default' => '',
+        ),
+        'referer' => array(
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+          'default' => '',
+          'description' => 'Url, \'none\' or empty.',
+        ),
+        'order_by' => array(
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+          'default' => 'time:DESC',
+          'description' => 'Comma-separated list, like: \'time:DESC,severity:ASC\'.',
+        ),
+        'editor' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'description' => 'The user.uid that most recently changed (or created) the filter.',
+        ),
+        'created' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'description' => 'The Unix timestamp when the filter was created.',
+        ),
+        'changed' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'description' => 'The Unix timestamp when the filter was most recently saved.',
+        ),
       ),
-      'log_filter_cache' => array(
-          'description' => 'Cached logs - Log Filter doesn\'t use the Cache API because it\'s inefficient for working with multiple items.',
-          'fields' => array(
-              'lid' => array(
-                  'type' => 'serial',
-                  'size' => 'big',
-                  'not null' => TRUE,
-              ),
-              'wid' => array(
-                  'type' => 'int',
-                  'not null' => TRUE,
-                  'description' => 'Watchdog event ID.',
-              ),
-              'lang' => array( // 'language' is a reserved word in SQL standards.
-                  'type' => 'varchar',
-                  'length' => 12,
-                  'not null' => TRUE,
-                  'default' => 'en',
-                  'description' => 'Translation language.',
-              ),
-              'data' => array(
-                  'type' => 'blob', // To prevent character set issues.
-                  'not null' => FALSE,
-                  'description' => 'JSON serialized log with translated message field and derivate properties.',
-              ),
-          ),
-          'primary key' => array('lid'),
-          'unique keys' => array(
-              'log_by_lang' => array('wid', 'lang'),
-          ),
+      'primary key' => array('id'),
+      'unique keys' => array(
+          'name' => array('name'),
       ),
+    ),
+    'log_filter_cache' => array(
+      'description' => 'Cached logs - Log Filter doesn\'t use the Cache API because it\'s inefficient for working with multiple items.',
+      'fields' => array(
+        'lid' => array(
+          'type' => 'serial',
+          'size' => 'big',
+          'not null' => TRUE,
+        ),
+        'wid' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'description' => 'Watchdog event ID.',
+        ),
+        'lang' => array( // 'language' is a reserved word in SQL standards.
+          'type' => 'varchar',
+          'length' => 12,
+          'not null' => TRUE,
+          'default' => 'en',
+          'description' => 'Translation language.',
+        ),
+        'data' => array(
+          'type' => 'blob', // To prevent character set issues.
+          'not null' => FALSE,
+          'description' => 'JSON serialized log with translated message field and derivate properties.',
+        ),
+      ),
+      'primary key' => array('lid'),
+      'unique keys' => array(
+        'log_by_lang' => array('wid', 'lang'),
+      ),
+    ),
   );
 }
 

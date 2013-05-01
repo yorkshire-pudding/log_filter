@@ -2164,8 +2164,78 @@ var LogFilter = function($) {
         self.Message.set(a[i][0], a[i][1], o);
       }
     }
+
+    //  Prepare log list.
+   /* $( $("div#log_filter_list_controls").get(0).parentNode ).append(
+      "<div id=\"log_filter_log_list\"><div></div></div>"
+    );*/
   };
 }
 window.LogFilter = new LogFilter($);
 
 })(jQuery);
+
+
+
+(function ($) {
+  //  Behavior to prevent .scrollable divs from escalating scroll to parent elements (eventually the viewport).
+  Drupal.behaviors.scrollableConfineScroll = {
+    attach: function (context) {
+      Judy.scrollTrap('.scrollable', context); return;
+
+
+      $('.scrollable', context).each(function () {
+        var preventZone = 100, halfZone, s = this.scrollTop, $self = $(this), $chlds, le, $chld, h;
+        if (!$self.hasClass('confine-scroll')) {
+          //  If contains a single element, set scroll-back zone on that element.
+          if ((le = ($chlds = $self.children()).get().length) === 1) {
+            $chld = $($chlds.get(0));
+          }
+          else if (le) { // Contains more elements, wrap and set scroll-back zone on the wrapper.
+            $chld = $chlds.wrapAll('<div />').parent();
+          }
+          else { // No children at all, cannot do anything, has to called again (upon insertion of something into the .scrollable).
+            return;
+          }
+          //  Add scroll-back zone to top and bottom.
+          if ((h = this.clientHeight) < 1.5 * preventZone) { // The scroll-back zone shan't be more than 2/3 of .scrollable's height.
+            preventZone = Math.floor(h / 1.5);
+          }
+          halfZone = Math.floor(preventZone / 2);
+          $chld.css({
+            'margin-top': preventZone + 'px',
+            'margin-bottom': preventZone + 'px'
+          });
+          //  Reset current scroll.
+          this.scrollTop = s + preventZone;
+          //  Add scroll-back handler.
+          $self.scroll(function() {
+            var that = this, s = that.scrollTop, h;
+            // if (s < preventZone) {
+            //   this.scrollTop = preventZone;
+            // }
+            // else if (s > (h = that.scrollHeight - that.clientHeight - preventZone)) {
+            //   this.scrollTop = h;
+            // }
+            if (s < halfZone) { // Top.
+              that.scrollTop = halfZone; // Scroll half way now.
+              setTimeout(function() { // Scroll all the way later.
+                that.scrollTop = preventZone;
+              }, 100);
+            }
+            else if (s > (h = that.scrollHeight - that.clientHeight) - halfZone) { // Bottom.
+              that.scrollTop = h - halfZone;
+              setTimeout(function() {
+                that.scrollTop = h - preventZone;
+              }, 100);
+            }
+          });
+          $self.addClass('confine-scroll');
+        }
+      });
+    }
+  };
+})(jQuery);
+
+
+

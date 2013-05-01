@@ -724,13 +724,18 @@ form#log-filter-form div#log_filter_list_controls {
 
 div#log_filter_log_list {
   overflow: auto;
-  max-height: 300px;
+  max-height: 100px;
+  background-color: #CCC;
+  margin: 0 20em;
 }
   div#log_filter_log_list > div {
-    height: 2000px;
+    /*height: 1000px;*/
     background-color: yellow;
   }
-
-  #footer {
-    background: red;
+  div#log_filter_log_list > div > div {
+    border: 1px solid green;
   }
+
+div#log_filter_rubbish {
+  height: 100em;
+}
