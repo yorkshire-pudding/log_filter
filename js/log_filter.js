@@ -75,7 +75,8 @@ var LogFilter = function($) {
     },
     warned_deleteNoMax: false,
     saveEditFilterAjaxed: false, // Save/update filter using AJAX or ordinary POST request?
-    pagerOffset: 0
+    pagerOffset: 0,
+    listMessageTruncate: 250
   },
   /**
    * @ignore
@@ -1463,26 +1464,26 @@ var LogFilter = function($) {
       }
       delete o.variables;
       //  Resolve severity.
-      switch(o.severity) {
-        case 1: // WATCHDOG_ALERT
+      switch("" + o.severity) {
+        case "1": // WATCHDOG_ALERT
           v = "alert";
           break;
-        case 2: // WATCHDOG_CRITICAL
+        case "2": // WATCHDOG_CRITICAL
           v = "critical";
           break;
-        case 3: // WATCHDOG_ERROR
+        case "3": // WATCHDOG_ERROR
           v = "error";
           break;
-        case 4: // WATCHDOG_WARNING
+        case "4": // WATCHDOG_WARNING
           v = "warning";
           break;
-        case 5: // WATCHDOG_NOTICE
+        case "5": // WATCHDOG_NOTICE
           v = "notice";
           break;
-        case 6: // WATCHDOG_INFO
+        case "6": // WATCHDOG_INFO
           v = "info";
           break;
-        case 7: // WATCHDOG_DEBUG
+        case "7": // WATCHDOG_DEBUG
           v = "debug";
           break;
         default: // 0 ~ WATCHDOG_EMERGENCY
@@ -1490,31 +1491,38 @@ var LogFilter = function($) {
       }
       o.severity = v;
     }
-    //inspect(logs);
     $("#log_filter_log_list").html(_formatList(logs));
     setTimeout(function() {
       //Judy.scrollTrap("#log_filter_log_list");
+      $('#log_filter_log_list table.sticky-enabled').once('tableheader', function () {
+        $(this).data("drupal-tableheader", new Drupal.tableHeader(this));
+      });
     }, 100);
   };
 
   _formatList = function(logs) {
-    var le = logs.length, i, o, v, s = '<table>', css = 'log-filter-list', trnc = Drupal.settings.LogFilter.list_message_truncate;
+    var le = logs.length, i, o, v, css = 'log-filter-list',
+      s = '<table class="sticky-enabled"><thead><tr>' +
+        '<th>' + Drupal.t('Severity') + '</th>' +
+        '<th>' + Drupal.t('Type') + '</th>' +
+        '<th>' + Drupal.t('Time') + '</th>' +
+        '<th>' + Drupal.t('User') + '</th>' +
+        '<th>' + Drupal.t('Message') + '</th>' +
+        '</tr></thead><tbody>';
     for(i = 0; i < le; i++) {
       o = logs[i];
 
-      if(!i) {
-        inspect(o.wid)
-      }
 
-      s += "<tr>" +
-        '<td class="' + css + '-severity ' + css + '-' + (v = o.severity) + '" title="' + self.local('sev_' + v) + '">&#160;</td>' +
+      s += '<tr class="' + (i % 2 ? 'odd' : 'even') + '">' +
+        '<td class="' + css + '-severity ' + css + '-' + (v = o.severity) + '" title="' + self.local(v) + '">&#160;</td>' +
         '<td class="' + css + '-type">' + o.type + '</td>' +
         '<td class="' + css + '-time">' + Judy.dateTime(new Date(o.timestamp * 1000)) + '</td>' +
         '<td class="' + css + '-user"><a href="/user/' + o.uid + '">' + o.name + '</td>' +
-        '<td class="' + css + '-message" onclick="function(){};"><div>' + Judy.stripTags(o.message.replace(/\r?\n/g, " ")).substr(0, trnc) + '</div></td>' +
+        '<td class="' + css + '-message" onclick="function(){};"><div>' +
+          Judy.stripTags(o.message.replace(/\r?\n/g, " ")).substr(0, _.listMessageTruncate) + '</div></td>' +
         '</tr>';
     }
-    return s + "</table>";
+    return s + "</tbody></table>";
   };
 
   /**
@@ -1925,7 +1933,7 @@ var LogFilter = function($) {
           s = "[LOCAL: " + nm + "]";
       }
     }
-    return !replacers ? s : s.replace(/\!newline/g, "\n");
+    return s.replace(/\!newline/g, "\n");
   };
 
   /**
@@ -2256,69 +2264,18 @@ var LogFilter = function($) {
 }
 window.LogFilter = new LogFilter($);
 
-})(jQuery);
-
-
-
-(function ($) {
-  //  Behavior to prevent .scrollable divs from escalating scroll to parent elements (eventually the viewport).
-  Drupal.behaviors.scrollableConfineScroll = {
-    attach: function (context) {
-      Judy.scrollTrap('.scrollable', context); return;
-
-
-      $('.scrollable', context).each(function () {
-        var preventZone = 100, halfZone, s = this.scrollTop, $self = $(this), $chlds, le, $chld, h;
-        if (!$self.hasClass('confine-scroll')) {
-          //  If contains a single element, set scroll-back zone on that element.
-          if ((le = ($chlds = $self.children()).get().length) === 1) {
-            $chld = $($chlds.get(0));
-          }
-          else if (le) { // Contains more elements, wrap and set scroll-back zone on the wrapper.
-            $chld = $chlds.wrapAll('<div />').parent();
-          }
-          else { // No children at all, cannot do anything, has to called again (upon insertion of something into the .scrollable).
-            return;
-          }
-          //  Add scroll-back zone to top and bottom.
-          if ((h = this.clientHeight) < 1.5 * preventZone) { // The scroll-back zone shan't be more than 2/3 of .scrollable's height.
-            preventZone = Math.floor(h / 1.5);
-          }
-          halfZone = Math.floor(preventZone / 2);
-          $chld.css({
-            'margin-top': preventZone + 'px',
-            'margin-bottom': preventZone + 'px'
-          });
-          //  Reset current scroll.
-          this.scrollTop = s + preventZone;
-          //  Add scroll-back handler.
-          $self.scroll(function() {
-            var that = this, s = that.scrollTop, h;
-            // if (s < preventZone) {
-            //   this.scrollTop = preventZone;
-            // }
-            // else if (s > (h = that.scrollHeight - that.clientHeight - preventZone)) {
-            //   this.scrollTop = h;
-            // }
-            if (s < halfZone) { // Top.
-              that.scrollTop = halfZone; // Scroll half way now.
-              setTimeout(function() { // Scroll all the way later.
-                that.scrollTop = preventZone;
-              }, 100);
-            }
-            else if (s > (h = that.scrollHeight - that.clientHeight) - halfZone) { // Bottom.
-              that.scrollTop = h - halfZone;
-              setTimeout(function() {
-                that.scrollTop = h - preventZone;
-              }, 100);
-            }
-          });
-          $self.addClass('confine-scroll');
-        }
-      });
+/*
+Drupal.behaviors.logFilterLogListTableHeader = {
+  attach: function (context) {
+    if (!$.support.positionFixed) {
+      return;
     }
-  };
+
+    $('table.sticky-enabled', context).live('tableheader', function () {
+      $(this).data("drupal-tableheader", new Drupal.tableHeader(this));
+    });
+  }
+};
+*/
+
 })(jQuery);
-
-
-

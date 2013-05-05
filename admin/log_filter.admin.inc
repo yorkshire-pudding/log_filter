@@ -70,13 +70,6 @@ function _log_filter_admin_form($form, &$form_state) {
       '#default_value' => variable_get('log_filter_trnslt', FALSE),
       '#attributes' => array('autocomplete' => 'off'),
     ),
-    'log_filter_trnct' => array(
-      '#type' => 'textfield',
-      '#title' => t('List view message truncation'),
-      '#default_value' => variable_get('log_filter_trnct', LogFilter::LIST_MESSAGE_TRUNCATE),
-      '#attributes' => array('autocomplete' => 'off'),
-      '#size' => 3,
-    ),
   );
 
   $form['#submit'][] = 'log_filter_admin_form_submit';

@@ -672,6 +672,7 @@ div#log_filter__message {
               }
 
 form#log-filter-form div#log_filter_list_controls {
+  padding-bottom: 0.5em;
 }
   form#log-filter-form div#log_filter_list_controls:after {
     /*clearfix*/clear:both;content:".";display:block;height:0;visibility:hidden;font-size:0;
@@ -723,10 +724,54 @@ form#log-filter-form div#log_filter_list_controls {
 
 
 div#log_filter_log_list {
-  overflow: auto;
-  max-height: 450px;
-  background-color: #DDD;
+  overflow-x: hidden;
+  border-right: 1px solid #CCC;
 }
   div#log_filter_log_list > table {
-    background-color: #FFF;
   }
+      div#log_filter_log_list th {
+        padding-left: 0.7em;
+      }
+      div#log_filter_log_list th:first-of-type {
+        padding: 0;
+      }
+      div#log_filter_log_list td {
+        white-space: nowrap;
+        text-align: left;
+        vertical-align: middle;
+        line-height: 1.2em;
+        padding: 0.7em;
+      }
+      div#log_filter_log_list td.log-filter-list-severity {
+        width: 37px; max-width: 37px;
+        padding: 0;
+        background-repeat: no-repeat; background-position: center;
+      }
+      div#log_filter_log_list td.log-filter-list-severity.log-filter-list-info {
+        background-image: url("img/log-16-info.png");
+      }
+      div#log_filter_log_list td.log-filter-list-severity.log-filter-list-notice {
+        background-image: url("img/log-16-notice.png");
+      }
+      div#log_filter_log_list td.log-filter-list-severity.log-filter-list-warning {
+        background-image: url("img/log-16-warning.png");
+      }
+      div#log_filter_log_list td.log-filter-list-severity.log-filter-list-error {
+        background-image: url("img/log-16-error.png");
+      }
+      div#log_filter_log_list td.log-filter-list-severity.log-filter-list-critical {
+        background-image: url("img/log-16-critical.png");
+      }
+      div#log_filter_log_list td.log-filter-list-severity.log-filter-list-alert {
+        background-image: url("img/log-16-alert.png");
+      }
+      div#log_filter_log_list td.log-filter-list-severity.log-filter-list-emergency {
+        background-image: url("img/log-16-emergency.png");
+      }
+      div#log_filter_log_list td.log-filter-list-time {
+        white-space: nowrap;
+      }
+      div#log_filter_log_list td.log-filter-list-message > div {
+        white-space: nowrap;
+        overflow: hidden;
+      }
