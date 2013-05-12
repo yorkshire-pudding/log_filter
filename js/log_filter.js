@@ -119,8 +119,7 @@ var LogFilter = function($) {
       origin: "input[name='log_filter_origin']", // Hidden.
       name_suggest: "input[name='log_filter_name_suggest']",
       description: "textarea[name='log_filter_description']",
-      require_admin: "input[name='log_filter_require_admin']", // May not exist.
-      delete_logs: "input[name='log_filter_delete_logs']" // May not exist.
+      require_admin: "input[name='log_filter_require_admin']" // May not exist.
     },
     conditions: {
       time_range: "input[name='log_filter_time_range']", // For iteration: must go before the other time fields.
@@ -383,7 +382,6 @@ var LogFilter = function($) {
       return;
     }
     _submitted = true;
-    Judy.overlay(0);
     switch(_.mode) {
       case "adhoc":
         nm = "adhoc";
@@ -427,6 +425,7 @@ var LogFilter = function($) {
                   _resetCriteria(null, "default");
                   return;
                 }
+                _resetCriteria(null, "default", true); // Prevent ugly 'Illegal choice' error for type condition.
                 Judy.enable(_elements.buttons.update_list);
                 _submit();
               });
@@ -1234,9 +1233,11 @@ var LogFilter = function($) {
    *  - when used as event handler
    * @param {string|falsy} [mode]
    *  - set mode to that
+   * @param {boolean} [noModeChange]
+   *  - do not change mode
    * @return {void}
    */
-  _resetCriteria = function(evt, mode) {
+  _resetCriteria = function(evt, mode, noModeChange) {
     var o = _elements.conditions, nm, r, a, le, i;
     for(nm in o) {
       if(o.hasOwnProperty(nm)) {
@@ -1269,12 +1270,14 @@ var LogFilter = function($) {
       Judy.fieldValue(a[i][0], null, i ? "" : "time");
       a[i][1].checked = i ? false : "checked";
     }
-    //  Degrade mode.
-    if(mode) {
-      _setMode(mode);
-    }
-    else {
-      _setMode("default");
+    if(!noModeChange) {
+      //  Degrade mode.
+      if(mode) {
+        _setMode(mode);
+      }
+      else {
+        _setMode("default");
+      }
     }
   };
   /**
@@ -1379,13 +1382,6 @@ var LogFilter = function($) {
    */
   _deleteLogs = function() {
     var o = _getCriteria(), v, max = (v = _elements.settings.delete_logs_max.value) !== "" ? v : 0;
-
-    //  @todo: have to use jQuery UI dialog instead of confirm(), because in Firefox those dialogs arent draggable,
-    //  thus the user cannot inspect the filter while the confirm() is up.
-
-    //  Actual deletion is performed via an ordinary page request; the backend submit method deletes the logs (if the field delete_logs is on).
-    //  Nope, that's silly, do it via AJAX
-
     if(!o.nConditions) { // Even stored filters go here; if a stored filter has no conditions, than THAT is the important thing.
       //  We warn every time, when no conditions at all.
       if(!max) {
@@ -1445,11 +1441,12 @@ var LogFilter = function($) {
    */
   _getLogList = function() {
     var v = _getCriteria();
+    Judy.overlay(1, false, self.local("wait"));
     _ajaxRequest("list_logs", {
       conditions: v.conditions,
       order_by: v.order_by,
       offset: _.pagerOffset,
-      count: _elements.settings.pager_range.value,
+      max: _elements.settings.pager_range.value,
       translate: Judy.fieldValue(_elements.settings.translate)
     });
   };
@@ -1457,10 +1454,14 @@ var LogFilter = function($) {
   /**
    * @ignore
    * @param {array} logs
+   * @param {integer} nTotal
    * @return {void}
    */
-  _listLogs = function(logs) {
+  _listLogs = function(logs, nTotal) {
     var le = logs.length, i, o, v;
+
+    //inspect(nTotal);
+
     for(i = 0; i < le; i++) {
       o = logs[i];
       //  Replace variables if exist and not done already by backend (is done if translate is on).
@@ -1516,9 +1517,7 @@ var LogFilter = function($) {
         '</tr></thead><tbody>';
     for(i = 0; i < le; i++) {
       o = logs[i];
-
-
-      s += '<tr class="' + (i % 2 ? 'odd' : 'even') + '">' +
+      s += '<tr class="' + (i % 2 ? 'even' : 'odd') + '">' +
         '<td class="' + css + '-severity ' + css + '-' + (v = o.severity) + '" title="' + self.local(v) + '">&#160;</td>' +
         '<td class="' + css + '-type">' + o.type + '</td>' +
         '<td class="' + css + '-time">' + Judy.dateTime(new Date(o.timestamp * 1000)) + '</td>' +
@@ -1739,11 +1738,12 @@ var LogFilter = function($) {
   _ajaxResponse.list_logs = function(oResp) {
     var nm = oResp.name;
     if(oResp.success) {
-      _listLogs(oResp.log_list);
+      _listLogs(oResp.log_list[0], oResp.log_list[1]);
       //  Deleting logs is allowed when evenever the log list reflects the filter.
       if(_.delLogs) {
         Judy.enable(_elements.buttons.delete_logs_button, null, "");
       }
+      Judy.overlay(0);
     }
     else {
       return false;
@@ -1758,14 +1758,8 @@ var LogFilter = function($) {
    */
   _ajaxResponse.delete_logs = function(oResp) {
     if(oResp.success) {
-      if (oResp.delete_logs !== false) {
-        self.Message.set(self.local("deleteLogs_success", { "!number": oResp.delete_logs }), "notice");
-      }
-      else {
-        self.Message.set(self.local("deleteLogs_failure", { "!number": oResp.delete_logs }), "error");
-      }
+      self.Message.set(self.local("deleteLogs_success", { "!number": oResp.delete_logs }), "notice");
       _getLogList();
-      Judy.overlay(0);
       return true;
     }
     else {
@@ -1922,9 +1916,6 @@ var LogFilter = function($) {
         case "deleteLogs_success":
           //  {"!number": integer}
           s = Drupal.t("Deleted !number log events.", replacers);
-          break;
-        case "deleteLogs_failure":
-          _local[nm] = s = Drupal.t("Failed to delete log events because of database limitations.\nYou may try no offset (select first page in log list) and no maximum.");
           break;
         case "error_form_expired":
           //  {"!url": url}

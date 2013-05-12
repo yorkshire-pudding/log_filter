@@ -94,4 +94,8 @@ function _log_filter_admin_form_submit($form, &$form_state) {
   else {
     $_SESSION['module']['log_filter']['admin_form_submitted'] = TRUE;
   }
+
+  $values =& $form_state['values'];
+  $values['log_filter_pgrng'] = !($val = (int)trim($values['log_filter_pgrng'])) || $val < 0 ? LogFilter::PAGE_RANGE_DEFAULT :
+    ($val > LogFilter::PAGE_RANGE_MAX ? LogFilter::PAGE_RANGE_MAX : $val);
 }

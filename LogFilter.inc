@@ -26,6 +26,11 @@ class LogFilter {
   /**
    * @type integer
    */
+  const PAGE_RANGE_MAX = 1000;
+
+  /**
+   * @type integer
+   */
   const LIST_MESSAGE_TRUNCATE = 100;
 
   /**
@@ -365,6 +370,7 @@ class LogFilter {
       elseif ($conditions['type']) {
         $options_type = $conditions['type'];
       }
+
       //  Severity.
       $options_severity = array(
         '-1' => t('Any'),
@@ -452,11 +458,6 @@ class LogFilter {
         'log_filter_origin' => array(
           '#type' => 'hidden',
           '#default_value' => $filter['origin'],
-          '#attributes' => array('autocomplete' => 'off'),
-        ),
-        'log_filter_delete_logs' => array(
-          '#type' => 'hidden',
-          '#default_value' => '',
           '#attributes' => array('autocomplete' => 'off'),
         ),
         //  Conditions.
@@ -856,7 +857,7 @@ class LogFilter {
         'log_filter_pager_range' => array(
           '#type' => 'textfield',
           '#title' => t('Logs per page'),
-          '#default_value' => $settings && array_key_exists('pager_range', $settings) ?
+          '#default_value' => $settings && array_key_exists('pager_range', $settings) && $settings['pager_range'] > 0 ?
             $settings['pager_range'] : variable_get('log_filter_pgrng', self::PAGE_RANGE_DEFAULT),
           '#attributes' => array('autocomplete' => 'off'),
           '#size' => 4,
@@ -935,7 +936,8 @@ class LogFilter {
         'delete_logs_max' => !array_key_exists($prefix . 'delete_logs_max', $values) ? '' : $values[$prefix . 'delete_logs_max'],
         'translate' => $values[$prefix . 'translate'],
         'only_own' => !array_key_exists($prefix . 'only_own', $values) ? FALSE : $values[$prefix . 'only_own'],
-        'pager_range' => ($v = (int)$values[$prefix . 'pager_range']) > -1 ? $v : variable_get('log_filter_pgrng', self::PAGE_RANGE_DEFAULT),
+        'pager_range' => ($v = (int)$values[$prefix . 'pager_range']) > -1 ? ($v > self::PAGE_RANGE_MAX ? self::PAGE_RANGE_MAX : $v) :
+          variable_get('log_filter_pgrng', self::PAGE_RANGE_DEFAULT),
       );
 
       $submitted = array(
@@ -962,9 +964,6 @@ class LogFilter {
         case 'stored': // Saved filter.
           //  Just get filter name; in stored mode we do absolutely nothing at submission but establishing the filter's name.
           //  Whether the filter require_admin and user has that permission will be checked at form build - no reason to check twice.
-
-          //$submitted['mode'] = $mode = 'default';
-
           if (!($submitted['filter']['name'] = $filter_name = $values[$prefix . 'name'])) {
             throw new Exception('Mode[' . $mode . '], empty name[' . $filter_name . '].', self::$_errorCodes['filter_name_composition']);
           }
@@ -1454,23 +1453,26 @@ class LogFilter {
    * @param integer $offset
    *  - default: zero
    *  - ignored until MySQL supports LIMIT for sub queries
-   * @param integer $count
+   * @param integer $max
    *  - default: zero
    *  - ignored until MySQL supports LIMIT for sub queries
-   * @param array|NULL $log_columns
+   * @param array|NULL|FALSE $log_columns
    *  - default: NULL (~ all watchdog columns)
+   *  - FALSE: count only
    * @param array|FALSE $user_columns
    *  - default: FALSE (~ no user columns)
    * @return SelectQuery
    */
-  protected static function _logListQuery($conditions, $order_by, $offset = 0, $count = 0, $log_columns = NULL, $user_columns = FALSE) {
+  protected static function _logListQuery($conditions, $order_by, $offset = 0, $max = 0, $log_columns = NULL, $user_columns = FALSE) {
     $query = db_select('watchdog', 'w');
     if ($user_columns) {
       $query->leftJoin('users', 'u', 'w.uid = u.uid');
     }
     if (!$log_columns) {
-      $query->fields('w'); // Wildcard columns.
-      //->fields('w', array('wid', 'uid', 'type', 'message', 'variables', 'severity', 'link', 'location', 'referer', 'hostname', 'timestamp'))
+      if ($log_columns !== FALSE) {
+        $query->fields('w'); // Wildcard columns.
+        //->fields('w', array('wid', 'uid', 'type', 'message', 'variables', 'severity', 'link', 'location', 'referer', 'hostname', 'timestamp'))
+      }
     }
     else {
       $query->fields('w', $log_columns);
@@ -1482,76 +1484,82 @@ class LogFilter {
       }
     }
     //  Conditions.
-    $names =& self::$_fields['conditions'];
-    foreach ($names as $key) {
-      switch ($key) {
-        case 'severity':
-          if (!empty($conditions[$key])) {
-            if (!is_array($v = $conditions[$key])) {
-              throw new Exception('Non-empty condition[' . $key . '], type[' . gettype($v) . '], must be array.',
-                self::$_errorCodes['bad_filter_condition']);
+    if ($conditions) {
+      $names =& self::$_fields['conditions'];
+      foreach ($names as $key) {
+        switch ($key) {
+          case 'severity':
+            if (!empty($conditions[$key])) {
+              if (!is_array($v = $conditions[$key])) {
+                throw new Exception('Non-empty condition[' . $key . '], type[' . gettype($v) . '], must be array.',
+                  self::$_errorCodes['bad_filter_condition']);
+              }
+              //  Convert 'zero' to zero.
+              $query->condition('w.' . $key, explode(',', str_replace('zero', '0', join(',', $v))), 'IN');
             }
-            //  Convert 'zero' to zero.
-            $query->condition('w.' . $key, explode(',', str_replace('zero', '0', join(',', $v))), 'IN');
-          }
-          break;
-        case 'type':
-          if (!empty($conditions[$key])) {
-            if (!is_array($v = $conditions[$key])) {
-              throw new Exception('Non-empty condition[' . $key . '], type[' . gettype($v) . '], must be array.',
-                self::$_errorCodes['bad_filter_condition']);
+            break;
+          case 'type':
+            if (!empty($conditions[$key])) {
+              if (!is_array($v = $conditions[$key])) {
+                throw new Exception('Non-empty condition[' . $key . '], type[' . gettype($v) . '], must be array.',
+                  self::$_errorCodes['bad_filter_condition']);
+              }
+              $query->condition('w.' . $key, explode(',', check_plain(join(',', $v))), 'IN');
             }
-            $query->condition('w.' . $key, explode(',', check_plain(join(',', $v))), 'IN');
-          }
-          break;
-        case 'time_range':
-          if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v < 1000) {
-            if (!is_array($v = $conditions[$key])) {
-              throw new Exception('Non-empty condition[' . $key . '], type[' . gettype($v) . '], must be array.',
-                self::$_errorCodes['bad_filter_condition']);
+            break;
+          case 'time_range':
+            if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v < 1000) {
+              if (!is_array($v = $conditions[$key])) {
+                throw new Exception('Non-empty condition[' . $key . '], type[' . gettype($v) . '], must be array.',
+                  self::$_errorCodes['bad_filter_condition']);
+              }
+              $query->condition('w.' . $key, REQUEST_TIME - ($v * 60 * 60), '>=');
             }
-            $query->condition('w.' . $key, REQUEST_TIME - ($v * 60 * 60), '>=');
-          }
-          break;
-        case 'time_from':
-          if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v <= PHP_INT_MAX) {
-            $query->condition('w.' . 'timestamp', $v, '>=');
-          }
-          break;
-        case 'time_to':
-          if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v <= PHP_INT_MAX) {
-            $query->condition('w.' . 'timestamp', $v, '<=');
-          }
-          break;
-        case 'role':
-          if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v <= PHP_INT_MAX) {
-            $query->join('users_roles', 'ur', 'w.uid = ur.uid AND ur.rid = :rid', array(':rid' => $v));
-          }
-          break;
-        case 'uid':
-          if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v <= PHP_INT_MAX) {
-            $query->condition('w.' . $key, $v, '=');
-          }
-          break;
-        case 'hostname':
-        case 'location':
-          if (!empty($conditions[$key]) && ($v = check_plain($conditions[$key]))) {
-            $query->condition('w.' . $key, $v, '=');
-          }
-          break;
-        case 'referer': // Support strictly empty value 'none'
-          if (!empty($conditions[$key]) && ($v = check_plain($conditions[$key]))) {
-            if ($v != 'none') {
+            break;
+          case 'time_from':
+            if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v <= PHP_INT_MAX) {
+              $query->condition('w.' . 'timestamp', $v, '>=');
+            }
+            break;
+          case 'time_to':
+            if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v <= PHP_INT_MAX) {
+              $query->condition('w.' . 'timestamp', $v, '<=');
+            }
+            break;
+          case 'role':
+            if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v <= PHP_INT_MAX) {
+              $query->join('users_roles', 'ur', 'w.uid = ur.uid AND ur.rid = :rid', array(':rid' => $v));
+            }
+            break;
+          case 'uid':
+            if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v <= PHP_INT_MAX) {
               $query->condition('w.' . $key, $v, '=');
             }
-            else {
-              $query->condition(db_or()->condition('w.' . $key, '', '=')->isNull('w.' . $key));
+            break;
+          case 'hostname':
+          case 'location':
+            if (!empty($conditions[$key]) && ($v = check_plain($conditions[$key]))) {
+              $query->condition('w.' . $key, $v, '=');
             }
-          }
-          break;
-        default:
-          //  Ignore.
+            break;
+          case 'referer': // Support strictly empty value 'none'
+            if (!empty($conditions[$key]) && ($v = check_plain($conditions[$key]))) {
+              if ($v != 'none') {
+                $query->condition('w.' . $key, $v, '=');
+              }
+              else {
+                $query->condition(db_or()->condition('w.' . $key, '', '=')->isNull('w.' . $key));
+              }
+            }
+            break;
+          default:
+            //  Ignore.
+        }
       }
+    }
+
+    if ($log_columns === FALSE) {
+      return $query->countQuery();
     }
 
     //  Order by.
@@ -1577,8 +1585,8 @@ class LogFilter {
     else {
       $query->orderBy('timestamp', 'DESC')->orderBy('w.wid', 'DESC');
     }
-    if (($offset || $count) && self::DB_SUBQUERY_LIMIT) {
-      $query->range($offset, $count);
+    if (($offset || $max) && self::DB_SUBQUERY_LIMIT) {
+      $query->range($offset, $max);
     }
     return $query;
   }
@@ -1587,20 +1595,16 @@ class LogFilter {
    * @param array $conditions
    * @param array $order_by
    * @param integer $offset
-   * @param integer $count
+   * @param integer $max
    * @param boolean $translate
    *  - default: FALSE
    * @return array
    */
-  protected static function _listLogs($conditions, $order_by, $offset, $count, $translate = FALSE) {
-
-    $query = self::_logListQuery($conditions, $order_by, $offset, $count, NULL, array('name'));
-    if (($offset || $count) && !self::DB_SUBQUERY_LIMIT) {
-      $query->range($offset, $count);
+  protected static function _listLogs($conditions, $order_by, $offset, $max, $translate = FALSE) {
+    $query = self::_logListQuery($conditions, $order_by, $offset, $max, NULL, array('name'));
+    if (($offset || $max) && !self::DB_SUBQUERY_LIMIT) {
+      $query->range($offset, $max);
     }
-
-    //  @todo: Find total count of result?
-
     //  Work on event buckets.
     if (($rows = $query->execute()->fetchAll())) {
       foreach($rows as &$event) {
@@ -1621,7 +1625,10 @@ class LogFilter {
       }
       unset($event); // Clear reference.
     }
-    return $rows;
+    return array(
+      $rows,
+      (int) self::_logListQuery($conditions, $order_by, 0, 0, FALSE)->execute()->fetchField()
+    );
   }
 
   /**
@@ -1631,14 +1638,19 @@ class LogFilter {
    * And MySQL doesnt support using the same table in a sub query and in an outer CRUD query.
    *
    * So we have to do a separate select getting the relevant ids, and then do a delete using that - potentially too long - list of ids.
+   * Does it in chunks of 40000 items; that should work even when db query max length is only half a megabyte.
    *
    * @param array $conditions
    * @param array $order_by
    * @param integer $offset
    * @param integer $max
-   * @return integer|FALSE
+   * @return integer
    */
   protected static function _deleteLogs($conditions, $order_by, $offset, $max) {
+    if (!$conditions && !$offset && !$max) {
+      return db_delete('watchdog')
+        ->execute();
+    }
     $query = self::_logListQuery($conditions, $order_by, $offset, $max, array('wid'));
     if (($offset || $max)) {
       if (!self::DB_SUBQUERY_LIMIT) {
@@ -1647,14 +1659,19 @@ class LogFilter {
     }
     $ids = $query->execute()->fetchCol();
     //  This may fail because the list of ids may exceed query limit (query max length).
-    try {
-      return db_delete('watchdog')
-        ->condition('wid', $ids, 'IN')
-        ->execute();
+    if (count($ids) > 40000) {
+      $le = count($ids = array_chunk($id, 40000));
+      $deleted = 0;
+      for ($i = 0; $i < $le; $i++) {
+        $deleted += db_delete('watchdog')
+          ->condition('wid', $ids[$i], 'IN')
+          ->execute();
+      }
+      return $deleted;
     }
-    catch (PDOException $xc) {
-      return FALSE;
-    }
+    return db_delete('watchdog')
+      ->condition('wid', $ids, 'IN')
+      ->execute();
   }
 
   /**
@@ -1664,7 +1681,7 @@ class LogFilter {
    *
    *  Expects (requires) POST vars on actions:
    *  - filter_create|filter_edit: name, filter, conditions, order_by
-   *  - list_logs: conditions, order_by, offset, count, translate
+   *  - list_logs: conditions, order_by, offset, max, translate
    *  - delete_logs: conditions, order_by, offset, max
    *
    * @see LogFilter::ajaxCallback
@@ -1752,23 +1769,26 @@ class LogFilter {
               || !array_key_exists('order_by', $_POST)
                 || (($order_by = $_POST['order_by']) && !is_array($order_by)) // _logListQuery() checks/filters order_by buckets vs. xss.
               || !array_key_exists('offset', $_POST) || ($offset = (int)$_POST['offset']) < 0 || $offset > PHP_INT_MAX
-              || !array_key_exists('count', $_POST) || ($count = (int)$_POST['count']) < 1 || $count > PHP_INT_MAX
+              || !array_key_exists('max', $_POST) || ($max = (int)$_POST['max']) < 0 || $max > PHP_INT_MAX
               || !array_key_exists('translate', $_POST)
             ) {
               header('HTTP/1.1 403 Forbidden');
               exit;
             }
+            if ($max > self::PAGE_RANGE_MAX) {
+              $max = self::PAGE_RANGE_MAX;
+            }
             $oResp->log_list = self::_listLogs(
               $conditions ? $conditions : array(),
               $order_by ? $order_by : array(),
               $offset,
-              $count,
+              $max,
               $translate = (bool)$_POST['translate']
             );
             //  Save pager_range and translate to session.
             $session = array(
               'settings' => array(
-                'pager_range' => $count,
+                'pager_range' => $max > 0 ? $max : variable_get('log_filter_pgrng', self::PAGE_RANGE_DEFAULT),
                 'translate' => $translate,
               ),
             );
@@ -1794,7 +1814,7 @@ class LogFilter {
               || !array_key_exists('order_by', $_POST)
                 || (($order_by = $_POST['order_by']) && !is_array($order_by)) // _logListQuery() checks/filters order_by buckets vs. xss.
               || !array_key_exists('offset', $_POST) || ($offset = (int)$_POST['offset']) < 0 || $offset > PHP_INT_MAX
-              || !array_key_exists('max', $_POST) || ($max = (int)$_POST['offset']) < 0 || $max > PHP_INT_MAX
+              || !array_key_exists('max', $_POST) || ($max = (int)$_POST['max']) < 0 || $max > PHP_INT_MAX
             ) {
               header('HTTP/1.1 403 Forbidden');
               exit;
