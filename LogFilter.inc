@@ -1647,31 +1647,42 @@ class LogFilter {
    * @return integer
    */
   protected static function _deleteLogs($conditions, $order_by, $offset, $max) {
+    global $user;
     if (!$conditions && !$offset && !$max) {
-      return db_delete('watchdog')
+      $deleted = db_delete('watchdog')
         ->execute();
     }
-    $query = self::_logListQuery($conditions, $order_by, $offset, $max, array('wid'));
-    if (($offset || $max)) {
-      if (!self::DB_SUBQUERY_LIMIT) {
-        $ids = $query->range($offset, $max);
+    else {
+      $query = self::_logListQuery($conditions, $order_by, $offset, $max, array('wid'));
+      if (($offset || $max)) {
+        if (!self::DB_SUBQUERY_LIMIT) {
+          $ids = $query->range($offset, $max);
+        }
       }
-    }
-    $ids = $query->execute()->fetchCol();
-    //  This may fail because the list of ids may exceed query limit (query max length).
-    if (count($ids) > 40000) {
-      $le = count($ids = array_chunk($id, 40000));
-      $deleted = 0;
-      for ($i = 0; $i < $le; $i++) {
-        $deleted += db_delete('watchdog')
-          ->condition('wid', $ids[$i], 'IN')
+      $ids = $query->execute()->fetchCol();
+      //  This may fail because the list of ids may exceed query limit (query max length).
+      if (count($ids) > 40000) {
+        $le = count($ids = array_chunk($id, 40000));
+        $deleted = 0;
+        for ($i = 0; $i < $le; $i++) {
+          $deleted += db_delete('watchdog')
+            ->condition('wid', $ids[$i], 'IN')
+            ->execute();
+        }
+      }
+      else {
+        $deleted = db_delete('watchdog')
+          ->condition('wid', $ids, 'IN')
           ->execute();
       }
-      return $deleted;
     }
-    return db_delete('watchdog')
-      ->condition('wid', $ids, 'IN')
-      ->execute();
+    watchdog(
+      'log_filter',
+      'User (%uid) %name deleted !deleted log events.',
+      array('%uid' => $user->uid, '%name' => $user->name, '!deleted' => $deleted),
+      WATCHDOG_NOTICE
+    );
+    return $deleted;
   }
 
   /**
