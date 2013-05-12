@@ -195,6 +195,11 @@ div#log_filter__message {
         background-color: #F8FFF0;
         background-image: url("img/message-16-ok.png");
       }
+      div#log_filter__message_list > div.log-filter-message-info,
+      div#log_filter__message_list > div.log-filter-message-notice {
+        background-color: #FFFCE5;
+        background-image: url("img/message-16-info.png");
+      }
       div#log_filter__message_list > div.log-filter-message-warning {
         background-color: #FFFCE5;
         background-image: url("img/message-16-warning.png");

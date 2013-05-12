@@ -1429,8 +1429,14 @@ var LogFilter = function($) {
       Judy.focus(_elements.settings.delete_logs_max);
       return;
     }
-    //_elements.filter.delete_logs.value = "1";
-    //_submit();
+    _ajaxRequestingBlocking = true;
+    v = _getCriteria();
+    _ajaxRequest("delete_logs", {
+      conditions: v.conditions,
+      order_by: v.order_by,
+      offset: _.pagerOffset,
+      max: !max ? 0 : parseInt(max)
+    });
   }
 
   /**
@@ -1447,7 +1453,6 @@ var LogFilter = function($) {
       translate: Judy.fieldValue(_elements.settings.translate)
     });
   };
-
 
   /**
    * @ignore
@@ -1735,12 +1740,37 @@ var LogFilter = function($) {
     var nm = oResp.name;
     if(oResp.success) {
       _listLogs(oResp.log_list);
+      //  Deleting logs is allowed when evenever the log list reflects the filter.
+      if(_.delLogs) {
+        Judy.enable(_elements.buttons.delete_logs_button, null, "");
+      }
     }
     else {
       return false;
     }
     _ajaxRequestingBlocking = false;
     return true;
+  };
+  /**
+   * @ignore
+   * @param {object} oResp
+   * @return {boolean}
+   */
+  _ajaxResponse.delete_logs = function(oResp) {
+    if(oResp.success) {
+      if (oResp.delete_logs !== false) {
+        self.Message.set(self.local("deleteLogs_success", { "!number": oResp.delete_logs }), "notice");
+      }
+      else {
+        self.Message.set(self.local("deleteLogs_failure", { "!number": oResp.delete_logs }), "error");
+      }
+      _getLogList();
+      Judy.overlay(0);
+      return true;
+    }
+    else {
+      return false;
+    }
   };
 
   /**
@@ -1888,6 +1918,13 @@ var LogFilter = function($) {
         case "deleteLogs_adhoc":
           //  {"!number": integer}
           s = Drupal.t("Do you want to delete all logs!newlinematching current ad hoc filter!newlinelimited by a maximum of !number?", replacers);
+          break;
+        case "deleteLogs_success":
+          //  {"!number": integer}
+          s = Drupal.t("Deleted !number log events.", replacers);
+          break;
+        case "deleteLogs_failure":
+          _local[nm] = s = Drupal.t("Failed to delete log events because of database limitations.\nYou may try no offset (select first page in log list) and no maximum.");
           break;
         case "error_form_expired":
           //  {"!url": url}
@@ -2131,9 +2168,9 @@ var LogFilter = function($) {
     * @param {mixed} txt
     * @param {string} [type]
     *  - default: 'status'
-    *  - values: 'status' | 'warning' | 'error'
+    *  - values: 'status' | 'info' |  'notice' |  'warning' | 'error'
     * @param {object} [options]
-    *  - (boolean) noFade: default false ~ a 'status' message will eventually fade away, unless clicked/mousedowned
+    *  - (boolean) noFade: default false ~ a 'status' or 'info' message will eventually fade away, unless clicked/mousedowned
     *  - (number) fadeDelay: default zero ~ use default delay before starting fade ('status' message only)
     *  - (number) fadeDelay: >1000 ~ use that delay | < 1000 multiply default delay with that number (both 'status' message only)
     *  - (boolean) modal: default false ~ do not display blocking overlay
@@ -2144,19 +2181,21 @@ var LogFilter = function($) {
     */
     this.set = function(txt, type, options) {
       var t = type || "status", s, f, k, jq, o = {
-        noFade: false,
+        noFade: true,
         fadeDelay: 0,
         modal: false,
         close: null
       };
-      //  Get rid of wrong type.
       switch(t) {
         case "status":
+        case "info":
+          o.noFade = false;
+          break;
+        case "notice":
         case "warning":
-        case "error":
           break;
         default:
-          t = "error"
+          t = "error";
       }
       if(options) {
         for(k in o) {
@@ -2181,7 +2220,7 @@ var LogFilter = function($) {
         jq.click(o.close);
       }
       //  If to be fading, make click on message content unfade the message.
-      if(t === "status" && !o.noFade) {
+      if(!o.noFade) {
         _faders[ "_" + _n ] = f = new _fader(s, o.fadeDelay);
         $(s + " > div:first-child").bind("click mousedown", f.unfade); // And mousedown, otherwise dragging wont prevent fade.
       }

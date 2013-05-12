@@ -29,6 +29,13 @@ class LogFilter {
   const LIST_MESSAGE_TRUNCATE = 100;
 
   /**
+   * Does databases (MySQL) support LIMIT for sub queries?
+   *
+   * @type boolean
+   */
+  const DB_SUBQUERY_LIMIT = FALSE;
+
+  /**
    * @type array $_errorCodes
    */
   protected static $_errorCodes = array(
@@ -1439,21 +1446,41 @@ class LogFilter {
   }
 
   /**
+   * MySQL version<any doesn't support LIMIT for sub queries.
+   *
+   * @see LogFilter::DB_SUBQUERY_LIMIT
    * @param array $conditions
    * @param array $order_by
    * @param integer $offset
+   *  - default: zero
+   *  - ignored until MySQL supports LIMIT for sub queries
    * @param integer $count
-   * @param boolean $translate
-   *  - default: FALSE
-   * @return array
+   *  - default: zero
+   *  - ignored until MySQL supports LIMIT for sub queries
+   * @param array|NULL $log_columns
+   *  - default: NULL (~ all watchdog columns)
+   * @param array|FALSE $user_columns
+   *  - default: FALSE (~ no user columns)
+   * @return SelectQuery
    */
-  protected static function _listLogs($conditions, $order_by, $offset, $count, $translate = FALSE) {
+  protected static function _logListQuery($conditions, $order_by, $offset = 0, $count = 0, $log_columns = NULL, $user_columns = FALSE) {
     $query = db_select('watchdog', 'w');
-    $query->leftJoin('users', 'u', 'w.uid = u.uid');
-    $query->fields('w') // Wildcard columns.
+    if ($user_columns) {
+      $query->leftJoin('users', 'u', 'w.uid = u.uid');
+    }
+    if (!$log_columns) {
+      $query->fields('w'); // Wildcard columns.
       //->fields('w', array('wid', 'uid', 'type', 'message', 'variables', 'severity', 'link', 'location', 'referer', 'hostname', 'timestamp'))
-      ->addField('u', 'name');
-
+    }
+    else {
+      $query->fields('w', $log_columns);
+    }
+    if ($user_columns) {
+      $le = count($user_columns);
+      for ($i = 0; $i < $le; $i++) {
+        $query->addField('u', $user_columns[$i]);
+      }
+    }
     //  Conditions.
     $names =& self::$_fields['conditions'];
     foreach ($names as $key) {
@@ -1498,7 +1525,7 @@ class LogFilter {
           break;
         case 'role':
           if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v <= PHP_INT_MAX) {
-            $query->join('users_roles', 'ur', 'w.uid = ur.uid AND ur.rid = :rid', array(':rid' => 9));
+            $query->join('users_roles', 'ur', 'w.uid = ur.uid AND ur.rid = :rid', array(':rid' => $v));
           }
           break;
         case 'uid':
@@ -1534,27 +1561,48 @@ class LogFilter {
       foreach($order_by as &$orderBy) {
         if (preg_match('/^[a-z\d_]{2,32}$/', $k = $orderBy[0]) && (($v = $orderBy[1]) === 'DESC' || $v === 'ASC')) {
           if ($k == 'time' || $k == 'timestamp') {
-            $query->orderBy('timestamp', $v);
+            $query->orderBy('w.timestamp', $v);
             if ($v == 'ASC') {
               $timeAscending = TRUE;
             }
           }
           else {
-            $query->orderBy($k, $v);
+            $query->orderBy('w.' . $k, $v);
           }
         }
       }
       unset($orderBy);
-      $query->orderBy('wid', !$timeAscending ? 'DESC' : 'ASC');
+      $query->orderBy('w.wid', !$timeAscending ? 'DESC' : 'ASC');
     }
     else {
-      $query->orderBy('timestamp', 'DESC')->orderBy('wid', 'DESC');
+      $query->orderBy('timestamp', 'DESC')->orderBy('w.wid', 'DESC');
+    }
+    if (($offset || $count) && self::DB_SUBQUERY_LIMIT) {
+      $query->range($offset, $count);
+    }
+    return $query;
+  }
+
+  /**
+   * @param array $conditions
+   * @param array $order_by
+   * @param integer $offset
+   * @param integer $count
+   * @param boolean $translate
+   *  - default: FALSE
+   * @return array
+   */
+  protected static function _listLogs($conditions, $order_by, $offset, $count, $translate = FALSE) {
+
+    $query = self::_logListQuery($conditions, $order_by, $offset, $count, NULL, array('name'));
+    if (($offset || $count) && !self::DB_SUBQUERY_LIMIT) {
+      $query->range($offset, $count);
     }
 
     //  @todo: Find total count of result?
 
     //  Work on event buckets.
-    if (($rows = $query->range($offset, $count)->execute()->fetchAll())) {
+    if (($rows = $query->execute()->fetchAll())) {
       foreach($rows as &$event) {
         //  Translate?
         if (($vars = $event->variables) === 'N;') {
@@ -1577,13 +1625,47 @@ class LogFilter {
   }
 
   /**
+   * Using a LIMIT for delete queryies is kind of hard since db_delete doesnt support LIMIT (because PostgresSQL doesnt support that),
+   * and MySQL doesnt support LIMIT for sub queries.
+   *
+   * And MySQL doesnt support using the same table in a sub query and in an outer CRUD query.
+   *
+   * So we have to do a separate select getting the relevant ids, and then do a delete using that - potentially too long - list of ids.
+   *
+   * @param array $conditions
+   * @param array $order_by
+   * @param integer $offset
+   * @param integer $max
+   * @return integer|FALSE
+   */
+  protected static function _deleteLogs($conditions, $order_by, $offset, $max) {
+    $query = self::_logListQuery($conditions, $order_by, $offset, $max, array('wid'));
+    if (($offset || $max)) {
+      if (!self::DB_SUBQUERY_LIMIT) {
+        $ids = $query->range($offset, $max);
+      }
+    }
+    $ids = $query->execute()->fetchCol();
+    //  This may fail because the list of ids may exceed query limit (query max length).
+    try {
+      return db_delete('watchdog')
+        ->condition('wid', $ids, 'IN')
+        ->execute();
+    }
+    catch (PDOException $xc) {
+      return FALSE;
+    }
+  }
+
+  /**
    * Access permission: 'access site reports'.
    *
    * All actions require the POST var form_token.
    *
    *  Expects (requires) POST vars on actions:
    *  - filter_create|filter_edit: name, filter, conditions, order_by
-   *  - list_logs: conditions, order_by, offset, count
+   *  - list_logs: conditions, order_by, offset, count, translate
+   *  - delete_logs: conditions, order_by, offset, max
    *
    * @see LogFilter::ajaxCallback
    * @param string $action
@@ -1666,9 +1748,9 @@ class LogFilter {
           case 'list_logs':
             if (
               !array_key_exists('conditions', $_POST)
-                || (($conditions = $_POST['conditions']) && !is_array($conditions)) // _listLogs() checks/filters conditions buckets vs. xss.
+                || (($conditions = $_POST['conditions']) && !is_array($conditions)) // _logListQuery() checks/filters conditions buckets vs. xss.
               || !array_key_exists('order_by', $_POST)
-                || (($order_by = $_POST['order_by']) && !is_array($order_by)) // _listLogs() checks/filters order_by buckets vs. xss.
+                || (($order_by = $_POST['order_by']) && !is_array($order_by)) // _logListQuery() checks/filters order_by buckets vs. xss.
               || !array_key_exists('offset', $_POST) || ($offset = (int)$_POST['offset']) < 0 || $offset > PHP_INT_MAX
               || !array_key_exists('count', $_POST) || ($count = (int)$_POST['count']) < 1 || $count > PHP_INT_MAX
               || !array_key_exists('translate', $_POST)
@@ -1704,6 +1786,25 @@ class LogFilter {
                 $_SESSION['module']['log_filter'] = $session;
               }
             }
+            break;
+          case 'delete_logs':
+            if (
+              !array_key_exists('conditions', $_POST)
+                || (($conditions = $_POST['conditions']) && !is_array($conditions)) // _logListQuery() checks/filters conditions buckets vs. xss.
+              || !array_key_exists('order_by', $_POST)
+                || (($order_by = $_POST['order_by']) && !is_array($order_by)) // _logListQuery() checks/filters order_by buckets vs. xss.
+              || !array_key_exists('offset', $_POST) || ($offset = (int)$_POST['offset']) < 0 || $offset > PHP_INT_MAX
+              || !array_key_exists('max', $_POST) || ($max = (int)$_POST['offset']) < 0 || $max > PHP_INT_MAX
+            ) {
+              header('HTTP/1.1 403 Forbidden');
+              exit;
+            }
+            $oResp->delete_logs = self::_deleteLogs(
+              $conditions ? $conditions : array(),
+              $order_by ? $order_by : array(),
+              $offset,
+              $max
+            );
             break;
           default:
             $oResp->success = FALSE;
