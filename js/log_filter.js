@@ -76,7 +76,8 @@ var LogFilter = function($) {
     warned_deleteNoMax: false,
     saveEditFilterAjaxed: false, // Save/update filter using AJAX or ordinary POST request?
     pagerOffset: 0,
-    listMessageTruncate: 250
+    listMessageTruncate: 250,
+    logs: {}
   },
   /**
    * @ignore
@@ -184,7 +185,7 @@ var LogFilter = function($) {
   _validateTimeSequence,
   _resize,
   _url, _submit, _prepareForm, _setMode, _crudRelay, _changedCriterion, _resetCriteria, _getCriteria, _deleteLogs,
-  _getLogList, _listLogs, _formatList,
+  _getLogList, _listLogs,
   _ajaxResponse, _ajaxRequest;
   /**
    * @see inspect.errorHandler
@@ -263,13 +264,13 @@ var LogFilter = function($) {
   };
   _toAscii.needles = [
     //  iso-8859-1
-//JSLINT_IGNORE--- jslint unsafe chars, but _toAscii() starts out converting them to \uNNNN regexes.
-    "Ä","Æ",,"ä","æ",,"Ö","Ø",,"ö","ø",,"Ü", "ü", "ß", "Å", "å",,"À","Á","Â","Ã",,"à","á","â","ã",,"Ç", "ç", "Ð", "ð",,"È","É","Ê","Ë",,"è","é","ê","ë",,"Ì","Í","Î","Ï",,"ì","í","î","ï",,"Ñ", "ñ",,"Ò","Ó","Ô","Õ",,"ò","ó","ô","õ",,"Ù","Ú","Û",,"ù","ú","û",,"Ý",,"ý","ÿ",,"Þ", "þ"
+//JSLINT_IGNORE--- jslint unsafe chars,but _toAscii() starts out converting them to \uNNNN regexes.
+    "Ä","Æ","ä","æ","Ö","Ø","ö","ø","Ü","ü","ß","Å","å","À","Á","Â","Ã","à","á","â","ã","Ç","ç","Ð","ð","È","É","Ê","Ë","è","é","ê","ë","Ì","Í","Î","Ï","ì","í","î","ï","Ñ","ñ","Ò","Ó","Ô","Õ","ò","ó","ô","õ","Ù","Ú","Û","ù","ú","û","Ý","ý","ÿ","Þ","þ"
 //---JSLINT_IGNORE
   ];
   _toAscii.replacers = [
     //  iso-8859-1
-    "Ae","Ae","ae","ae","Oe","Oe","oe","oe","Ue", "ue", "ss", "Aa", "aa","A","A","A","A","a","a","a","a","C", "c", "D", "d","E","E","E","E","e","e","e","e","I","I","I","I","i","i","i","i","N", "n","O","O","O","O","o","o","o","o","U","U","U","u","u","u","Y","y","y","Th", "th"
+    "Ae","Ae","ae","ae","Oe","Oe","oe","oe","Ue","ue","ss","Aa","aa","A","A","A","A","a","a","a","a","C","c","D","d","E","E","E","E","e","e","e","e","I","I","I","I","i","i","i","i","N","n","O","O","O","O","o","o","o","o","U","U","U","u","u","u","Y","y","y","Th","th"
   ];
   /**
    * @ignore
@@ -1458,10 +1459,8 @@ var LogFilter = function($) {
    * @return {void}
    */
   _listLogs = function(logs, nTotal) {
-    var le = logs.length, i, o, v;
-
-    //inspect(nTotal);
-
+    var le = logs.length, i, o, v, css = 'log-filter-list', s;
+    _.logs = {};
     for(i = 0; i < le; i++) {
       o = logs[i];
       //  Replace variables if exist and not done already by backend (is done if translate is on).
@@ -1496,37 +1495,46 @@ var LogFilter = function($) {
           v = "emergency";
       }
       o.severity = v;
+      // Set other properties.
+      o.time = Judy.dateTime(new Date(o.timestamp * 1000));
+      if (!o.uid || o.uid === "0") {
+        o.uid = 0;
+        o.name = self.local("anonymous_user");
+      }
+      _.logs[ "_" + o.wid ] = o;
     }
-    $("#log_filter_log_list").html(_formatList(logs));
+    // Render.
+    s = '<table class="sticky-enabled"><thead><tr>' +
+      '<th>' + Drupal.t('Severity') + '</th>' +
+      '<th>' + Drupal.t('Type') + '</th>' +
+      '<th>' + Drupal.t('Time') + '</th>' +
+      '<th>' + Drupal.t('User') + '</th>' +
+      '<th>' + Drupal.t('Message') + '</th>' +
+      '</tr></thead><tbody>';
+    for(i = 0; i < le; i++) {
+      o = logs[i];
+      s += '<tr id="log_filter_list_log_' + o.wid + '" class="' + (i % 2 ? 'even' : 'odd') +
+          '" onclick="LogFilter.displayLog(\'_' + o.wid + '\');" title="' + self.local("log_display", { '!number': o.wid }) + '">' +
+        '<td class="' + css + '-severity ' + css + '-' + (v = o.severity) + '" title="' + self.local(v) + '">&#160;</td>' +
+        '<td class="' + css + '-type">' + o.type + '</td>' +
+        '<td class="' + css + '-time">' + o.time + '</td>' +
+        '<td class="' + css + '-user">' +
+          (!o.uid ? o.name : ('<a href="/user/' + o.uid + '" title="' + self.local('log_user') + ' ' + o.uid + '">' + o.name + '</a>')) + '</td>' +
+
+        // @todo: optionally list hostname|location|referer
+
+        '<td class="' + css + '-message"><div>' +
+          Judy.stripTags(o.message.replace(/\r?\n/g, " ")).substr(0, _.listMessageTruncate) + '</div></td>' +
+        '</tr>';
+    }
+    s += "</tbody></table>";
+    $("#log_filter_log_list").html(s);
+    // Apply Drupal tableheader.
     setTimeout(function() {
-      //Judy.scrollTrap("#log_filter_log_list");
       $('#log_filter_log_list table.sticky-enabled').once('tableheader', function () {
         $(this).data("drupal-tableheader", new Drupal.tableHeader(this));
       });
     }, 100);
-  };
-
-  _formatList = function(logs) {
-    var le = logs.length, i, o, v, css = 'log-filter-list',
-      s = '<table class="sticky-enabled"><thead><tr>' +
-        '<th>' + Drupal.t('Severity') + '</th>' +
-        '<th>' + Drupal.t('Type') + '</th>' +
-        '<th>' + Drupal.t('Time') + '</th>' +
-        '<th>' + Drupal.t('User') + '</th>' +
-        '<th>' + Drupal.t('Message') + '</th>' +
-        '</tr></thead><tbody>';
-    for(i = 0; i < le; i++) {
-      o = logs[i];
-      s += '<tr class="' + (i % 2 ? 'even' : 'odd') + '">' +
-        '<td class="' + css + '-severity ' + css + '-' + (v = o.severity) + '" title="' + self.local(v) + '">&#160;</td>' +
-        '<td class="' + css + '-type">' + o.type + '</td>' +
-        '<td class="' + css + '-time">' + Judy.dateTime(new Date(o.timestamp * 1000)) + '</td>' +
-        '<td class="' + css + '-user"><a href="/user/' + o.uid + '">' + o.name + '</td>' +
-        '<td class="' + css + '-message" onclick="function(){};"><div>' +
-          Judy.stripTags(o.message.replace(/\r?\n/g, " ")).substr(0, _.listMessageTruncate) + '</div></td>' +
-        '</tr>';
-    }
-    return s + "</tbody></table>";
   };
 
   /**
@@ -1957,6 +1965,43 @@ var LogFilter = function($) {
         case "debug":
           _local[nm] = s = Drupal.t("Debug");
           break;
+        case "anonymous_user":
+          _local[nm] = s = Drupal.t("anonymous");
+          break;
+        case "log_display":
+          //  {"!number": integer}
+          s = Drupal.t("Event !number", replacers);
+          break;
+        case "log_event":
+          _local[nm] = s = Drupal.t("Event");
+          break;
+        case "log_severity":
+          _local[nm] = s = Drupal.t("Severity");
+          break;
+        case "log_type":
+          _local[nm] = s = Drupal.t("Type");
+          break;
+        case "log_time":
+          _local[nm] = s = Drupal.t("Time");
+          break;
+        case "log_user":
+          _local[nm] = s = Drupal.t("User");
+          break;
+        case "log_location":
+          _local[nm] = s = Drupal.t("Location");
+          break;
+        case "log_referer":
+          _local[nm] = s = Drupal.t("Referrer");
+          break;
+        case "log_hostname":
+          _local[nm] = s = Drupal.t("Hostname");
+          break;
+        case "log_message":
+          _local[nm] = s = Drupal.t("Message");
+          break;
+        case "log_link":
+          _local[nm] = s = Drupal.t("Link");
+          break;
         default:
           s = "[LOCAL: " + nm + "]";
       }
@@ -2133,7 +2178,6 @@ var LogFilter = function($) {
         );
       }
     };
-
     /**
     * @function
     * @name LogFilter.Message.setup
@@ -2235,6 +2279,74 @@ var LogFilter = function($) {
   };
 
   /**
+   * @param {string} logId
+   * @return {void}
+   */
+  this.displayLog = function(logId) {
+    var o, s, v, css = 'log-filter-log-display', dialId = 'log_filter_logDisplay' + logId, elm, $dialOuter;
+    if ((o = _.logs[logId]) && _.logs.hasOwnProperty(logId)) {
+      // If already open: close the dialog.
+      if ((elm = document.getElementById(dialId))) {
+        $('#log_filter_list_log' + logId).removeClass('log-filter-list-displayed');
+        Judy.dialog(dialId, "close");
+      }
+      else {
+        $('#log_filter_list_log' + logId).addClass('log-filter-list-displayed');
+        o = _.logs[logId];
+        s = '<div class="' + css + '">' +
+            '<table class="dblog-event"><tbody>' +
+            '<tr class="odd"><th>' + self.local('log_severity') + '</th>' +
+              '<td>' + (v = o.severity) + '<div class="' + css + '-severity ' + css + '-' + v + '">&#160;</div></td></tr>' +
+            '<tr class="even"><th>' + self.local('log_type') + '</th><td>' + o.type + '</td></tr>' +
+            '<tr class="odd"><th>' + self.local('log_time') + '</th><td>' + o.time + '</td></tr>' +
+            '<tr class="even"><th>' + self.local('log_user') + '</th>' +
+              '<td>' + (!o.uid ? o.name : ('<a href="/user/' + o.uid + '" title="' + o.uid + '">(' + o.uid + ') ' + o.name + '</a>')) +
+              ' &#160; &bull; &#160; ' + self.local('log_hostname') + ': ' + o.hostname + '</td></tr>' +
+            '<tr class="odd"><th>' + self.local('log_location') + '</th><td><a href="' + o.location + '">' + o.location + '</a></td></tr>' +
+            '<tr class="even"><th>' + self.local('log_referer') + '</th>' +
+              '<td>' + (!o.referer ? '&#160;' : ('<a href="' + o.referer + '">' + o.referer + '</a>')) + '</td></tr>' +
+            '<tr class="odd"><th>' + self.local('log_message') + '</th><td>' + o.message + '</td></tr>' +
+            (!o.link ? '' : ('<tr class="even"><th>' + self.local('log_link') + '</th><td><a href="' + o.link + '">' + o.link + '</a></td></tr>')) +
+            '</tbody></table>' +
+          '</div>';
+        Judy.dialog(dialId, {
+          title: self.local('log_event') + ': ' + o.wid,
+          content: s,
+          fixed: true,
+          resizable: false,
+          closeOnEscape: false, // Only works when the dialog has focus; we set general handler in .setup().
+          dialogClass: "log-filter-log-display-dialog",
+          contentClass: "log-filter-log-display-content",
+          autoOpen: false,
+          close: function(event, ui) {
+            setTimeout(function() {
+              $('#log_filter_logDisplay' + logId).dialog('destroy').remove();
+              $('#log_filter_list_log' + logId).removeClass('log-filter-list-displayed');
+            });
+          }
+        });
+        ($dialOuter = $( $('#' + dialId).get(0).parentNode )).css({
+          visibility: 'hidden',
+          overflow: 'visible'
+        });
+        Judy.dialog(dialId, "open");
+        Judy.outerWidth($dialOuter, true, Judy.innerWidth(window) - 200, 2);
+        Judy.outerHeight('#' + dialId, true,
+          Judy.outerHeight($dialOuter, true, Judy.outerHeight(window) - 10, 1) -
+            Judy.outerHeight($('div.ui-dialog-titlebar', $dialOuter)) -
+            Math.ceil(parseFloat($dialOuter.css("padding-top")) + parseFloat($dialOuter.css("padding-bottom"))),
+          1
+        );
+        $dialOuter.css({
+          visibility: 'visible',
+          left: '150px', // jQuery UI dialog position apparantly doesnt work well when css position is fixed.
+          top: '4px'
+        });
+      }
+    }
+  };
+
+  /**
    * Called before page load.
    *
    * @function
@@ -2290,6 +2402,13 @@ var LogFilter = function($) {
 
     //  Prepare log list.
     _getLogList();
+
+    // Make all event dialogs close on escape, and no matter what has focus.
+    Judy.keydown(document.documentElement, "escape", function() {
+      $('div.log-filter-log-display-content').each(function() {
+        $(this).dialog("close");
+      });
+    });
   };
 }
 window.LogFilter = new LogFilter($);

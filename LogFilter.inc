@@ -133,6 +133,8 @@ class LogFilter {
     $path = drupal_get_path('module', 'log_filter');
     //  Get Judy.
     drupal_add_library('judy', 'judy');
+    //  Get jQuery UI dialog.
+    drupal_add_library('system', 'ui.dialog');
     //  Get jQuery UI datepicker.
     drupal_add_library('system', 'ui.datepicker');
     //  Have to include own datepicker localisation, because it doesnt seem to exist in neither core nor the Date Popup module.
@@ -140,8 +142,6 @@ class LogFilter {
       $path . '/js/jquery_ui_datepicker_i18n/jquery.ui.datepicker-' . $GLOBALS['language']->language . '.min.js',
       array('type' => 'file', 'group' => JS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
     );
-    //  Get jQuery UI dialog - because gecko's confirm()-dialog isnt draggable :-(
-    drupal_add_library('system', 'ui.dialog');
 
     if (($use_module_css = variable_get('log_filter_css', TRUE))) {
       drupal_add_css(
@@ -406,8 +406,8 @@ class LogFilter {
         'role' => t('User role'),
         'uid' => t('User ID'),
         'hostname' => t('Visitor\'s hostname'),
-        'location' => t('Requested URL'),
-        'referer' => t('Referrer URL'),
+        'location' => t('Location'),
+        'referer' => t('Referrer'),
       );
       $length_order_by = count($order_by);
 
@@ -554,14 +554,14 @@ class LogFilter {
         ),
         'log_filter_location' => array(
           '#type' => 'textfield',
-          '#title' => t('Requested URL'),
+          '#title' => t('Location'),
           '#default_value' => $conditions['location'],
           '#size' => 64,
           '#attributes' => array('autocomplete' => 'off'),
         ),
         'log_filter_referer' => array( // End: filter-conditions, (1 open).
           '#type' => 'textfield',
-          '#title' => t('Referrer URL') . '<span title="' . t('Use \'none\' for empty referrer') . '">?</span>',
+          '#title' => t('Referrer') . '<span title="' . t('Use \'none\' for empty referrer') . '">?</span>',
           '#default_value' => $conditions['referer'],
           '#size' => 64,
           '#attributes' => array('autocomplete' => 'off'),
