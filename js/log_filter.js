@@ -1133,7 +1133,9 @@ var LogFilter = function($) {
           break;
         case "log_filter_save":
           if(_.mode === "edit" && !_.saveEditFilterAjaxed) {
+            Judy.overlay(1, false, self.local("wait_" + _.mode));
             _submit();
+            return false;
           }
           else {
             //  Prevent double-click.
@@ -1148,8 +1150,17 @@ var LogFilter = function($) {
               }
               if($.inArray(v, _filters) > -1) {
                 Judy.overlay(1, true);
-                self.Message.set(self.local("error_filter_name_nonunique", {"!name": v}), "warning");
-                return false; // false for IE<9's sake.
+                if (!confirm(self.local("error_filter_name_nonunique", {"!name": v}))) {
+                  Judy.overlay(0);
+                  return false;
+                }
+                else {
+                  Judy.overlay(1, false, self.local("wait_edit"));
+                  _elements.settings.mode.value = _.mode = "edit";
+                  _elements.filter.name.value = v;
+                  _submit();
+                  return false;
+                }
               }
               nm = v;
               rqa = _elements.filter.require_admin ? 1 : 0; // Create with require_admin if the element exists (the user has the permission).
@@ -1880,7 +1891,7 @@ var LogFilter = function($) {
           break;
         case "error_filter_name_nonunique":
           //  {"!name": name}
-          s = Drupal.t("There's already a filter named!newline'!name'.", replacers);
+          s = Drupal.t("There's already a filter named!newline'!name'.!newlineDo you want to overwrite that filter?", replacers);
           break;
         case "error_filter_doesnt_exist":
           //  {"!name": name}

@@ -4,6 +4,7 @@ log_filter 7.x-1.x, 2013-06-20
 * Renamed module css default variable.
 * Now removes clear log form from standard dblog log view page.
 * Filter name from url now requires non-digit as first character, and at least 2 chars length.
+* Now allows for overwriting existing filter; implemented using non-AJAX request.
 
 log_filter 7.x-1.x, 2013-05-25
 ------------------------------
