@@ -77,6 +77,7 @@ var LogFilter = function($) {
     saveEditFilterAjaxed: false, // Save/update filter using AJAX or ordinary POST request?
     pagerOffset: 0,
     listMessageTruncate: 250,
+    adminOverlayOffset: 80, // Module Overlay.
     logs: {}
   },
   /**
@@ -1451,15 +1452,23 @@ var LogFilter = function($) {
 
   /**
    * @ignore
+   * @param integer [wid]
+   *  - for single log view
    * @return {void}
    */
-  _getLogList = function() {
-    var v = _getCriteria();
+  _getLogList = function(wid) {
+    var v = _getCriteria(), offset = _.pagerOffset;
     Judy.overlay(1, false, self.local("wait"));
+    if(wid) {
+      v.conditions = {
+        wid: wid
+      };
+      offset = 0;
+    }
     _ajaxRequest("list_logs", {
       conditions: v.conditions,
       order_by: v.order_by,
-      offset: _.pagerOffset,
+      offset: offset,
       max: _elements.settings.pager_range.value,
       translate: Judy.fieldValue(_elements.settings.translate)
     });
@@ -1468,76 +1477,102 @@ var LogFilter = function($) {
   /**
    * @ignore
    * @param {array} logs
+   * @param {object} conditions
+   *  - list of conditions used, values are always true (except for the 'wid' condition)
+   * @param {integer} offset
    * @param {integer} nTotal
    * @return {void}
    */
-  _listLogs = function(logs, nTotal) {
-    var le = logs.length, i, o, v, css = 'log-filter-list', s;
+  _listLogs = function(logs, conditions, offset, nTotal) {
+    var le = logs.length, i, o, v, css = 'log-filter-list', s, nCols = 5;
     _.logs = {};
-    for(i = 0; i < le; i++) {
-      o = logs[i];
-      //  Replace variables if exist and not done already by backend (is done if translate is on).
-      if(o.variables) {
-        o.message = Drupal.formatString(o.message, o.variables);
+    if(le) {
+      for(i = 0; i < le; i++) {
+        o = logs[i];
+        //  Replace variables if exist and not done already by backend (is done if translate is on).
+        if(o.variables) {
+          o.message = Drupal.formatString(o.message, o.variables);
+        }
+        delete o.variables;
+        //  Resolve severity.
+        switch("" + o.severity) {
+          case "1": // WATCHDOG_ALERT
+            v = "alert";
+            break;
+          case "2": // WATCHDOG_CRITICAL
+            v = "critical";
+            break;
+          case "3": // WATCHDOG_ERROR
+            v = "error";
+            break;
+          case "4": // WATCHDOG_WARNING
+            v = "warning";
+            break;
+          case "5": // WATCHDOG_NOTICE
+            v = "notice";
+            break;
+          case "6": // WATCHDOG_INFO
+            v = "info";
+            break;
+          case "7": // WATCHDOG_DEBUG
+            v = "debug";
+            break;
+          default: // 0 ~ WATCHDOG_EMERGENCY
+            v = "emergency";
+        }
+        o.severity = v;
+        // Set other properties.
+        o.time = Judy.dateTime(new Date(o.timestamp * 1000));
+        if (!o.uid || o.uid === "0") {
+          o.uid = 0;
+          o.name = self.local("anonymous_user");
+        }
+        _.logs[ "_" + o.wid ] = o;
       }
-      delete o.variables;
-      //  Resolve severity.
-      switch("" + o.severity) {
-        case "1": // WATCHDOG_ALERT
-          v = "alert";
-          break;
-        case "2": // WATCHDOG_CRITICAL
-          v = "critical";
-          break;
-        case "3": // WATCHDOG_ERROR
-          v = "error";
-          break;
-        case "4": // WATCHDOG_WARNING
-          v = "warning";
-          break;
-        case "5": // WATCHDOG_NOTICE
-          v = "notice";
-          break;
-        case "6": // WATCHDOG_INFO
-          v = "info";
-          break;
-        case "7": // WATCHDOG_DEBUG
-          v = "debug";
-          break;
-        default: // 0 ~ WATCHDOG_EMERGENCY
-          v = "emergency";
-      }
-      o.severity = v;
-      // Set other properties.
-      o.time = Judy.dateTime(new Date(o.timestamp * 1000));
-      if (!o.uid || o.uid === "0") {
-        o.uid = 0;
-        o.name = self.local("anonymous_user");
-      }
-      _.logs[ "_" + o.wid ] = o;
     }
     // Render.
     s = '<table class="sticky-enabled"><thead><tr>' +
       '<th>' + Drupal.t('Severity') + '</th>' +
       '<th>' + Drupal.t('Type') + '</th>' +
       '<th>' + Drupal.t('Time') + '</th>' +
-      '<th>' + Drupal.t('User') + '</th>' +
-      '<th>' + Drupal.t('Message') + '</th>' +
+      '<th>' + Drupal.t('User') + '</th>';
+    if(conditions.hostname) {
+      ++nCols;
+      s += '<th>' + Drupal.t('Hostname') + '</th>';
+    }
+    if(conditions.location) {
+      ++nCols;
+      s += '<th>' + Drupal.t('Location') + '</th>';
+    }
+    if(conditions.referer) {
+      ++nCols;
+      s += '<th>' + Drupal.t('Referrer') + '</th>';
+    }
+    s += '<th>' + Drupal.t('Message') + '</th>' +
       '</tr></thead><tbody>';
-    for(i = 0; i < le; i++) {
-      o = logs[i];
-      s += '<tr id="log_filter_list_log_' + o.wid + '" class="' + (i % 2 ? 'even' : 'odd') +
-          '" onclick="LogFilter.displayLog(\'_' + o.wid + '\');" title="' + self.local("log_display", { '!number': o.wid }) + '">' +
-        '<td class="' + css + '-severity ' + css + '-' + (v = o.severity) + '" title="' + self.local(v) + '">&#160;</td>' +
-        '<td class="' + css + '-type">' + o.type + '</td>' +
-        '<td class="' + css + '-time">' + o.time + '</td>' +
-        '<td class="' + css + '-user">' +
-          (!o.uid ? o.name : ('<a href="/user/' + o.uid + '" title="' + self.local('log_user') + ' ' + o.uid + '">' + o.name + '</a>')) + '</td>' +
-
-        // @todo: optionally list hostname|location|referer
-
-        '<td class="' + css + '-message"><div>' +
-          Judy.stripTags(o.message.replace(/\r?\n/g, " ")).substr(0, _.listMessageTruncate) + '</div></td>' +
+    if(le) {
+      for(i = 0; i < le; i++) {
+        o = logs[i];
+        s += '<tr id="log_filter_list_log_' + o.wid + '" class="' + (i % 2 ? 'even' : 'odd') +
+            '" onclick="LogFilter.displayLog(\'_' + o.wid + '\');" title="' + self.local("log_display", { '!number': o.wid }) + '">' +
+          '<td class="' + css + '-severity ' + css + '-' + (v = o.severity) + '" title="' + self.local(v) + '">&#160;</td>' +
+          '<td class="' + css + '-type">' + o.type + '</td>' +
+          '<td class="' + css + '-time">' + o.time + '</td>' +
+          '<td class="' + css + '-user">' +
+            (!o.uid ? o.name : ('<a href="/user/' + o.uid + '" title="' + self.local('log_user') + ' ' + o.uid + '">' + o.name + '</a>')) + '</td>' +
+          (!conditions.hostname ? '' : '<td class="' + css + '-hostname">' + o.hostname + '</td>') +
+          (!conditions.location ? '' : '<td class="' + css + '-location">' + o.location + '</td>') +
+          (!conditions.referer ? '' : '<td class="' + css + '-referer">' + o.referer + '</td>') +
+          '<td class="' + css + '-message"><div>' +
+            Judy.stripTags(o.message.replace(/\r?\n/g, " ")).substr(0, _.listMessageTruncate) + '</div></td>' +
+          '</tr>';
+      }
+    }
+    else {
+      s += '<tr class="odd">' +
+        '<td class="' + css + '-no-match" colspan="' + nCols + '">' +
+        (!conditions.wid ? self.local('no_event_matches') : self.local('non_existing_event', { '!number': conditions.wid })) +
+        '</td>' +
         '</tr>';
     }
     s += "</tbody></table>";
@@ -1759,7 +1794,7 @@ var LogFilter = function($) {
   _ajaxResponse.list_logs = function(oResp) {
     var nm = oResp.name;
     if(oResp.success) {
-      _listLogs(oResp.log_list[0], oResp.log_list[1]);
+      _listLogs(oResp.log_list[0], oResp.log_list[1], oResp.log_list[2], oResp.log_list[3]);
       //  Deleting logs is allowed when evenever the log list reflects the filter.
       if(_.delLogs) {
         Judy.enable(_elements.buttons.delete_logs_button, null, "");
@@ -2014,6 +2049,16 @@ var LogFilter = function($) {
           break;
         case "log_link":
           _local[nm] = s = Drupal.t("Link");
+          break;
+        case "event_link":
+          _local[nm] = s = Drupal.t("Link to this log event");
+          break;
+        case "no_event_matches":
+          _local[nm] = s = Drupal.t("The current filter matches no events.");
+          break;
+        case "non_existing_event":
+          //  {"!number": integer}
+          s = Drupal.t("Event no. !number doesn't exist.", replacers);
           break;
         default:
           s = "[LOCAL: " + nm + "]";
@@ -2323,7 +2368,7 @@ var LogFilter = function($) {
             '</tbody></table>' +
           '</div>';
         Judy.dialog(dialId, {
-          title: self.local('log_event') + ': ' + o.wid,
+          title: '<a href="' + _url() + '/' + o.wid + '" title="' + self.local('event_link') + '">' + self.local('log_event') + ': ' + o.wid + '</a>',
           content: s,
           fixed: true,
           resizable: false,
@@ -2347,13 +2392,14 @@ var LogFilter = function($) {
         Judy.outerHeight('#' + dialId, true,
           Judy.outerHeight($dialOuter, true, Judy.outerHeight(window) - 10, 1) -
             Judy.outerHeight($('div.ui-dialog-titlebar', $dialOuter)) -
-            Math.ceil(parseFloat($dialOuter.css("padding-top")) + parseFloat($dialOuter.css("padding-bottom"))),
+            Math.ceil(parseFloat($dialOuter.css("padding-top")) + parseFloat($dialOuter.css("padding-bottom"))) -
+            _.adminOverlayOffset,
           1
         );
         $dialOuter.css({
           visibility: 'visible',
           left: '150px', // jQuery UI dialog position apparantly doesnt work well when css position is fixed.
-          top: '4px'
+          top: (4 + _.adminOverlayOffset) + 'px'
         });
       }
     }
@@ -2388,7 +2434,7 @@ var LogFilter = function($) {
    * @return {void}
    */
   this.setup = function(filters, messages) {
-    var a = messages, le, i, o = { fadeDelay: 2 }; // Long (double) delay when at page load.
+    var a = messages, le, i, o = { fadeDelay: 2 }, url, wid; // Long (double) delay when at page load.
     /** @ignore */
     self.setup = function() {};
     _filters = filters || [];
@@ -2413,8 +2459,21 @@ var LogFilter = function($) {
       }
     }
 
+    // Check if administrative Overlay is on.
+    if (!/^#overlay=admin\//.test(top.location.hash)) {
+      url = window.location.href;
+      _.adminOverlayOffset = 0;
+    }
+    else {
+      url = top.location.href + top.location.hash;
+    }
+
     //  Prepare log list.
-    _getLogList();
+    _getLogList(
+      // Check if url ends with /integer ~ single log view.
+      /^.+\/(\d+)\/?$/.test(url = url) && (wid = parseInt(url.replace(/^.+\/(\d+)\/?$/, '$1'), 10)) &&
+        wid <= Math.pow(2, 31) ? wid : 0
+    );
 
     // Make all event dialogs close on escape, and no matter what has focus.
     Judy.keydown(document.documentElement, "escape", function() {
@@ -2425,19 +2484,5 @@ var LogFilter = function($) {
   };
 }
 window.LogFilter = new LogFilter($);
-
-/*
-Drupal.behaviors.logFilterLogListTableHeader = {
-  attach: function (context) {
-    if (!$.support.positionFixed) {
-      return;
-    }
-
-    $('table.sticky-enabled', context).live('tableheader', function () {
-      $(this).data("drupal-tableheader", new Drupal.tableHeader(this));
-    });
-  }
-};
-*/
 
 })(jQuery);

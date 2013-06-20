@@ -740,6 +740,8 @@ div#log_filter_log_list {
       div#log_filter_log_list th:first-of-type {
         padding: 0;
       }
+    div#log_filter_log_list tr.even:hover,
+    div#log_filter_log_list tr.odd:hover,
     div#log_filter_log_list tr.log-filter-list-displayed {
       background-color: #D8E8F7;
     }
@@ -750,6 +752,9 @@ div#log_filter_log_list {
         vertical-align: middle;
         line-height: 1.2em;
         padding: 0.7em;
+      }
+      div#log_filter_log_list td.log-filter-list-no-match {
+        font-weight: bold;
       }
       div#log_filter_log_list td.log-filter-list-severity {
         width: 37px; max-width: 37px;
@@ -794,33 +799,33 @@ div.log-filter-log-display-dialog {
     div.log-filter-log-display > table.dblog-event {
       margin: 0;
     }
-      div.log-filter-log-display > table.dblog-event th {
-        width: 5em;
-      }
-      div.log-filter-log-display > table.dblog-event td div.log-filter-log-display-severity {
-        display: inline-block;
-        width: 37px;
-        margin-left: 1em;
-        background-repeat: no-repeat; background-position: left;
-      }
-      div.log-filter-log-display > table.dblog-event td div.log-filter-log-display-info {
-        background-image: url("img/log-16-info.png");
-      }
-      div.log-filter-log-display > table.dblog-event td div.log-filter-log-display-notice {
-        background-image: url("img/log-16-notice.png");
-      }
-      div.log-filter-log-display > table.dblog-event td div.log-filter-log-display-warning {
-        background-image: url("img/log-16-warning.png");
-      }
-      div.log-filter-log-display > table.dblog-event td div.log-filter-log-display-error {
-        background-image: url("img/log-16-error.png");
-      }
-      div.log-filter-log-display > table.dblog-event td div.log-filter-log-display-critical {
-        background-image: url("img/log-16-critical.png");
-      }
-      div.log-filter-log-display > table.dblog-event td div.log-filter-log-display-alert {
-        background-image: url("img/log-16-alert.png");
-      }
-      div.log-filter-log-display > table.dblog-event td div.log-filter-log-display-emergency {
-        background-image: url("img/log-16-emergency.png");
-      }
+        div.log-filter-log-display > table.dblog-event th {
+          width: 5em;
+        }
+        div.log-filter-log-display > table.dblog-event td div.log-filter-log-display-severity {
+          display: inline-block;
+          width: 37px;
+          margin-left: 1em;
+          background-repeat: no-repeat; background-position: left;
+        }
+        div.log-filter-log-display > table.dblog-event td div.log-filter-log-display-info {
+          background-image: url("img/log-16-info.png");
+        }
+        div.log-filter-log-display > table.dblog-event td div.log-filter-log-display-notice {
+          background-image: url("img/log-16-notice.png");
+        }
+        div.log-filter-log-display > table.dblog-event td div.log-filter-log-display-warning {
+          background-image: url("img/log-16-warning.png");
+        }
+        div.log-filter-log-display > table.dblog-event td div.log-filter-log-display-error {
+          background-image: url("img/log-16-error.png");
+        }
+        div.log-filter-log-display > table.dblog-event td div.log-filter-log-display-critical {
+          background-image: url("img/log-16-critical.png");
+        }
+        div.log-filter-log-display > table.dblog-event td div.log-filter-log-display-alert {
+          background-image: url("img/log-16-alert.png");
+        }
+        div.log-filter-log-display > table.dblog-event td div.log-filter-log-display-emergency {
+          background-image: url("img/log-16-emergency.png");
+        }

@@ -1443,7 +1443,8 @@ class LogFilter {
    * MySQL version<any doesn't support LIMIT for sub queries.
    *
    * @see LogFilter::DB_SUBQUERY_LIMIT
-   * @param array $conditions
+   * @param array &$conditions
+   *  - empty or invalid conditions will be removed from the array
    * @param array $order_by
    * @param integer $offset
    *  - default: zero
@@ -1458,7 +1459,7 @@ class LogFilter {
    *  - default: FALSE (~ no user columns)
    * @return SelectQuery
    */
-  protected static function _logListQuery($conditions, $order_by, $offset = 0, $max = 0, $log_columns = NULL, $user_columns = FALSE) {
+  protected static function _logListQuery(&$conditions, $order_by, $offset = 0, $max = 0, $log_columns = NULL, $user_columns = FALSE) {
     $query = db_select('watchdog', 'w');
     if ($user_columns) {
       $query->leftJoin('users', 'u', 'w.uid = u.uid');
@@ -1480,75 +1481,115 @@ class LogFilter {
     }
     //  Conditions.
     if ($conditions) {
-      $names =& self::$_fields['conditions'];
-      foreach ($names as $key) {
-        switch ($key) {
-          case 'severity':
-            if (!empty($conditions[$key])) {
-              if (!is_array($v = $conditions[$key])) {
-                throw new Exception('Non-empty condition[' . $key . '], type[' . gettype($v) . '], must be array.',
-                  self::$_errorCodes['bad_filter_condition']);
+      // The wid (log id) condition is not part of the overall used conditions, so we have to handle it differently.
+      $wid = 0;
+      if (isset($conditions['wid'])) {
+        if (($v = (int)$conditions['wid']) && $v > -1 && $v <= PHP_INT_MAX) {
+          $wid = $v;
+          $query->condition('w.' . 'wid', $v, '=');
+          // Remove all other conditions.
+          array_splice($conditions, 0);
+          $conditions['wid'] = $wid;
+        }
+        else {
+          unset($conditions['wid']);
+        }
+      }
+      if (!$wid) {
+        $names =& self::$_fields['conditions'];
+        foreach ($names as $key) {
+          if (isset($conditions[$key])) {
+            if (!($v = $conditions[$key])) {
+              unset($conditions[$key]);
+            }
+            else {
+              switch ($key) {
+                case 'severity':
+                  if (!is_array($v)) {
+                    throw new Exception('Non-empty condition[' . $key . '], type[' . gettype($v) . '], must be array.',
+                      self::$_errorCodes['bad_filter_condition']);
+                  }
+                  //  Convert 'zero' to zero.
+                  $query->condition('w.' . $key, explode(',', str_replace('zero', '0', join(',', $v))), 'IN');
+                  break;
+                case 'type':
+                  if (!is_array($v)) {
+                    throw new Exception('Non-empty condition[' . $key . '], type[' . gettype($v) . '], must be array.',
+                      self::$_errorCodes['bad_filter_condition']);
+                  }
+                  $query->condition('w.' . $key, explode(',', check_plain(join(',', $v))), 'IN');
+                  break;
+                case 'time_range':
+                  if (($v = (int)$v) > 0 && $v < 1000) {
+                    if (!is_array($v = $conditions[$key])) {
+                      throw new Exception('Non-empty condition[' . $key . '], type[' . gettype($v) . '], must be array.',
+                        self::$_errorCodes['bad_filter_condition']);
+                    }
+                    $query->condition('w.' . $key, REQUEST_TIME - ($v * 60 * 60), '>=');
+                  }
+                  else {
+                    unset($conditions[$key]);
+                  }
+                  break;
+                case 'time_from':
+                  if (($v = (int)$v) > 0 && $v <= PHP_INT_MAX) {
+                    $query->condition('w.' . 'timestamp', $v, '>=');
+                  }
+                  else {
+                    unset($conditions[$key]);
+                  }
+                  break;
+                case 'time_to':
+                  if (($v = (int)$v) > 0 && $v <= PHP_INT_MAX) {
+                    $query->condition('w.' . 'timestamp', $v, '<=');
+                  }
+                  else {
+                    unset($conditions[$key]);
+                  }
+                  break;
+                case 'role':
+                  if (($v = (int)$v) > 0 && $v <= PHP_INT_MAX) {
+                    $query->join('users_roles', 'ur', 'w.uid = ur.uid AND ur.rid = :rid', array(':rid' => $v));
+                  }
+                  else {
+                    unset($conditions[$key]);
+                  }
+                  break;
+                case 'uid':
+                  if (($v = (int)$v) > 0 && $v <= PHP_INT_MAX) {
+                    $query->condition('w.' . $key, $v, '=');
+                  }
+                  else {
+                    unset($conditions[$key]);
+                  }
+                  break;
+                case 'hostname':
+                case 'location':
+                  if (($v = check_plain($v))) {
+                    $query->condition('w.' . $key, $v, '=');
+                  }
+                  else {
+                    unset($conditions[$key]);
+                  }
+                  break;
+                case 'referer': // Support strictly empty value 'none'
+                  if (($v = check_plain($v))) {
+                    if ($v != 'none') {
+                      $query->condition('w.' . $key, $v, '=');
+                    }
+                    else {
+                      $query->condition(db_or()->condition('w.' . $key, '', '=')->isNull('w.' . $key));
+                    }
+                  }
+                  else {
+                    unset($conditions[$key]);
+                  }
+                  break;
+                default:
+                  //  Ignore.
               }
-              //  Convert 'zero' to zero.
-              $query->condition('w.' . $key, explode(',', str_replace('zero', '0', join(',', $v))), 'IN');
             }
-            break;
-          case 'type':
-            if (!empty($conditions[$key])) {
-              if (!is_array($v = $conditions[$key])) {
-                throw new Exception('Non-empty condition[' . $key . '], type[' . gettype($v) . '], must be array.',
-                  self::$_errorCodes['bad_filter_condition']);
-              }
-              $query->condition('w.' . $key, explode(',', check_plain(join(',', $v))), 'IN');
-            }
-            break;
-          case 'time_range':
-            if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v < 1000) {
-              if (!is_array($v = $conditions[$key])) {
-                throw new Exception('Non-empty condition[' . $key . '], type[' . gettype($v) . '], must be array.',
-                  self::$_errorCodes['bad_filter_condition']);
-              }
-              $query->condition('w.' . $key, REQUEST_TIME - ($v * 60 * 60), '>=');
-            }
-            break;
-          case 'time_from':
-            if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v <= PHP_INT_MAX) {
-              $query->condition('w.' . 'timestamp', $v, '>=');
-            }
-            break;
-          case 'time_to':
-            if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v <= PHP_INT_MAX) {
-              $query->condition('w.' . 'timestamp', $v, '<=');
-            }
-            break;
-          case 'role':
-            if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v <= PHP_INT_MAX) {
-              $query->join('users_roles', 'ur', 'w.uid = ur.uid AND ur.rid = :rid', array(':rid' => $v));
-            }
-            break;
-          case 'uid':
-            if (!empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v <= PHP_INT_MAX) {
-              $query->condition('w.' . $key, $v, '=');
-            }
-            break;
-          case 'hostname':
-          case 'location':
-            if (!empty($conditions[$key]) && ($v = check_plain($conditions[$key]))) {
-              $query->condition('w.' . $key, $v, '=');
-            }
-            break;
-          case 'referer': // Support strictly empty value 'none'
-            if (!empty($conditions[$key]) && ($v = check_plain($conditions[$key]))) {
-              if ($v != 'none') {
-                $query->condition('w.' . $key, $v, '=');
-              }
-              else {
-                $query->condition(db_or()->condition('w.' . $key, '', '=')->isNull('w.' . $key));
-              }
-            }
-            break;
-          default:
-            //  Ignore.
+          }
         }
       }
     }
@@ -1587,7 +1628,7 @@ class LogFilter {
   }
 
   /**
-   * @param array $conditions
+   * @param array &$conditions
    * @param array $order_by
    * @param integer $offset
    * @param integer $max
@@ -1595,7 +1636,7 @@ class LogFilter {
    *  - default: FALSE
    * @return array
    */
-  protected static function _listLogs($conditions, $order_by, $offset, $max, $translate = FALSE) {
+  protected static function _listLogs(&$conditions, $order_by, $offset, $max, $translate = FALSE) {
     $query = self::_logListQuery($conditions, $order_by, $offset, $max, NULL, array('name'));
     if (($offset || $max) && !self::DB_SUBQUERY_LIMIT) {
       $query->range($offset, $max);
@@ -1620,9 +1661,16 @@ class LogFilter {
       }
       unset($event); // Clear reference.
     }
+    // Tell which conditions were used, but not what their values where - except for the wid (log id) condition.
+    $responseConditions = array_fill_keys($conditions, true);
+    if (!empty($conditions['wid'])) {
+      $responseConditions['wid'] = $conditions['wid'];
+    }
     return array(
       $rows,
-      (int) self::_logListQuery($conditions, $order_by, 0, 0, FALSE)->execute()->fetchField()
+      $responseConditions,
+      $offset,
+      (int) self::_logListQuery($conditions, $order_by, 0, 0, FALSE)->execute()->fetchField(),
     );
   }
 
@@ -1784,8 +1832,11 @@ class LogFilter {
             if ($max > self::PAGE_RANGE_MAX) {
               $max = self::PAGE_RANGE_MAX;
             }
+            if (!$conditions) {
+              $conditions = array();
+            }
             $oResp->log_list = self::_listLogs(
-              $conditions ? $conditions : array(),
+              $conditions,
               $order_by ? $order_by : array(),
               $offset,
               $max,
