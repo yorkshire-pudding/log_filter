@@ -426,7 +426,7 @@ var LogFilter = function($) {
                   return;
                 }
                 _resetCriteria(null, "default", true); // Prevent ugly 'Illegal choice' error for type condition.
-                Judy.enable(_elements.buttons.update_list);
+      //          Judy.enable(_elements.buttons.update_list);
                 _submit();
               });
               break;
@@ -468,7 +468,7 @@ var LogFilter = function($) {
                   _elements.filter.origin.value = _.name; // Pass name to origin.
                   _elements.filter.name.value = "";
                 }
-                Judy.enable(_elements.buttons.update_list);
+      //          Judy.enable(_elements.buttons.update_list);
                 _submit();
               });
               break;
@@ -616,7 +616,7 @@ var LogFilter = function($) {
               oElms[nm] = jq.get();
               //  Un-check severity:any upon change in list of severity.
               jq.change(function() {
-                var a, le, i;
+                var a, le, i, someChecked;
                 if(this.checked) {
                   _elements.conditions.severity_any.checked = false;
                 }
@@ -624,10 +624,13 @@ var LogFilter = function($) {
                   le = (a = _elements.conditions.severity_some).length;
                   for(i = 0; i < le; i++) {
                     if(a[i].checked) {
-                      return;
+                      someChecked = true;
+                      break;
                     }
                   }
-                  _elements.conditions.severity_any.checked = "checked";
+                  if(!someChecked) {
+                    _elements.conditions.severity_any.checked = "checked";
+                  }
                 }
                 _changedCriterion();
               });
@@ -898,7 +901,7 @@ var LogFilter = function($) {
           if(!initially) {
             Judy.fieldValue(_elements.filter.filter, null, "");
             _elements.filter.name.value = _.name = _elements.filter.origin.value = _.origin = "";
-            Judy.enable(_elements.buttons.update_list);
+   //         Judy.enable(_elements.buttons.update_list);
           }
           if(_.crudFilters) {
             $(_elements.settings.onlyOwn.parentNode).show();
@@ -922,7 +925,7 @@ var LogFilter = function($) {
         case "adhoc":
           if(!initially) {
             Judy.fieldValue(_elements.filter.filter, null, "");
-            Judy.enable(_elements.buttons.update_list);
+   //         Judy.enable(_elements.buttons.update_list);
           }
           if(fromMode === "stored") {
             //  Pass current name to origin field.
@@ -946,7 +949,7 @@ var LogFilter = function($) {
             $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
             $(_elements.filter.description.parentNode).hide();
           }
-          Judy.enable(_elements.buttons.update_list);
+    //      Judy.enable(_elements.buttons.update_list);
           if(_.delLogs) {
             $(_elements.settings.delete_logs_max).show();
             $(elm = _elements.buttons.delete_logs_button).show();
@@ -969,7 +972,7 @@ var LogFilter = function($) {
               $(_elements.filter.name_suggest.parentNode).hide();
               $(_elements.filter.description.parentNode).hide();
             }
-            Judy.enable(_elements.buttons.update_list);
+    //        Judy.enable(_elements.buttons.update_list);
           }
           if(_.crudFilters) {
             $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
@@ -1020,7 +1023,7 @@ var LogFilter = function($) {
           $(_elements.filter.description.parentNode).show();
           $(_elements.buttons.save).show();
           $(_elements.buttons.cancel).show();
-          Judy.disable(_elements.buttons.update_list);
+    //      Judy.disable(_elements.buttons.update_list);
           if(_.delLogs) {
             $(_elements.buttons.delete_logs_button.parentNode).hide();
           }
@@ -1049,7 +1052,7 @@ var LogFilter = function($) {
           $(_elements.filter.description.parentNode).show();
           $(_elements.buttons.cancel).show();
           $(_elements.buttons.save).show();
-          Judy.disable(_elements.buttons.update_list); // @todo: no, because update buttons must be ajaxed
+   //       Judy.disable(_elements.buttons.update_list); // @todo: no, because update buttons must be ajaxed
           $(_elements.settings.onlyOwn.parentNode).hide();
           if(_.delLogs) {
             $(_elements.buttons.delete_logs_button.parentNode).hide();

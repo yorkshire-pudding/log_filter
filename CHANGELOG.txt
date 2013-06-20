@@ -5,6 +5,8 @@ log_filter 7.x-1.x, 2013-06-20
 * Now removes clear log form from standard dblog log view page.
 * Filter name from url now requires non-digit as first character, and at least 2 chars length.
 * Now allows for overwriting existing filter; implemented using non-AJAX request.
+* Fixed bug in type_some handler; failed to notice change in criteria if unchecking an option.
+* The update list buttons are no longer being disabled (no need for that anymore because the list is always AJAXed using current criteria).
 
 log_filter 7.x-1.x, 2013-05-25
 ------------------------------
