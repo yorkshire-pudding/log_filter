@@ -45,6 +45,7 @@ function log_filter_menu() {
       'access arguments' => array('log_filter administer'), // permission required
       'file' => 'admin/log_filter.admin.inc',
       'type' => MENU_NORMAL_ITEM,
+      'theme callback' => 'log_filter_use_admin_theme',
     ),
     //  AJAX callback.
     'log_filter/ajax/%' => array( // % ~ action
@@ -57,7 +58,6 @@ function log_filter_menu() {
   );
 
   //  NB: Accessing a saved filter is done via an extra url argument after admin/reports/dblog/log_filter; see LogFilter::FILTER_NAME_ARG.
-
   $i = 0;
   //  Add two tabs to dblog's default viewer.
   if (!variable_get('log_filter_hidedblog', FALSE)) {
@@ -74,6 +74,7 @@ function log_filter_menu() {
       'access arguments' => array('access site reports'), // Permission required.
       'type' => MENU_LOCAL_TASK,
       'weight' => ++$i,
+      'theme callback' => 'log_filter_use_admin_theme',
     );
   }
   //  ... or take over url of dblog's default viewer.
@@ -86,6 +87,7 @@ function log_filter_menu() {
       'access arguments' => array('access site reports'), // Permission required.
       'type' => MENU_NORMAL_ITEM,
       'weight' => -1,
+      'theme callback' => 'log_filter_use_admin_theme',
     );
     $items['admin/reports/dblog/log_filter'] = array(
       'type' => MENU_DEFAULT_LOCAL_TASK,
@@ -102,8 +104,31 @@ function log_filter_menu() {
     'file' => 'admin/log_filter.admin.inc',
     'type' => MENU_LOCAL_TASK,
     'weight' => ++$i,
+    'theme callback' => 'log_filter_use_admin_theme',
   );
   return $items;
+}
+
+/**
+ * Forces administrative on log view pages, unless this feature has been turned off on this module's settings page.
+ *
+ * @return string
+ */
+function log_filter_use_admin_theme() {
+  return variable_get('log_filter_admintheme', TRUE) ? variable_get('admin_theme') : (
+    !empty($GLOBALS['user']->theme) ? $GLOBALS['user']->theme : variable_get('theme_default', 'seven')
+  );
+}
+
+/**
+ * Removes clear log form from standard dblog log view page.
+ *
+ * @param array &$form
+ * @param array &$form_state
+ * @return void
+ */
+function log_filter_form_dblog_clear_log_form_alter(&$form, &$form_state) {
+  $form['dblog_clear'] = array();
 }
 
 /**
@@ -142,6 +167,7 @@ function log_filter_admin_form_submit($form, &$form_state) {
   _log_filter_admin_form_submit($form, $form_state);
 }
 
+/* Currently the viewer form doesnt use textareas, but this is how to get rid of sudding theme_wrappers.
 function log_filter_form_field_after_build($element) {
   if (!empty($element['#type']) && $element['#type'] == 'textarea'
     && isset($element['#resizable']) && !$element['#resizable'] // Do NOT wrap textarea if it isnt resizable (too annoying when finding in frontend).
@@ -150,6 +176,7 @@ function log_filter_form_field_after_build($element) {
   }
   return $element;
 }
+ */
 
 /**
  * Access permission: 'access site reports'.

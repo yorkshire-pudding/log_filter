@@ -1,3 +1,9 @@
+log_filter 7.x-1.x, 2013-06-20
+------------------------------
+* Use admin theme on log view pages (unless that setting is turned off).
+* Renamed module css default variable.
+* Now removes clear log form from standard dblog log view page.
+
 log_filter 7.x-1.x, 2013-05-25
 ------------------------------
 * Implemented log details view.

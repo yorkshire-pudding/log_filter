@@ -143,21 +143,16 @@ class LogFilter {
       array('type' => 'file', 'group' => JS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
     );
 
-    if (($use_module_css = variable_get('log_filter_css', TRUE))) {
+    // Use the module's default css.
+    if (($use_module_css = variable_get('log_filter_cssdefault', TRUE))) {
       drupal_add_css(
         $path . '/css/log_filter.css',
         array('type' => 'file', 'group' => CSS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
       );
     }
+    // Add table header script.
     drupal_add_js('misc/tableheader.js');
-    /*drupal_add_js(
-      array(
-        'LogFilter' => array(
-          'list_message_truncate' => variable_get('log_filter_trnct', self::LIST_MESSAGE_TRUNCATE)
-        )
-      ),
-      'setting'
-    );*/
+
     drupal_add_js(
       $path . '/js/log_filter.js',
       array('type' => 'file', 'group' => JS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
