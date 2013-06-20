@@ -195,7 +195,7 @@ class LogFilter {
         (($le = strlen($v = arg(self::FILTER_NAME_ARG))) // Deliberately not drupal_...().
           && $le <= 32
           && $v != 'log_filter' && $v != 'default' && $v != 'adhoc'
-          && preg_match('/^[a-z\d_]+$/', $v) ? $v : '');
+          && preg_match('/^[a-z_][a-z\d_]+$/', $v) ? $v : '');
 
       $require_admin = $submitted ? $submitted['filter']['require_admin'] : FALSE;
       $user_admin_permission = user_access('log_filter administer');

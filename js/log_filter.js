@@ -313,7 +313,6 @@ var LogFilter = function($) {
     var v = evt ? this.value : (elm ? elm.value : value), le = v.length;
     if(le < 2 || le > 32 || !/[a-z_]/.test(v.charAt(0)) || !/[a-z\d_]/.test(v) || $.inArray(v.toLowerCase(), _machineNameIllegals) > -1) {
       if(!noFeedback) {
-        //alert( self.local("error_machine_name_composition", {"!illegals": _machineNameIllegals.join(", ")}) );
         self.Message.set( self.local("error_machine_name_composition", {"!illegals": _machineNameIllegals.join(", ")}), "warning", {
           modal: true,
           close: function() {
