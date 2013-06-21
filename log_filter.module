@@ -32,7 +32,7 @@ function log_filter_permission() {
  *
  * Declares configuration page.
  *
- * @return void
+ * @return array
  */
 function log_filter_menu() {
   $items = array(
@@ -166,17 +166,6 @@ function log_filter_admin_form_submit($form, &$form_state) {
   module_load_include('inc', 'log_filter', 'log_filter.admin');
   _log_filter_admin_form_submit($form, $form_state);
 }
-
-/* Currently the viewer form doesnt use textareas, but this is how to get rid of sudding theme_wrappers.
-function log_filter_form_field_after_build($element) {
-  if (!empty($element['#type']) && $element['#type'] == 'textarea'
-    && isset($element['#resizable']) && !$element['#resizable'] // Do NOT wrap textarea if it isnt resizable (too annoying when finding in frontend).
-  ) {
-    unset($element['#theme_wrappers']);
-  }
-  return $element;
-}
- */
 
 /**
  * Access permission: 'access site reports'.

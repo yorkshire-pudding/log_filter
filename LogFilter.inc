@@ -348,6 +348,10 @@ class LogFilter {
           ->distinct()
           ->execute()->fetchCol())) {
         sort($options_type);
+        foreach ($options_type as &$v) {
+          $v = str_replace(array("\r", "\n", ','), ' ', $v);
+        }
+        unset($v); // Clear reference.
         $options_type = array_combine($options_type, $options_type);
         //  The filter may contain types that do not exist currently.
         $prepend_types = array();
@@ -429,7 +433,6 @@ class LogFilter {
 
       //  Build form.
       $title_require_admin = '';
-
       $form['log_filter_filter_edit'] = array(
         '#type' => 'fieldset',
         '#title' => t('Filter') . ': <span id="log_filter_title_display">' . $title . '</span>',
@@ -514,12 +517,18 @@ class LogFilter {
           '#prefix' => '<div class="form-item log-filter-type">'
             . '<label>' . t('Type') . '</label>',
         ),
-        'log_filter_type' => array( // End: log-filter-type (2 open).
+        'log_filter_type_proxy' => array(
           '#type' => 'checkboxes',
           '#options' => $options_type,
-          '#default_value' => $conditions['type'],
+          '#default_value' => array(),
           '#attributes' => array('autocomplete' => 'off'),
           '#prefix' => '<div class="log-filter-type-container">',
+        ),
+        'log_filter_type' => array( // End: log-filter-type (2 open).
+          '#type' => 'textarea',
+          '#default_value' => join("\n", $conditions['type']),
+          '#attributes' => array('autocomplete' => 'off'),
+          '#resizable' => FALSE,
           '#suffix' => '</div></div>',
         ),
         //  Various.
@@ -920,7 +929,7 @@ class LogFilter {
    */
   public static function viewerFormSubmit($form, &$form_state) {
     try {
-      //inspect($form_state['values']);
+      //inspect($form_state);
       $values =& $form_state['values'];
       $prefix = 'log_filter_';
 
@@ -1113,7 +1122,7 @@ class LogFilter {
                 $a =& $values[$prefix . $name];
                 foreach ($a as $v) {
                   if ($v) { // Checkboxes; is zero if unchecked.
-                    $conditions[$name][ $v ] = $v;
+                    $conditions[$name][ $v ] = str_replace(array("\r", "\n", ','), ' ', $v);;
                   }
                 }
                 unset($a); // Clear reference.
@@ -1662,7 +1671,7 @@ class LogFilter {
       unset($event); // Clear reference.
     }
     // Tell which conditions were used, but not what their values where - except for the wid (log id) condition.
-    $responseConditions = array_fill_keys($conditions, true);
+    $responseConditions = array_fill_keys(array_keys($conditions), true);
     if (!empty($conditions['wid'])) {
       $responseConditions['wid'] = $conditions['wid'];
     }

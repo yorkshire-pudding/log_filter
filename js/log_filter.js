@@ -131,8 +131,9 @@ var LogFilter = function($) {
       time_to_proxy: "input[name='log_filter_time_to_proxy']",
       severity_any: "input[name='log_filter_severity[-1]']", // For iteration: must go before severity_some.
       severity_some: "div#edit-log-filter-severity input:not([name='log_filter_severity[-1]'])", // More elements.
-      type_any: "input[name='log_filter_type_wildcard']", // For iteration: must go before type_some.
-      type_some: "div#edit-log-filter-type input", // We only store the first, because we only need one for getting/setting value.
+      type_any: "input[name='log_filter_type_wildcard']", // For iteration: must go before type_proxy.
+      type_some: "textarea[name='log_filter_type']", // For iteration: must go before type_proxy.
+      type_proxy: "div#edit-log-filter-type-proxy input", // We only store the first, because we only need one for getting/setting value.
       role: "select[name='log_filter_role']", // For iteration: must go before uid.
       uid: "input[name='log_filter_uid']",
       hostname: "input[name='log_filter_hostname']",
@@ -378,7 +379,7 @@ var LogFilter = function($) {
    * @return {void}
    */
   _submit = function() {
-    var nm = "", v;
+    var nm = "", elm;
     if(_submitted) {
       return;
     }
@@ -391,10 +392,19 @@ var LogFilter = function($) {
         nm = _.name;
         break;
     }
+    // Add filter name to action url.
     _elements.form.setAttribute(
       "action",
       _elements.form.getAttribute("action").replace(/\/dblog(\/[^\?\&]+)([\?\&].+)?$/, "/dblog/log_filter/" + nm + "$2")
     );
+    // Un-name type_proxy checklist items, to prevent backend validation error (Illegal choice...).
+    if ((elm = _elements.conditions.type_proxy)) {
+      $("input[type='checkbox']", Judy.ancestor(elm, 'div.form-checkboxes')).each(function() {
+        this.id = '';
+        this.setAttribute('name', '');
+        this.value = '';
+      });
+    }
     //  Delay; otherwise it may in some situations not submit, presumably because Judy.enable() hasnt finished it's job yet(?).
     setTimeout(function() {
       $(_elements.buttons.submit).trigger("click");
@@ -426,7 +436,7 @@ var LogFilter = function($) {
                   _resetCriteria(null, "default");
                   return;
                 }
-                _resetCriteria(null, "default", true); // Prevent ugly 'Illegal choice' error for type condition.
+      //          _resetCriteria(null, "default", true); // Prevent ugly 'Illegal choice' error for type condition.
       //          Judy.enable(_elements.buttons.update_list);
                 _submit();
               });
@@ -640,23 +650,46 @@ var LogFilter = function($) {
               oElms[nm] = elm;
               jq.change(function() {
                 var elm;
-                if(this.checked && // Uncheck all of type_some.
-                    (elm = _elements.conditions.type_some) // Doesnt exists if no logs at all.
+                if(this.checked && // Uncheck all of type_proxy.
+                    (elm = _elements.conditions.type_proxy) // Doesnt exists if no logs at all.
                 ) {
+                  _elements.conditions.type_some.value = "";
                   Judy.fieldValue(elm, null, "", "checkboxes");
                 }
                 _changedCriterion();
               });
               break;
-            case "type_some":  // check list
+            case "type_some": // Real name: log_filter_type.
+              oElms[nm] = elm;
+              _textareaRemoveWrapper(elm);
+              elm.value = elm.value.replace(/\r/g, '');
+              break;
+            case "type_proxy":  // check list
               oElms[nm] = elm;
               if(elm) { // Doesnt exists if no logs at all.
+                // Pass values from type_some (real name: log_filter_type).
+                Judy.fieldValue(_elements.conditions.type_proxy, null, _elements.conditions.type_some.value.split(/\n/));
                 jq.change(function() {
+                  var v, i;
                   if(this.checked) { // Un-check type_any.
                     _elements.conditions.type_any.checked = false;
+                    // Pass value to type_some.
+                    if (Judy.arrayIndexOf(v = _elements.conditions.type_some.value.split(/\n/), this.value) === -1) {
+                      v.push(this.value);
+                      _elements.conditions.type_some.value = $.trim(v.join("\n"));
+                    }
                   }
-                  else if(!Judy.fieldValue(_elements.conditions.type_some)) {
-                    _elements.conditions.type_any.checked = "checked";
+                  else {
+                    if ((i = Judy.arrayIndexOf(v = _elements.conditions.type_some.value.split(/\n/), this.value)) > -1) {
+                      v.splice(i, 1);
+                      if (v.length) {
+                        _elements.conditions.type_some.value = $.trim(v.join("\n"));
+                      }
+                      else {
+                        _elements.conditions.type_some.value = "";
+                        _elements.conditions.type_any.checked = "checked";
+                      }
+                    }
                   }
                   _changedCriterion();
                 });
@@ -1269,7 +1302,7 @@ var LogFilter = function($) {
               r[i].checked = false;
             }
             break;
-          case "type_some":
+          case "type_proxy":
             if(r) { // Doesnt exists if no logs at all.
               Judy.fieldValue(r, null, "", "checkboxes");
             }
@@ -1333,6 +1366,7 @@ var LogFilter = function($) {
               break;
             case "severity_any":
             case "type_any":
+            case "type_proxy":
               //  Check at severity_some/type_some instead.
               break;
             case "severity_some":
@@ -1350,13 +1384,10 @@ var LogFilter = function($) {
                 }
               }
               break;
-            case "type_some": // check list
-              if(!oElms.type_any.checked &&
-                  oElms.type_some && // Doesnt exists if no logs at all.
-                  (v = Judy.fieldValue(oElms.type_some))
-              ) {
+            case "type_some":
+              if((v = r.value) !== "") {
                 ++n;
-                conditions.type = v;
+                conditions[nm] = v.split(/\n/);
               }
               break;
             case "hostname":
