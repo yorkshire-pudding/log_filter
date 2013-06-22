@@ -342,7 +342,7 @@ class LogFilter {
       }
 
       //  Prepare some fields.
-      //  Types.
+      //  Type (frontend: type_some).
       if (($options_type = db_select('watchdog')
           ->fields('watchdog', array('type'))
           ->distinct()
@@ -357,7 +357,10 @@ class LogFilter {
         $prepend_types = array();
         if ($conditions['type']) {
           foreach ($conditions['type'] as $v) {
-            if ($v && !isset($options_type[$v])) {
+            if ($v) {
+              if (isset($options_type[$v])) {
+                unset($options_type[$v]);
+              }
               $prepend_types[$v] = $v;
             }
           }
@@ -365,9 +368,13 @@ class LogFilter {
             $options_type = array_merge($prepend_types, $options_type);
           }
         }
+        inspect($options_type);
       }
       elseif ($conditions['type']) {
         $options_type = $conditions['type'];
+      }
+      else { // Make sure that there's always at least a single option.
+        $options_type = array('php' => 'php');
       }
 
       //  Severity.
@@ -1117,16 +1124,8 @@ class LogFilter {
               break;
             case 'type':
               //  Dont remember type list (may be very long), if wildcard on.
-              $conditions[$name] = array();
-              if (!$conditions['type_wildcard']) {
-                $a =& $values[$prefix . $name];
-                foreach ($a as $v) {
-                  if ($v) { // Checkboxes; is zero if unchecked.
-                    $conditions[$name][ $v ] = str_replace(array("\r", "\n", ','), ' ', $v);;
-                  }
-                }
-                unset($a); // Clear reference.
-              }
+              $conditions[$name] = $conditions['type_wildcard'] ? array() :
+                array_combine($a = explode("\n", str_replace("\r", '', $values[$prefix . $name])), $a);
               if ($save) {
                 unset($conditions['type_wildcard']);
               }
@@ -1708,13 +1707,13 @@ class LogFilter {
       $query = self::_logListQuery($conditions, $order_by, $offset, $max, array('wid'));
       if (($offset || $max)) {
         if (!self::DB_SUBQUERY_LIMIT) {
-          $ids = $query->range($offset, $max);
+          $query->range($offset, $max);
         }
       }
       $ids = $query->execute()->fetchCol();
       //  This may fail because the list of ids may exceed query limit (query max length).
       if (count($ids) > 40000) {
-        $le = count($ids = array_chunk($id, 40000));
+        $le = count($ids = array_chunk($ids, 40000));
         $deleted = 0;
         for ($i = 0; $i < $le; $i++) {
           $deleted += db_delete('watchdog')

@@ -325,8 +325,12 @@ div#log_filter__message {
             width: 17em; max-width: 17em;
             height: 12.5em; max-height: 12.5em;
           }
+            form#log-filter-form div#log_filter_criteria div.filter-conditions div div.log-filter-type-container input[type='text'] {
+              width: 13em;
+              padding-top: 0; padding-bottom: 0;
+            }
             form#log-filter-form div#log_filter_criteria div.filter-conditions div div.log-filter-type-container textarea {
-              /*display: none;*/
+              display: none;
             }
         form#log-filter-form div#log_filter_criteria div.filter-conditions div div.log-filter-user {
           padding-top: 0.8em;

@@ -1,3 +1,7 @@
+log_filter 7.x-1.x, 2013-06-22
+------------------------------
+* Implemented proxy type condition field, to prevent 'Illegal choice' errors for checklist due to dynamic options range.
+
 log_filter 7.x-1.x, 2013-06-20
 ------------------------------
 * Use admin theme on log view pages (unless that setting is turned off).

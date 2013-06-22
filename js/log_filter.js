@@ -5,13 +5,15 @@
 
 (function($) {
 
+'use strict';
+
 /**
  * Singleton, instantiated to itself.
  * @constructor
  * @namespace
  * @name LogFilter
  * @singleton
- * @param {jQuery} $
+ * @param {function} $
  */
 var LogFilter = function($) {
   /**
@@ -29,7 +31,7 @@ var LogFilter = function($) {
   /**
    * @ignore
    * @private
-   * @type {obj}
+   * @type {object}
    */
   _errorCodes = {
     unknown: 1,
@@ -52,7 +54,7 @@ var LogFilter = function($) {
   /**
    * @ignore
    * @private
-   * @type {obj}
+   * @type {object}
    */
   _ = {
     //  {arr}
@@ -71,7 +73,8 @@ var LogFilter = function($) {
       hostname: "",
       location: "",
       referer: "",
-      orderBy: []
+      orderBy: [],
+      type_options: []
     },
     warned_deleteNoMax: false,
     saveEditFilterAjaxed: false, // Save/update filter using AJAX or ordinary POST request?
@@ -103,7 +106,7 @@ var LogFilter = function($) {
   /**
    * @ignore
    * @private
-   * @type {obj}
+   * @type {object}
    */
   _selectors = {
     page: "div#page",
@@ -195,7 +198,7 @@ var LogFilter = function($) {
    * @private
    * @param {Error} [error]
    * @param {mixed} [variable]
-   * @param {obj|int|bool|str} [options]
+   * @param {object|integer|bool|string} [options]
    * @return {void}
    */
   _errorHandler = function(error, variable, options) {
@@ -224,9 +227,9 @@ var LogFilter = function($) {
    * Object/function property getter, Object.hasOwnproperty() alternative.
    *
    * @ignore
-   * @param {obj} o
-   * @param {str|int} k0
-   * @param {str|int} [k1]
+   * @param {object} o
+   * @param {string|integer} k0
+   * @param {string|integer} [k1]
    * @return {mixed}
    *  - undefined: o not object, or o doesnt have property k0, or the value of o[k1] is undefined; and the same goes if arg k1 is used
    */
@@ -282,7 +285,7 @@ var LogFilter = function($) {
     var v = this.value, rgx = /^[a-z\d_]$/;
     if(v.length > 1 && !rgx.test(v)) {
       if(!rgx.test(v = v.toLowerCase())) {
-        if(!rgx.test(v = v.replace(/[\ \-]/g, "_"))) {
+        if(!rgx.test(v = v.replace(/[ \-]/g, "_"))) {
           if(!rgx.test(v = _toAscii(v))) {
             v = v.replace(/[^a-z\d_]/g, "_");
           }
@@ -299,7 +302,7 @@ var LogFilter = function($) {
     "log_filter",
     "default",
     "adhoc"
-  ],
+  ];
   /**
    * @ignore
    * @param {Event|falsy} evt
@@ -307,7 +310,7 @@ var LogFilter = function($) {
    * @param {element} [elm]
    *  - default: falsy (~ use arg value)
    * @param {string} [value]
-   * @param {bool} [noFeedback]
+   * @param {boolean} [noFeedback]
    *  - default: false (~ do pop alert upon validation failure)
    * @return {void}
    */
@@ -342,7 +345,7 @@ var LogFilter = function($) {
 	/**
    * @ignore
    * @param {Event} [evt]
-   * @param {bool} [initially]
+   * @param {boolean} [initially]
 	 * @return {void}
 	 */
 	_resize = function(evt, initially) {
@@ -397,14 +400,6 @@ var LogFilter = function($) {
       "action",
       _elements.form.getAttribute("action").replace(/\/dblog(\/[^\?\&]+)([\?\&].+)?$/, "/dblog/log_filter/" + nm + "$2")
     );
-    // Un-name type_proxy checklist items, to prevent backend validation error (Illegal choice...).
-    if ((elm = _elements.conditions.type_proxy)) {
-      $("input[type='checkbox']", Judy.ancestor(elm, 'div.form-checkboxes')).each(function() {
-        this.id = '';
-        this.setAttribute('name', '');
-        this.value = '';
-      });
-    }
     //  Delay; otherwise it may in some situations not submit, presumably because Judy.enable() hasnt finished it's job yet(?).
     setTimeout(function() {
       $(_elements.buttons.submit).trigger("click");
@@ -415,7 +410,7 @@ var LogFilter = function($) {
    * @return {void}
    */
   _prepareForm = function() {
-    var oSels, oElms, nm, jq, elm, aElms, a, le, i, v, nOrderBy, u, elm2, d;
+    var oSels, oElms, nm, jq, elm, par, aElms, a, le, i, v, nOrderBy, u, elm2, d;
     try {
       _elements.page = $(_selectors.page).get(0);
       _elements.form = $(_selectors.form).get(0);
@@ -436,8 +431,6 @@ var LogFilter = function($) {
                   _resetCriteria(null, "default");
                   return;
                 }
-      //          _resetCriteria(null, "default", true); // Prevent ugly 'Illegal choice' error for type condition.
-      //          Judy.enable(_elements.buttons.update_list);
                 _submit();
               });
               break;
@@ -479,7 +472,6 @@ var LogFilter = function($) {
                   _elements.filter.origin.value = _.name; // Pass name to origin.
                   _elements.filter.name.value = "";
                 }
-      //          Judy.enable(_elements.buttons.update_list);
                 _submit();
               });
               break;
@@ -650,11 +642,9 @@ var LogFilter = function($) {
               oElms[nm] = elm;
               jq.change(function() {
                 var elm;
-                if(this.checked && // Uncheck all of type_proxy.
-                    (elm = _elements.conditions.type_proxy) // Doesnt exists if no logs at all.
-                ) {
+                if(this.checked) {
                   _elements.conditions.type_some.value = "";
-                  Judy.fieldValue(elm, null, "", "checkboxes");
+                  Judy.fieldValue(_elements.conditions.type_proxy, null, "", "checkboxes");
                 }
                 _changedCriterion();
               });
@@ -664,36 +654,78 @@ var LogFilter = function($) {
               _textareaRemoveWrapper(elm);
               elm.value = elm.value.replace(/\r/g, '');
               break;
-            case "type_proxy":  // check list
+            case "type_proxy": // check list
               oElms[nm] = elm;
-              if(elm) { // Doesnt exists if no logs at all.
-                // Pass values from type_some (real name: log_filter_type).
-                Judy.fieldValue(_elements.conditions.type_proxy, null, _elements.conditions.type_some.value.split(/\n/));
-                jq.change(function() {
-                  var v, i;
-                  if(this.checked) { // Un-check type_any.
-                    _elements.conditions.type_any.checked = false;
-                    // Pass value to type_some.
-                    if (Judy.arrayIndexOf(v = _elements.conditions.type_some.value.split(/\n/), this.value) === -1) {
-                      v.push(this.value);
+              // Un-name checklist options, to prevent backend validation error (Illegal choice...).
+              // Make list of all options.
+              $("input[type='checkbox']", par = Judy.ancestor(elm, 'div.form-checkboxes')).each(function() {
+                this.id = '';
+                this.setAttribute('name', '');
+                _.recordedValues.type_options.push(this.value);
+              });
+              // Pass values from type_some (hidden textarea; real name: log_filter_type).
+              Judy.fieldValue(_elements.conditions.type_proxy, null, $.trim(_elements.conditions.type_some.value).split(/\n/), "checkboxes");
+              jq.change(function() {
+                var v, i;
+                if(this.checked) { // Un-check type_any.
+                  _elements.conditions.type_any.checked = false;
+                  // Pass value to type_some.
+                  if (Judy.arrayIndexOf(v = $.trim(_elements.conditions.type_some.value).split(/\n/), this.value) === -1) {
+                    v.push(this.value);
+                    _elements.conditions.type_some.value = $.trim(v.join("\n"));
+                  }
+                }
+                else {
+                  // Remove from hidden type_some.
+                  if ((i = Judy.arrayIndexOf(v = $.trim(_elements.conditions.type_some.value).split(/\n/), this.value)) > -1) {
+                    v.splice(i, 1);
+                    if (v.length) {
                       _elements.conditions.type_some.value = $.trim(v.join("\n"));
                     }
-                  }
-                  else {
-                    if ((i = Judy.arrayIndexOf(v = _elements.conditions.type_some.value.split(/\n/), this.value)) > -1) {
-                      v.splice(i, 1);
-                      if (v.length) {
-                        _elements.conditions.type_some.value = $.trim(v.join("\n"));
-                      }
-                      else {
-                        _elements.conditions.type_some.value = "";
-                        _elements.conditions.type_any.checked = "checked";
-                      }
+                    else {
+                      _elements.conditions.type_some.value = "";
+                      _elements.conditions.type_any.checked = "checked";
                     }
                   }
-                  _changedCriterion();
-                });
-              }
+                }
+                _changedCriterion();
+              });
+              // Insert 'Add type' option.
+              $(par).prepend(
+                '<div class="form-item form-type-checkbox">' +
+                  '<input type="checkbox" class="form-checkbox" value="" name="log_filter_type_proxy_add_item" autocomplete="off" />' +
+                  ' <input type="text" value="" name="log_filter_type_proxy_add_item_value" autocomplete="off" class="form-text" placeholder="' +
+                    self.local('add_type_item') + '" />' +
+                '</div>'
+              );
+              $('input[name="log_filter_type_proxy_add_item"]', _elements.form).change(function() {
+                var elm, v;
+                if (this.checked) {
+                  elm = $('input[name="log_filter_type_proxy_add_item_value"]', _elements.form).get(0);
+                  if ((v = elm.value) && (v = $.trim(Judy.stripTags(v.replace(/[\r\n]/g, ''))))) {
+                    if (Judy.arrayIndexOf(_.recordedValues.type_options, v) === -1) { // IDE may wrongly report error.
+                      _.recordedValues.type_options.push(v);
+                      _elements.conditions.type_some.value += (_elements.conditions.type_some.value ? "\n" : '') + v;
+                      $(elm.parentNode).after(
+                        '<div class="form-item form-type-checkbox">' +
+                          '<input type="checkbox" class="form-checkbox" value="' + v + '" checked="checked" />' +
+                          ' <label class="option">' + v + '</label>' +
+                        '</div>'
+                      );
+                    }
+                    else {
+                      self.Message.set(self.local('type_option_dupe', { '!option': v }), "warning", {
+                        modal: true,
+                        close: function() {
+                          Judy.focus(elm);
+                        }
+                      });
+                    }
+                  }
+                  this.checked = false;
+                  elm.value = '';
+                }
+              });
               break;
             case "role":
               oElms[nm] = elm;
@@ -935,7 +967,6 @@ var LogFilter = function($) {
           if(!initially) {
             Judy.fieldValue(_elements.filter.filter, null, "");
             _elements.filter.name.value = _.name = _elements.filter.origin.value = _.origin = "";
-   //         Judy.enable(_elements.buttons.update_list);
           }
           if(_.crudFilters) {
             $(_elements.settings.onlyOwn.parentNode).show();
@@ -959,7 +990,6 @@ var LogFilter = function($) {
         case "adhoc":
           if(!initially) {
             Judy.fieldValue(_elements.filter.filter, null, "");
-   //         Judy.enable(_elements.buttons.update_list);
           }
           if(fromMode === "stored") {
             //  Pass current name to origin field.
@@ -983,7 +1013,6 @@ var LogFilter = function($) {
             $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
             $(_elements.filter.description.parentNode).hide();
           }
-    //      Judy.enable(_elements.buttons.update_list);
           if(_.delLogs) {
             $(_elements.settings.delete_logs_max).show();
             $(elm = _elements.buttons.delete_logs_button).show();
@@ -1006,7 +1035,6 @@ var LogFilter = function($) {
               $(_elements.filter.name_suggest.parentNode).hide();
               $(_elements.filter.description.parentNode).hide();
             }
-    //        Judy.enable(_elements.buttons.update_list);
           }
           if(_.crudFilters) {
             $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
@@ -1057,7 +1085,6 @@ var LogFilter = function($) {
           $(_elements.filter.description.parentNode).show();
           $(_elements.buttons.save).show();
           $(_elements.buttons.cancel).show();
-    //      Judy.disable(_elements.buttons.update_list);
           if(_.delLogs) {
             $(_elements.buttons.delete_logs_button.parentNode).hide();
           }
@@ -1086,7 +1113,6 @@ var LogFilter = function($) {
           $(_elements.filter.description.parentNode).show();
           $(_elements.buttons.cancel).show();
           $(_elements.buttons.save).show();
-   //       Judy.disable(_elements.buttons.update_list); // @todo: no, because update buttons must be ajaxed
           $(_elements.settings.onlyOwn.parentNode).hide();
           if(_.delLogs) {
             $(_elements.buttons.delete_logs_button.parentNode).hide();
@@ -1129,7 +1155,7 @@ var LogFilter = function($) {
    * Common handler for all CRUD buttons.
    *
    * @ignore
-   * @return {void}
+   * @return {boolean}
    */
   _crudRelay = function() {
     var nm = this.name, // The element's name, not _.name.
@@ -1385,9 +1411,9 @@ var LogFilter = function($) {
               }
               break;
             case "type_some":
-              if((v = r.value) !== "") {
+              if((v = r.value) !== "" && (v = $.trim(v))) {
                 ++n;
-                conditions[nm] = v.split(/\n/);
+                conditions.type = v.split(/\n/);
               }
               break;
             case "hostname":
@@ -1479,11 +1505,11 @@ var LogFilter = function($) {
       offset: _.pagerOffset,
       max: !max ? 0 : parseInt(max)
     });
-  }
+  };
 
   /**
    * @ignore
-   * @param integer [wid]
+   * @param {integer} [wid]
    *  - for single log view
    * @return {void}
    */
@@ -1632,13 +1658,13 @@ var LogFilter = function($) {
       cache: false,
       /**
         * @return {void}
-        * @param {obj} oResp
+        * @param {object} oResp
         *  - (string) action
-        *  - (bool) success
+        *  - (boolean) success
         *  - (string) error
         *  - (integer) error_code
-        * @param {str} textStatus
-        * @param {obj} jqXHR
+        * @param {string} textStatus
+        * @param {object} jqXHR
         */
       success: function(oResp, textStatus, jqXHR) {
         var o;
@@ -1881,10 +1907,9 @@ var LogFilter = function($) {
   /**
    * @function
    * @name LogFilter.inspectCriteria
-   * @param {string|falsy} [group]
    * @return {void}
    */
-  this.inspectCriteria = function(group) {
+  this.inspectCriteria = function() {
     if(typeof window.inspect === "function" && inspect.tcepsni === true) {
       inspect(_getCriteria());
     }
@@ -2090,6 +2115,13 @@ var LogFilter = function($) {
         case "non_existing_event":
           //  {"!number": integer}
           s = Drupal.t("Event no. !number doesn't exist.", replacers);
+          break;
+        case "add_type_item":
+          _local[nm] = s = Drupal.t("Add type...");
+          break;
+        case "type_option_dupe":
+          //  {"!option": string}
+          s = Drupal.t("Type !option already exists.", replacers);
           break;
         default:
           s = "[LOCAL: " + nm + "]";
@@ -2441,7 +2473,7 @@ var LogFilter = function($) {
    *
    * @function
    * @name LogFilter.init
-   * @param {bool|integer} useModuleCss
+   * @param {boolean|integer} useModuleCss
    * @param {string} theme
    * @return {void}
    */
