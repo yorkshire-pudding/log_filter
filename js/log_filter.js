@@ -66,7 +66,6 @@ var LogFilter = function($) {
     name: "",
     origin: "",
     crudFilters: false,
-    delLogs: false,
     recordedValues: { // For some fields (having pattern validation) we have to record last value to safely detect change.
       time_range: "",
       uid: "",
@@ -76,9 +75,10 @@ var LogFilter = function($) {
       orderBy: [],
       type_options: []
     },
-    warned_deleteNoMax: false,
+    deleteLogs_allowed: false,
+    deleteLogs_noMaxWarning: false,
+    logList_reflects_currentFilter: false,
     saveEditFilterAjaxed: false, // Save/update filter using AJAX or ordinary POST request?
-    pagerOffset: 0,
     listMessageTruncate: 250,
     adminOverlayOffset: 80, // Module Overlay.
     logs: {}
@@ -161,6 +161,14 @@ var LogFilter = function($) {
       save: "input[name='log_filter_save']", // Doesnt exist if user isnt permitted to create|edit|save filter.
       delete_logs_button: "input[name='log_filter_delete_logs_button']"
     },
+    pager: {
+      first: 'div#log_filter_pager_first',
+      previous: 'div#log_filter_pager_previous',
+      current: 'div#log_filter_pager_current',
+      progress: 'div#log_filter_pager_progress',
+      next: 'div#log_filter_pager_next',
+      last: 'div#log_filter_pager_last'
+    },
     misc: {
       title: "#log_filter_title_display"
     }
@@ -174,7 +182,10 @@ var LogFilter = function($) {
       update_list: [],
       crudFilters: [] // create, edit, delete_filter, cancel, save.
     },
-    misc: {}
+    pager: {
+    },
+    misc: {
+    }
   },
   /**
    * @ignore
@@ -862,6 +873,15 @@ var LogFilter = function($) {
       }
 
       //  Miscellaneous.
+      oSels = _selectors.pager;
+      oElms = _elements.pager;
+      for(nm in oSels) {
+        if(oSels.hasOwnProperty(nm) && (elm = (jq = $(oSels[nm])).get(0))) {
+          oElms[nm] = elm;
+        }
+      }
+
+      //  Miscellaneous.
       oSels = _selectors.misc;
       oElms = _elements.misc;
       for(nm in oSels) {
@@ -906,7 +926,8 @@ var LogFilter = function($) {
                   jq.click(_crudRelay); // Set our common button handler.
                   break;
                 case "delete_logs_button":
-                  _.delLogs = true;
+                  _.deleteLogs_allowed = true;
+                  Judy.disable(elm, null, self.local("deleteLogs_prohibit"));
                   jq.click(_crudRelay); // Set our common button handler.
                   break
                 case "reset":
@@ -956,9 +977,6 @@ var LogFilter = function($) {
           //  Hide all filter buttons.
           $(_elements.buttons.crudFilters).hide();
         }
-        if(_.delLogs) {
-          Judy.disable(_elements.buttons.delete_logs_button, null, self.local("deleteLogs_prohibit"));
-        }
       }
       switch(mode) {
         case "default":
@@ -978,7 +996,7 @@ var LogFilter = function($) {
             $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
             $(_elements.filter.description.parentNode).hide();
           }
-          if(_.delLogs) {
+          if(_.deleteLogs_allowed) {
             $(_elements.settings.delete_logs_max).show();
             $(elm = _elements.buttons.delete_logs_button).show();
             $(elm.parentNode).show();
@@ -1013,7 +1031,7 @@ var LogFilter = function($) {
             $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
             $(_elements.filter.description.parentNode).hide();
           }
-          if(_.delLogs) {
+          if(_.deleteLogs_allowed) {
             $(_elements.settings.delete_logs_max).show();
             $(elm = _elements.buttons.delete_logs_button).show();
             $(elm.parentNode).show();
@@ -1043,7 +1061,7 @@ var LogFilter = function($) {
             $(_elements.buttons.edit).show();
             $(_elements.buttons.delete_filter).show();
           }
-          if(_.delLogs) {
+          if(_.deleteLogs_allowed) {
             $(_elements.settings.delete_logs_max).show();
             $(elm = _elements.buttons.delete_logs_button).show();
             $(elm.parentNode).show();
@@ -1085,7 +1103,7 @@ var LogFilter = function($) {
           $(_elements.filter.description.parentNode).show();
           $(_elements.buttons.save).show();
           $(_elements.buttons.cancel).show();
-          if(_.delLogs) {
+          if(_.deleteLogs_allowed) {
             $(_elements.buttons.delete_logs_button.parentNode).hide();
           }
           break;
@@ -1114,7 +1132,7 @@ var LogFilter = function($) {
           $(_elements.buttons.cancel).show();
           $(_elements.buttons.save).show();
           $(_elements.settings.onlyOwn.parentNode).hide();
-          if(_.delLogs) {
+          if(_.deleteLogs_allowed) {
             $(_elements.buttons.delete_logs_button.parentNode).hide();
           }
           break;
@@ -1247,7 +1265,7 @@ var LogFilter = function($) {
           }
           break;
         case "log_filter_delete_logs_button":
-          if(_.delLogs) {
+          if(_.deleteLogs_allowed) {
             Judy.overlay(1, false, self.local("wait"));
             setTimeout(_deleteLogs, 200);
           }
@@ -1271,15 +1289,15 @@ var LogFilter = function($) {
    * @return {void}
    */
   _changedCriterion = function() {
+    if(_.deleteLogs_allowed) {
+      Judy.disable(_elements.buttons.delete_logs_button, null, self.local("deleteLogs_prohibit"));
+    }
     try {
       switch(_.mode) {
         case "default":
           _setMode("adhoc");
           break;
         case "adhoc":
-          if(_.delLogs) {
-            Judy.disable(_elements.buttons.delete_logs_button, null, self.local("deleteLogs_prohibit")); // Because we don't _setMode(), which does that.
-          }
           break;
         case "stored":
           //  A change of a stored filter triggers edit mode if the user is allowed to edit filters.
@@ -1313,6 +1331,9 @@ var LogFilter = function($) {
    */
   _resetCriteria = function(evt, mode, noModeChange) {
     var o = _elements.conditions, nm, r, a, le, i;
+    if(_.deleteLogs_allowed) {
+      Judy.disable(_elements.buttons.delete_logs_button, null, self.local("deleteLogs_prohibit"));
+    }
     for(nm in o) {
       if(o.hasOwnProperty(nm)) {
         r = o[nm];
@@ -1472,13 +1493,13 @@ var LogFilter = function($) {
     else if(_.mode === "stored") {
       if(!max) {
         if(!confirm( self.local("deleteLogs_storedNoMax", {"!name": _.name}) )) {
-          _.warned_deleteNoMax = true;
+          _.deleteLogs_noMaxWarning = true;
           Judy.overlay(0);
           Judy.focus(_elements.settings.delete_logs_max);
           return;
         }
       }
-      else if(!_.warned_deleteNoMax && !confirm( self.local("deleteLogs_stored", {"!name": _.name, "!number": v}) )) {
+      else if(!_.deleteLogs_noMaxWarning && !confirm( self.local("deleteLogs_stored", {"!name": _.name, "!number": v}) )) {
         Judy.overlay(0);
         Judy.focus(_elements.settings.delete_logs_max);
         return;
@@ -1486,13 +1507,13 @@ var LogFilter = function($) {
     }
     else if(!max) {
       if(!confirm( self.local("deleteLogs_adhocNoMax") )) {
-        _.warned_deleteNoMax = true;
+        _.deleteLogs_noMaxWarning = true;
         Judy.overlay(0);
         Judy.focus(_elements.settings.delete_logs_max);
         return;
       }
     }
-    else if(!_.warned_deleteNoMax && !confirm( self.local("deleteLogs_adhoc", {"!number": v}) )) {
+    else if(!_.deleteLogs_noMaxWarning && !confirm( self.local("deleteLogs_adhoc", {"!number": v}) )) {
       Judy.overlay(0);
       Judy.focus(_elements.settings.delete_logs_max);
       return;
@@ -1502,7 +1523,7 @@ var LogFilter = function($) {
     _ajaxRequest("delete_logs", {
       conditions: v.conditions,
       order_by: v.order_by,
-      offset: _.pagerOffset,
+      offset: 0,
       max: !max ? 0 : parseInt(max)
     });
   };
@@ -1511,10 +1532,12 @@ var LogFilter = function($) {
    * @ignore
    * @param {integer} [wid]
    *  - for single log view
+   * @param {integer} [offset]
+   *  - default: zero
    * @return {void}
    */
-  _getLogList = function(wid) {
-    var v = _getCriteria(), offset = _.pagerOffset;
+  _getLogList = function(wid, offset) {
+    var v = _getCriteria();
     Judy.overlay(1, false, self.local("wait"));
     if(wid) {
       v.conditions = {
@@ -1525,10 +1548,16 @@ var LogFilter = function($) {
     _ajaxRequest("list_logs", {
       conditions: v.conditions,
       order_by: v.order_by,
-      offset: offset,
+      offset: offset || 0,
       max: _elements.settings.pager_range.value,
       translate: Judy.fieldValue(_elements.settings.translate)
     });
+    $(_elements.pager.first).addClass("log-filter-pager-button-disabled");
+    $(_elements.pager.previous).addClass("log-filter-pager-button-disabled");
+    $(_elements.pager.current).hide();
+    $(_elements.pager.progress).show();
+    $(_elements.pager.next).addClass("log-filter-pager-button-disabled");
+    $(_elements.pager.last).addClass("log-filter-pager-button-disabled");
   };
 
   /**
@@ -1624,8 +1653,20 @@ var LogFilter = function($) {
             Judy.stripTags(o.message.replace(/\r?\n/g, " ")).substr(0, _.listMessageTruncate) + '</div></td>' +
           '</tr>';
       }
+      // Pager.
+      $(_elements.pager.progress).hide();
+      if (offset) {
+        $(_elements.pager.first).removeClass("log-filter-pager-button-disabled");
+        $(_elements.pager.previous).removeClass("log-filter-pager-button-disabled");
+      }
+      $(_elements.pager.current).html(self.local('pager_current', { '!first': (offset + 1), '!last': (offset + le), '!total': nTotal })).show();
+      if (offset + le < nTotal) {
+        $(_elements.pager.next).removeClass("log-filter-pager-button-disabled");
+        $(_elements.pager.last).removeClass("log-filter-pager-button-disabled");
+      }
     }
     else {
+      $(_elements.pager.progress).hide();
       s += '<tr class="odd">' +
         '<td class="' + css + '-no-match" colspan="' + nCols + '">' +
         (!conditions.wid ? self.local('no_event_matches') : self.local('non_existing_event', { '!number': conditions.wid })) +
@@ -1634,6 +1675,7 @@ var LogFilter = function($) {
     }
     s += "</tbody></table>";
     $("#log_filter_log_list").html(s);
+
     // Apply Drupal tableheader.
     setTimeout(function() {
       $('#log_filter_log_list table.sticky-enabled').once('tableheader', function () {
@@ -1853,7 +1895,7 @@ var LogFilter = function($) {
     if(oResp.success) {
       _listLogs(oResp.log_list[0], oResp.log_list[1], oResp.log_list[2], oResp.log_list[3]);
       //  Deleting logs is allowed when evenever the log list reflects the filter.
-      if(_.delLogs) {
+      if(_.deleteLogs_allowed) {
         Judy.enable(_elements.buttons.delete_logs_button, null, "");
       }
       Judy.overlay(0);
@@ -2122,6 +2164,10 @@ var LogFilter = function($) {
         case "type_option_dupe":
           //  {"!option": string}
           s = Drupal.t("Type !option already exists.", replacers);
+          break;
+        case "pager_current":
+          //  { '!first': (offset + 1), '!last': (offset + le), '!total': nTotal }
+          s = Drupal.t("!first-!last of !total", replacers);
           break;
         default:
           s = "[LOCAL: " + nm + "]";

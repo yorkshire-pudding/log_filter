@@ -863,7 +863,18 @@ class LogFilter {
         ),
         'log_filter_pager_controls' => array(
           '#type' => 'markup',
-          '#markup' => '<div class="log-filter-pager-controls">pager</div>',
+          '#markup' => '<div class="log-filter-pager-controls">'
+            . '<div id="log_filter_pager_first" class="log-filter-pager-button log-filter-pager-button-disabled" title="'
+              . t('First') . '">&#x25c4;&#x25c4;</div>'
+            . '<div id="log_filter_pager_previous" class="log-filter-pager-button log-filter-pager-button-disabled" title="'
+              . t('Previous') . '">&#x25c4;</div>'
+            . '<div id="log_filter_pager_current" title="' . t('Update list') . '">&nbsp;</div>'
+            . '<div id="log_filter_pager_progress" class="ajax-progress"><div class="throbber"></div>' . t('Loading...') . '</div>'
+            . '<div id="log_filter_pager_next" class="log-filter-pager-button log-filter-pager-button-disabled" title="'
+              . t('Next') . '">&#x25ba;</div>'
+            . '<div id="log_filter_pager_last" class="log-filter-pager-button log-filter-pager-button-disabled" title="'
+              . t('Last') . '">&#x25ba;&#x25ba;</div>'
+            . '</div>',
         ),
         'log_filter_pager_range' => array(
           '#type' => 'textfield',

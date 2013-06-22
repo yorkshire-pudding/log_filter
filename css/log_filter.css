@@ -385,7 +385,6 @@ div#log_filter__message {
         /* ~ form#log-filter-form div#log_filter_filters > div#log_filter_box_delete_logs */
         padding-top: 1em;
         min-height: 3em;
-
         background-color: #B8B8B8;
       }
       #page.log-filter-viewport-small form#log-filter-form div#log_filter_criteria div.filter-orderby {
@@ -701,13 +700,50 @@ form#log-filter-form div#log_filter_list_controls {
     display: none;
   }
   form#log-filter-form div#log_filter_list_controls > div.log-filter-pager-controls {
-
+    min-width: 27em;
+    margin-left: 3em;
+    margin-right: 0;
   }
     form#log-filter-form div#log_filter_list_controls > div.log-filter-pager-controls:after {
       /*clearfix*/clear:both;content:".";display:block;height:0;visibility:hidden;font-size:0;
     }
     form#log-filter-form div#log_filter_list_controls > div.log-filter-pager-controls > div {
       float: left;
+      cursor: pointer;
+    }
+    form#log-filter-form div#log_filter_list_controls > div.log-filter-pager-controls > div.log-filter-pager-button {
+      font-family: 'Verdana,Aria,sans-serif';
+      font-size: 1.1em;
+    }
+    form#log-filter-form div#log_filter_list_controls > div.log-filter-pager-controls > div.log-filter-pager-button:hover {
+      opacity:0.6; -ms-filter:'progid:DXImageTransform.Microsoft.Alpha(Opacity=60)'; filter:alpha(opacity=60);
+    }
+    form#log-filter-form div#log_filter_list_controls > div.log-filter-pager-controls > div.log-filter-pager-button-disabled {
+      visibility: hidden;
+    }
+    form#log-filter-form div#log_filter_list_controls > div.log-filter-pager-controls > div#log_filter_pager_first,
+    form#log-filter-form div#log_filter_list_controls > div.log-filter-pager-controls > div#log_filter_pager_last {
+      letter-spacing: -0.3em;
+      padding-right: 0.3em;
+    }
+    form#log-filter-form div#log_filter_list_controls > div.log-filter-pager-controls > div#log_filter_pager_previous,
+    form#log-filter-form div#log_filter_list_controls > div.log-filter-pager-controls > div#log_filter_pager_next {
+      margin-left: 0.5em;
+      margin-right: 0.5em;
+      padding-left: 0.5em;
+      padding-right: 0.5em;
+    }
+    form#log-filter-form div#log_filter_list_controls > div.log-filter-pager-controls > div#log_filter_pager_current {
+      text-align: center;
+      min-width: 10em;
+      font-weight: bold;
+    }
+    form#log-filter-form div#log_filter_list_controls > div.log-filter-pager-controls > div#log_filter_pager_current:hover {
+      text-decoration: underline;
+    }
+    form#log-filter-form div#log_filter_list_controls > div.log-filter-pager-controls > div#log_filter_pager_progress {
+      display: none;
+      min-width: 10em;
     }
   form#log-filter-form div#log_filter_list_controls > div.form-item-log-filter-pager-range {
 
@@ -721,6 +757,7 @@ form#log-filter-form div#log_filter_list_controls {
       float: left;
     }
     form#log-filter-form div#log_filter_list_controls > div.form-item-log-filter-pager-range label {
+      font-weight: normal;
       margin-right: 0.5em;
     }
   form#log-filter-form div#log_filter_list_controls > div.form-item-log-filter-cache {
@@ -733,7 +770,6 @@ form#log-filter-form div#log_filter_list_controls {
   #page.log-filter-viewport-small form#log-filter-form div#log_filter_list_controls > div.log-filter-button.log-filter-update-list-right input {
     margin-right: 1.5em;
   }
-
 
 div#log_filter_log_list {
   overflow-x: hidden;
