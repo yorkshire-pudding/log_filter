@@ -77,10 +77,11 @@ var LogFilter = function($) {
     },
     deleteLogs_allowed: false,
     deleteLogs_noMaxWarning: false,
-    logList_reflects_currentFilter: false,
     saveEditFilterAjaxed: false, // Save/update filter using AJAX or ordinary POST request?
     listMessageTruncate: 250,
     adminOverlayOffset: 80, // Module Overlay.
+    currentOffset: 0,
+    currentMax: 100,
     logs: {}
   },
   /**
@@ -150,8 +151,7 @@ var LogFilter = function($) {
     buttons: {
       //  Not part of filter dialog.
       submit: "input#edit-submit",
-      update_list: "input[name='log_filter_update_list']", // Becomes bucket in _elements.buttons.update_list.
-      update_list_right: "input[name='log_filter_update_list_right']", // Becomes bucket in _elements.buttons.update_list.
+      update_list: "input[name='log_filter_update_list']",
       reset: "input[name='log_filter_reset']",
       //  Filter dialog.
       create: "input[name='log_filter_create']",
@@ -179,7 +179,6 @@ var LogFilter = function($) {
     conditions: {},
     orderBy: [], // Array.
     buttons: {
-      update_list: [],
       crudFilters: [] // create, edit, delete_filter, cancel, save.
     },
     pager: {
@@ -491,6 +490,21 @@ var LogFilter = function($) {
                 var v = this.value;
                 if(v !== "") {
                   if((v = $.trim(v)) !== "" && !/^[1-9]\d*$/.test(v)) {
+                    v = "";
+                  }
+                  this.value = v;
+                }
+              });
+              break;
+            case "pager_range":
+              _.currentMax = parseInt(elm.value, 10);
+              jq.change(function() {
+                var v = this.value;
+                if(v !== "") {
+                  if((v = $.trim(v)) !== "" && /^\d+$/.test(v)) {
+                    _.currentMax = parseInt(v, 10);
+                  }
+                  else {
                     v = "";
                   }
                   this.value = v;
@@ -878,6 +892,38 @@ var LogFilter = function($) {
       for(nm in oSels) {
         if(oSels.hasOwnProperty(nm) && (elm = (jq = $(oSels[nm])).get(0))) {
           oElms[nm] = elm;
+          switch(nm) {
+            case "first":
+              jq.click(function() {
+                _ajaxRequestingBlocking = true; // Prevent consecutive clicks on update buttons.
+                _getLogList(0, 0);
+              });
+              break;
+            case "previous":
+              jq.click(function() {
+                _ajaxRequestingBlocking = true; // Prevent consecutive clicks on update buttons.
+                _getLogList(0, (v = _.currentOffset - _.currentMax) > 0 ? v : 0);
+              });
+              break;
+            case "current":
+              jq.click(function() {
+                _ajaxRequestingBlocking = true; // Prevent consecutive clicks on update buttons.
+                _getLogList();
+              });
+              break;
+            case "next":
+              jq.click(function() {
+                _ajaxRequestingBlocking = true; // Prevent consecutive clicks on update buttons.
+                _getLogList(0, _.currentOffset + _.currentMax);
+              });
+              break;
+            case "last":
+              jq.click(function() {
+                _ajaxRequestingBlocking = true; // Prevent consecutive clicks on update buttons.
+                _getLogList(0, -1);
+              });
+              break;
+          }
         }
       }
 
@@ -902,11 +948,15 @@ var LogFilter = function($) {
               oElms[nm] = elm;
               break;
             case "update_list":
-            case "update_list_right":
-              oElms.update_list.push(elm);
+              oElms[nm] = elm;
               elm.setAttribute("type", "button");
               jq.unbind(); // Remove Drupal native button handlers.
               jq.click(function() {
+                _ajaxRequestingBlocking = true; // Prevent consecutive clicks on update buttons.
+                _getLogList();
+              });
+              Judy.keydown(document.documentElement, "ctr+u cmd+u", function(event) {
+                event.preventDefault();
                 _ajaxRequestingBlocking = true; // Prevent consecutive clicks on update buttons.
                 _getLogList();
               });
@@ -1532,8 +1582,9 @@ var LogFilter = function($) {
    * @ignore
    * @param {integer} [wid]
    *  - for single log view
-   * @param {integer} [offset]
-   *  - default: zero
+   * @param {integer|undefined} [offset]
+   *  - default: current offset
+   *  - minus one means last
    * @return {void}
    */
   _getLogList = function(wid, offset) {
@@ -1548,8 +1599,8 @@ var LogFilter = function($) {
     _ajaxRequest("list_logs", {
       conditions: v.conditions,
       order_by: v.order_by,
-      offset: offset || 0,
-      max: _elements.settings.pager_range.value,
+      offset: offset || offset === 0 ? offset : _.currentOffset,
+      max: _.currentMax,
       translate: Judy.fieldValue(_elements.settings.translate)
     });
     $(_elements.pager.first).addClass("log-filter-pager-button-disabled");
@@ -1572,6 +1623,7 @@ var LogFilter = function($) {
   _listLogs = function(logs, conditions, offset, nTotal) {
     var le = logs.length, i, o, v, css = 'log-filter-list', s, nCols = 5;
     _.logs = {};
+    _.currentOffset = offset || 0;
     if(le) {
       for(i = 0; i < le; i++) {
         o = logs[i];

@@ -857,6 +857,7 @@ class LogFilter {
           '#button_type' => 'button', // Doesnt work; still type:submit.
           '#attributes' => array(
             'class' => array('form-submit'),
+            'title' => t('ctr + u / cmd + u'),
           ),
           '#prefix' => '<div class="log-filter-button log-filter-update-list">',
           '#suffix' => '</div>',
@@ -892,17 +893,6 @@ class LogFilter {
             'autocomplete' => 'off',
             'title' => $title_translate,
           ),
-        ),
-        'log_filter_update_list_right' => array(
-          '#type' => 'button',
-          '#name' => 'log_filter_update_list_right',
-          '#value' => t('Update list'),
-          '#button_type' => 'button', // Doesnt work; still type:submit.
-          '#attributes' => array(
-            'class' => array('form-submit'),
-          ),
-          '#prefix' => '<div class="log-filter-button log-filter-update-list-right">',
-          '#suffix' => '</div>',
         ),
         'actions' => array(
           '#type' => 'actions',
@@ -1650,12 +1640,19 @@ class LogFilter {
    * @param array &$conditions
    * @param array $order_by
    * @param integer $offset
+   * - minus one: list $max number of items from end of total matching items
    * @param integer $max
    * @param boolean $translate
    *  - default: FALSE
    * @return array
    */
   protected static function _listLogs(&$conditions, $order_by, $offset, $max, $translate = FALSE) {
+    // Find total matching items.
+    $total = (int)self::_logListQuery($conditions, $order_by, 0, 0, FALSE)->execute()->fetchField();
+
+    if ($offset < 0) {
+      $offset = $max ? $total - $max : 0;
+    }
     $query = self::_logListQuery($conditions, $order_by, $offset, $max, NULL, array('name'));
     if (($offset || $max) && !self::DB_SUBQUERY_LIMIT) {
       $query->range($offset, $max);
@@ -1689,7 +1686,7 @@ class LogFilter {
       $rows,
       $responseConditions,
       $offset,
-      (int) self::_logListQuery($conditions, $order_by, 0, 0, FALSE)->execute()->fetchField(),
+      $total,
     );
   }
 
@@ -1841,7 +1838,7 @@ class LogFilter {
                 || (($conditions = $_POST['conditions']) && !is_array($conditions)) // _logListQuery() checks/filters conditions buckets vs. xss.
               || !array_key_exists('order_by', $_POST)
                 || (($order_by = $_POST['order_by']) && !is_array($order_by)) // _logListQuery() checks/filters order_by buckets vs. xss.
-              || !array_key_exists('offset', $_POST) || ($offset = (int)$_POST['offset']) < 0 || $offset > PHP_INT_MAX
+              || !array_key_exists('offset', $_POST) || ($offset = (int)$_POST['offset']) < -1 || $offset > PHP_INT_MAX
               || !array_key_exists('max', $_POST) || ($max = (int)$_POST['max']) < 0 || $max > PHP_INT_MAX
               || !array_key_exists('translate', $_POST)
             ) {
@@ -1889,7 +1886,7 @@ class LogFilter {
                 || (($conditions = $_POST['conditions']) && !is_array($conditions)) // _logListQuery() checks/filters conditions buckets vs. xss.
               || !array_key_exists('order_by', $_POST)
                 || (($order_by = $_POST['order_by']) && !is_array($order_by)) // _logListQuery() checks/filters order_by buckets vs. xss.
-              || !array_key_exists('offset', $_POST) || ($offset = (int)$_POST['offset']) < 0 || $offset > PHP_INT_MAX
+              || !array_key_exists('offset', $_POST) || ($offset = (int)$_POST['offset']) < -1 || $offset > PHP_INT_MAX
               || !array_key_exists('max', $_POST) || ($max = (int)$_POST['max']) < 0 || $max > PHP_INT_MAX
             ) {
               header('HTTP/1.1 403 Forbidden');

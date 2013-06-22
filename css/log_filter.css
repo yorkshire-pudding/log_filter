@@ -739,11 +739,12 @@ form#log-filter-form div#log_filter_list_controls {
       font-weight: bold;
     }
     form#log-filter-form div#log_filter_list_controls > div.log-filter-pager-controls > div#log_filter_pager_current:hover {
-      text-decoration: underline;
+      opacity:0.6; -ms-filter:'progid:DXImageTransform.Microsoft.Alpha(Opacity=60)'; filter:alpha(opacity=60);
     }
     form#log-filter-form div#log_filter_list_controls > div.log-filter-pager-controls > div#log_filter_pager_progress {
       display: none;
-      min-width: 10em;
+      min-width: 7em;
+      padding-left: 3em;
     }
   form#log-filter-form div#log_filter_list_controls > div.form-item-log-filter-pager-range {
 
