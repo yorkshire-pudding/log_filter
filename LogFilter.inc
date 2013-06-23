@@ -368,7 +368,6 @@ class LogFilter {
             $options_type = array_merge($prepend_types, $options_type);
           }
         }
-        inspect($options_type);
       }
       elseif ($conditions['type']) {
         $options_type = $conditions['type'];
@@ -857,7 +856,7 @@ class LogFilter {
           '#button_type' => 'button', // Doesnt work; still type:submit.
           '#attributes' => array(
             'class' => array('form-submit'),
-            'title' => t('ctr + u / cmd + u'),
+            'title' => t('[CTR + U / CMD + U]'),
           ),
           '#prefix' => '<div class="log-filter-button log-filter-update-list">',
           '#suffix' => '</div>',

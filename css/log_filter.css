@@ -800,6 +800,8 @@ div#log_filter_log_list {
       div#log_filter_log_list td.log-filter-list-no-match {
         font-weight: bold;
       }
+      div#log_filter_log_list td.log-filter-list-event-from-url {
+      }
       div#log_filter_log_list td.log-filter-list-severity {
         width: 37px; max-width: 37px;
         padding: 0;

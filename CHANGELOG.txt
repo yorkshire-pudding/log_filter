@@ -1,3 +1,7 @@
+log_filter 7.x-1.x, 2013-06-23
+------------------------------
+* Log deletion offset and max now reflects equivalent of current log list.
+
 log_filter 7.x-1.x, 2013-06-22
 ------------------------------
 * Implemented proxy type condition field, to prevent 'Illegal choice' errors for checklist due to dynamic options range.
