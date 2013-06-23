@@ -1724,7 +1724,7 @@
         }
       }
       // Render.
-      s = '<table class="sticky-enabled"><thead><tr>' +
+      s = '<table id="" class="sticky-enabled"><thead><tr>' +
         '<th>' + Drupal.t('Severity') + '</th>' +
         '<th>' + Drupal.t('Type') + '</th>' +
         '<th>' + Drupal.t('Time') + '</th>' +
@@ -1794,10 +1794,30 @@
       s += "</tbody></table>";
       $("#log_filter_log_list").html(s);
 
-      // Apply Drupal tableheader.
       setTimeout(function() {
+        // Apply Drupal tableheader.
         $('#log_filter_log_list table.sticky-enabled').once('tableheader', function () {
           $(this).data("drupal-tableheader", new Drupal.tableHeader(this));
+        });
+
+        $('div#log_filter_log_list tbody tr').bind('mousedown mouseup', function(evt) {
+          var moves;
+          if (evt.type === 'mousedown') {
+            $(this).mousemove(function() {
+              this.setAttribute('judy_mousedragged', (moves = this.getAttribute('judy_mousedragged')) ? (parseInt(moves, 10) + 1) : 1);
+            });
+          }
+          else {
+            $(this).unbind('mousemove');
+          }
+        }).click(function() {
+          var moves;
+          if ((moves = this.getAttribute('judy_mousedragged'))) {
+            this.removeAttribute('judy_mousedragged');
+          }
+          if(!moves || moves < 10) {
+            inspect.console('clicked');
+          }
         });
       }, 100);
     };
