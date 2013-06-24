@@ -5,6 +5,7 @@ log_filter 7.x-1.x, 2013-06-24
 * Fixed pager display for when current offset is out of range of total matched events.
 * Frontend translation error.
 * Made text in log list table selectable (preventing dialog pop after dragging mouse).
+* Made log deletion feed back messages fade.
 
 log_filter 7.x-1.x, 2013-06-23
 ------------------------------

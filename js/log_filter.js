@@ -2066,7 +2066,7 @@
      */
     _ajaxResponse.delete_logs = function(oResp) {
       if(oResp.success) {
-        self.Message.set(self.local("deleteLogs_success", { "!number": oResp.delete_logs }), "notice");
+        self.Message.set(self.local("deleteLogs_success", { "!number": oResp.delete_logs }), "notice", { noFade: false });
         _getLogList();
         return true;
       }
