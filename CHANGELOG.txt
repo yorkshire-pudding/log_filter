@@ -1,3 +1,11 @@
+log_filter 7.x-1.x, 2013-06-24
+------------------------------
+* Made sure, for backend db queries, that there's a max when there's an offset.
+* Fixed deletion of zero events.
+* Fixed pager display for when current offset is out of range of total matched events.
+* Frontend translation error.
+* Made text in log list table selectable (preventing dialog pop after dragging mouse).
+
 log_filter 7.x-1.x, 2013-06-23
 ------------------------------
 * Log deletion offset and max now reflects equivalent of current log list.

@@ -1630,6 +1630,10 @@ class LogFilter {
       $query->orderBy('timestamp', 'DESC')->orderBy('w.wid', 'DESC');
     }
     if (($offset || $max) && self::DB_SUBQUERY_LIMIT) {
+      // A range must have a max length, otherwise it's ignored.
+      if (!$max) {
+        $max = PHP_INT_MAX - $offset;
+      }
       $query->range($offset, $max);
     }
     return $query;
@@ -1649,11 +1653,18 @@ class LogFilter {
     // Find total matching items.
     $total = (int)self::_logListQuery($conditions, $order_by, 0, 0, FALSE)->execute()->fetchField();
 
+    // Max number of items from end of total matching items?
     if ($offset < 0) {
       $offset = $max ? $total - $max : 0;
     }
+
     $query = self::_logListQuery($conditions, $order_by, $offset, $max, NULL, array('name'));
+
     if (($offset || $max) && !self::DB_SUBQUERY_LIMIT) {
+      // A range must have a max length, otherwise it's ignored.
+      if (!$max) {
+        $max = PHP_INT_MAX - $offset;
+      }
       $query->range($offset, $max);
     }
     //  Work on event buckets.
@@ -1668,6 +1679,7 @@ class LogFilter {
         }
         else { // Do translate if any variables
           $event->message = t($event->message, unserialize($vars));
+          $event->variables = '';
         }
         //  Filter link.
         if ($event->link) {
@@ -1712,14 +1724,20 @@ class LogFilter {
     }
     else {
       $query = self::_logListQuery($conditions, $order_by, $offset, $max, array('wid'));
-      if (($offset || $max)) {
-        if (!self::DB_SUBQUERY_LIMIT) {
-          $query->range($offset, $max);
+      if (($offset || $max) && !self::DB_SUBQUERY_LIMIT) {
+        // A range must have a max length, otherwise it's ignored.
+        if (!$max) {
+          $max = PHP_INT_MAX - $offset;
         }
+        $query->range($offset, $max);
       }
       $ids = $query->execute()->fetchCol();
+
+      if (!($le = count($ids))) {
+        return 0;
+      }
       //  This may fail because the list of ids may exceed query limit (query max length).
-      if (count($ids) > 40000) {
+      if ($le > 40000) {
         $le = count($ids = array_chunk($ids, 40000));
         $deleted = 0;
         for ($i = 0; $i < $le; $i++) {

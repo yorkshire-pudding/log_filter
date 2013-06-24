@@ -1752,13 +1752,13 @@
             '</td>' +
             '</tr>';
           setTimeout(function() {
-            self.displayLog('_' + wid);
+            self.displayLog(wid);
           }, 100);
         }
         for(i = 0; i < le; i++) {
           o = logs[i];
-          s += '<tr id="log_filter_list_log_' + o.wid + '" class="' + (i % 2 ? 'even' : 'odd') +
-              '" onclick="LogFilter.displayLog(\'_' + o.wid + '\');" title="' + self.local("log_display", { '!number': o.wid }) + '">' +
+          s += '<tr id="log_filter_list_log_' + o.wid + '" log_filter_list_event_id="' + o.wid + '" class="' + (i % 2 ? 'even' : 'odd') +
+              '" title="' + self.local("log_display", { '!number': o.wid }) + '">' +
             '<td class="' + css + '-severity ' + css + '-' + (v = o.severity) + '" title="' + self.local(v) + '">&#160;</td>' +
             '<td class="' + css + '-type">' + o.type + '</td>' +
             '<td class="' + css + '-time">' + o.time + '</td>' +
@@ -1784,14 +1784,26 @@
         }
       }
       else {
-        $(_elements.pager.progress).hide();
         s += '<tr class="odd">' +
           '<td class="' + css + '-no-match" colspan="' + nCols + '">' +
           (!conditions.wid ? self.local('no_event_matches') : self.local('non_existing_event', { '!number': conditions.wid })) +
           '</td>' +
           '</tr>';
+        // Pager.
+        $(_elements.pager.progress).hide();
+        if (offset) {
+          $(_elements.pager.first).removeClass("log-filter-pager-button-disabled");
+          $(_elements.pager.previous).removeClass("log-filter-pager-button-disabled");
+        }
+        if (!nTotal) {
+          $(_elements.pager.current).html(self.local('pager_current_none')).show();
+        }
+        else {
+          $(_elements.pager.current).html(self.local('pager_current_outofrange', { '!offset': offset, '!total': nTotal })).show();
+        }
       }
       s += "</tbody></table>";
+      // Display the table, after updating pager (displaying the table may take some time).
       $("#log_filter_log_list").html(s);
 
       setTimeout(function() {
@@ -1799,7 +1811,7 @@
         $('#log_filter_log_list table.sticky-enabled').once('tableheader', function () {
           $(this).data("drupal-tableheader", new Drupal.tableHeader(this));
         });
-
+        // Set click behaviour on log list rows, but avoid triggering the behaviour if the user selects text.
         $('div#log_filter_log_list tbody tr').bind('mousedown mouseup', function(evt) {
           var moves;
           if (evt.type === 'mousedown') {
@@ -1811,12 +1823,12 @@
             $(this).unbind('mousemove');
           }
         }).click(function() {
-          var moves;
+          var moves, logId;
           if ((moves = this.getAttribute('judy_mousedragged'))) {
             this.removeAttribute('judy_mousedragged');
           }
-          if(!moves || moves < 10) {
-            inspect.console('clicked');
+          if((!moves || moves < 10) && (logId = this.getAttribute('log_filter_list_event_id'))) {
+            self.displayLog(logId);
           }
         });
       }, 100);
@@ -2338,6 +2350,13 @@
             //  { '!first': (offset + 1), '!last': (offset + le), '!total': nTotal }
             s = Drupal.t("!first-!last of !total", replacers);
             break;
+          case "pager_current_none":
+            _local[nm] = s = Drupal.t("None");
+            break;
+          case "pager_current_outofrange":
+            //  { '!offset': offset, '!total': nTotal }
+            s = Drupal.t("None after !offset, of !total", replacers);
+            break;
           default:
             s = "[LOCAL: " + nm + "]";
         }
@@ -2615,20 +2634,20 @@
     };
 
     /**
-     * @param {string} logId
+     * @param {integer|falsy|string} logId
      * @return {void}
      */
     this.displayLog = function(logId) {
-      var o, s, v, css = 'log-filter-log-display', dialId = 'log_filter_logDisplay' + logId, elm, $dialOuter;
-      if ((o = _.logs[logId]) && _.logs.hasOwnProperty(logId)) {
+      var o, s, v, css = 'log-filter-log-display', dialId = 'log_filter_logDisplay_' + logId, elm, $dialOuter;
+      if ((o = _.logs['_' + logId]) && _.logs.hasOwnProperty('_' + logId)) {
         // If already open: close the dialog.
         if ((elm = document.getElementById(dialId))) {
-          $('#log_filter_list_log' + logId).removeClass('log-filter-list-displayed');
+          $('#log_filter_list_log_' + logId).removeClass('log-filter-list-displayed');
           Judy.dialog(dialId, "close");
         }
         else {
-          $('#log_filter_list_log' + logId).addClass('log-filter-list-displayed');
-          o = _.logs[logId];
+          $('#log_filter_list_log_' + logId).addClass('log-filter-list-displayed');
+          o = _.logs['_' + logId];
           s = '<div class="' + css + '">' +
               '<table class="dblog-event"><tbody>' +
               '<tr class="odd"><th>' + self.local('log_severity') + '</th>' +
@@ -2656,8 +2675,8 @@
             autoOpen: false,
             close: function(event, ui) {
               setTimeout(function() {
-                $('#log_filter_logDisplay' + logId).dialog('destroy').remove();
-                $('#log_filter_list_log' + logId).removeClass('log-filter-list-displayed');
+                $('#log_filter_logDisplay_' + logId).dialog('destroy').remove();
+                $('#log_filter_list_log_' + logId).removeClass('log-filter-list-displayed');
               });
             }
           });
