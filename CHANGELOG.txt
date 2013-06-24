@@ -1,3 +1,7 @@
+log_filter 7.x-1.x, 2013-06-25
+------------------------------
+* Added support for Inspect output folding/formatting.
+
 log_filter 7.x-1.x, 2013-06-24
 ------------------------------
 * Made sure, for backend db queries, that there's a max when there's an offset.

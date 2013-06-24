@@ -2638,7 +2638,7 @@
      * @return {void}
      */
     this.displayLog = function(logId) {
-      var o, s, v, css = 'log-filter-log-display', dialId = 'log_filter_logDisplay_' + logId, elm, $dialOuter;
+      var o, s, v, css = 'log-filter-log-display', dialId = 'log_filter_logDisplay_' + logId, elm, $dialOuter, dialInner;
       if ((o = _.logs['_' + logId]) && _.logs.hasOwnProperty('_' + logId)) {
         // If already open: close the dialog.
         if ((elm = document.getElementById(dialId))) {
@@ -2680,7 +2680,7 @@
               });
             }
           });
-          ($dialOuter = $( $('#' + dialId).get(0).parentNode )).css({
+          ($dialOuter = $( (dialInner = $('#' + dialId).get(0)).parentNode )).css({
             visibility: 'hidden',
             overflow: 'visible'
           });
@@ -2693,6 +2693,13 @@
               _.adminOverlayOffset,
             1
           );
+
+          // Format inspect outputs.
+          if (typeof window.inspect === "function" && window.inspect.formatInspectOutput) {
+            inspect.formatInspectOutput(true, dialInner);
+            inspect.formatTraceOutput(true, dialInner);
+          }
+
           $dialOuter.css({
             visibility: 'visible',
             left: '150px', // jQuery UI dialog position apparantly doesnt work well when css position is fixed.
