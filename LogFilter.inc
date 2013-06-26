@@ -389,7 +389,12 @@ class LogFilter {
         '7' => t('debug'),
       );
       //  Role.
-      $options_role = array('' => t('Any')) + user_roles(); // Union operator (+) doesnt re-index numerical keys like array_merge() does.
+      $options_role = user_roles();
+      foreach ($options_role as &$v) {
+        $v = t($v);
+      }
+      unset($v); // Clear reference.
+      $options_role = array('' => t('Any')) + $options_role; // Union operator (+) doesnt re-index numerical keys like array_merge() does.
       //  Order by.
       $options_order_by = array(
         '' => '',
@@ -1501,15 +1506,15 @@ class LogFilter {
         $names =& self::$_fields['conditions'];
 
         // Use user id instead of role (anonymous user role doesnt really exists - only as a lack of any roles)?
-        $skip_role = $is_anonymous = $not_anonymous = FALSE;
+        $is_anonymous = $not_anonymous = FALSE;
         if (isset($conditions['role'])) {
           switch ($conditions['role']) {
             case DRUPAL_ANONYMOUS_RID:
-              $skip_role = $is_anonymous = TRUE;
+              $is_anonymous = TRUE;
               $conditions['uid'] = 0;
               break;
             case DRUPAL_AUTHENTICATED_RID:
-              $skip_role = $not_anonymous = TRUE;
+              $not_anonymous = TRUE;
               $conditions['uid'] = 0;
               break;
           }
@@ -1567,7 +1572,7 @@ class LogFilter {
                   break;
                 case 'role':
                   if (($v = (int)$v) > 0 && $v <= PHP_INT_MAX) {
-                    if (!$skip_role) {
+                    if (!$is_anonymous && !$not_anonymous) {
                       $query->join('users_roles', 'ur', 'w.uid = ur.uid AND ur.rid = :rid', array(':rid' => $v));
                     }
                   }
@@ -1612,7 +1617,7 @@ class LogFilter {
           }
         }
         // Remove uid again, if only used as surrogate for role.
-        if ($is_anonymous = $not_anonymous) {
+        if ($is_anonymous || $not_anonymous) {
           unset($conditions['uid']);
         }
       }
