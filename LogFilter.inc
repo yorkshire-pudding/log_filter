@@ -241,8 +241,9 @@ class LogFilter {
               case 'time_from':
               case 'time_to':
               case 'role':
-              case 'uid':
                 $conditions[$name] = ($v = $stored_filter[$name]) > 0 ? $v : '';
+              case 'uid':
+                $conditions[$name] = ($v = $stored_filter[$name]) > 0 || $v === '0' || $v === 0 ? $v : '';
                 break;
               case 'severity':
                 if (!strlen($v = $stored_filter['severity'])) { // Deliberately not drupal_...().
@@ -375,7 +376,6 @@ class LogFilter {
       else { // Make sure that there's always at least a single option.
         $options_type = array('php' => 'php');
       }
-
       //  Severity.
       $options_severity = array(
         '-1' => t('Any'),
@@ -389,19 +389,7 @@ class LogFilter {
         '7' => t('debug'),
       );
       //  Role.
-      //  Put anonymous user and authenticated user roles at top.
-      $options_role = user_roles();
-      $anon_user = $options_role[DRUPAL_ANONYMOUS_RID];
-      $auth_user = $options_role[DRUPAL_AUTHENTICATED_RID];
-      unset( $options_role[DRUPAL_ANONYMOUS_RID], $options_role[DRUPAL_AUTHENTICATED_RID] );
-      $options_role = array_merge(
-        array(
-          '' => t('Any'),
-          DRUPAL_ANONYMOUS_RID => $anon_user,
-          DRUPAL_AUTHENTICATED_RID => $auth_user,
-        ),
-        $options_role
-      );
+      $options_role = array('' => t('Any')) + user_roles(); // Union operator (+) doesnt re-index numerical keys like array_merge() does.
       //  Order by.
       $options_order_by = array(
         '' => '',
@@ -557,21 +545,23 @@ class LogFilter {
         ),
         'log_filter_hostname' => array(
           '#type' => 'textfield',
-          '#title' => t('Visitor\'s hostname'),
+          '#title' => t('Visitor\'s hostname') . '<span title="' . t('Use * to display in event list, without filtering') . '">?</span>',
           '#default_value' => $conditions['hostname'],
           '#size' => 32,
           '#attributes' => array('autocomplete' => 'off'),
         ),
         'log_filter_location' => array(
           '#type' => 'textfield',
-          '#title' => t('Location'),
+          '#title' => t('Location') . '<span title="' . t('Use * to display in event list, without filtering') . '">?</span>',
           '#default_value' => $conditions['location'],
           '#size' => 64,
           '#attributes' => array('autocomplete' => 'off'),
         ),
         'log_filter_referer' => array( // End: filter-conditions, (1 open).
           '#type' => 'textfield',
-          '#title' => t('Referrer') . '<span title="' . t('Use \'none\' for empty referrer') . '">?</span>',
+          '#title' => t('Referrer') . '<span title="'
+            . t('Use \'none\' for empty referrer.!nlUse * to display in event list, without filtering.', array('!nl' => "\n"))
+            . '">?</span>',
           '#default_value' => $conditions['referer'],
           '#size' => 64,
           '#attributes' => array('autocomplete' => 'off'),
@@ -1083,9 +1073,13 @@ class LogFilter {
         foreach ($fields_conditions as $name) {
           switch ($name) {
             case 'time_range':
-            case 'role':
-            case 'uid':
               $conditions[$name] = ($v = trim($values[$prefix . $name])) ? $v : '';
+              break;
+            case 'role':
+              $conditions[$name] = ($v = trim($values[$prefix . $name])) > 0 ? $v : -1;
+              break;
+            case 'uid': // Accepts zero.
+              $conditions[$name] = ($v = trim($values[$prefix . $name])) > 0 || $v === '0' || $v === 0 ? $v : -1;
               break;
             case 'time_from':
               $conditions[$name] = $conditions['time_range'] ? '' : (($v = trim($values[$prefix . $name])) ? $v : '');
@@ -1505,9 +1499,25 @@ class LogFilter {
       }
       if (!$wid) {
         $names =& self::$_fields['conditions'];
+
+        // Use user id instead of role (anonymous user role doesnt really exists - only as a lack of any roles)?
+        $skip_role = $is_anonymous = $not_anonymous = FALSE;
+        if (isset($conditions['role'])) {
+          switch ($conditions['role']) {
+            case DRUPAL_ANONYMOUS_RID:
+              $skip_role = $is_anonymous = TRUE;
+              $conditions['uid'] = 0;
+              break;
+            case DRUPAL_AUTHENTICATED_RID:
+              $skip_role = $not_anonymous = TRUE;
+              $conditions['uid'] = 0;
+              break;
+          }
+        }
+
         foreach ($names as $key) {
           if (isset($conditions[$key])) {
-            if (!($v = $conditions[$key])) {
+            if (!($v = $conditions[$key]) && $key != 'uid') {
               unset($conditions[$key]);
             }
             else {
@@ -1557,15 +1567,17 @@ class LogFilter {
                   break;
                 case 'role':
                   if (($v = (int)$v) > 0 && $v <= PHP_INT_MAX) {
-                    $query->join('users_roles', 'ur', 'w.uid = ur.uid AND ur.rid = :rid', array(':rid' => $v));
+                    if (!$skip_role) {
+                      $query->join('users_roles', 'ur', 'w.uid = ur.uid AND ur.rid = :rid', array(':rid' => $v));
+                    }
                   }
                   else {
                     unset($conditions[$key]);
                   }
                   break;
                 case 'uid':
-                  if (($v = (int)$v) > 0 && $v <= PHP_INT_MAX) {
-                    $query->condition('w.' . $key, $v, '=');
+                  if (($v = (int)$v) > -1 && $v <= PHP_INT_MAX) {
+                    $query->condition('w.' . $key, $v, !$not_anonymous ? '=' : '!=');
                   }
                   else {
                     unset($conditions[$key]);
@@ -1573,7 +1585,7 @@ class LogFilter {
                   break;
                 case 'hostname':
                 case 'location':
-                  if (($v = check_plain($v))) {
+                  if (($v = trim(check_plain($v))) && $v !== '*') {
                     $query->condition('w.' . $key, $v, '=');
                   }
                   else {
@@ -1581,7 +1593,7 @@ class LogFilter {
                   }
                   break;
                 case 'referer': // Support strictly empty value 'none'
-                  if (($v = check_plain($v))) {
+                  if (($v = trim(check_plain($v))) && $v !== '*') {
                     if ($v != 'none') {
                       $query->condition('w.' . $key, $v, '=');
                     }
@@ -1598,6 +1610,10 @@ class LogFilter {
               }
             }
           }
+        }
+        // Remove uid again, if only used as surrogate for role.
+        if ($is_anonymous = $not_anonymous) {
+          unset($conditions['uid']);
         }
       }
     }

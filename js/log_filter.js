@@ -787,16 +787,13 @@
                     this.value = v = $.trim(v);
                   }
                   if(v !== "") {
-                    if(v === "0" || !/^[1-9]\d*$/.test(v)) {
-                      if(v !== "0") {
-                        //alert(self.local("invalid_uid"));
-                        self.Message.set( self.local("invalid_uid"), "warning", {
-                            modal: true,
-                            close: function() {
-                              Judy.focus(_elements.conditions.uid);
-                            }
-                        });
-                      }
+                    if(!/^\d+$/.test(v)) {
+                      self.Message.set( self.local("invalid_uid"), "warning", {
+                          modal: true,
+                          close: function() {
+                            Judy.focus(_elements.conditions.uid);
+                          }
+                      });
                       this.value = v = "";
                     }
                     else {
@@ -837,7 +834,7 @@
                     if(v !== "") {
                       this.value = v = Judy.stripTags(v);
                     }
-                    if(v !== "" && !/^https?\:\/\/.+$/.test(v)) {
+                    if(v !== "" && v !== "*" && !/^https?\:\/\/.+$/.test(v)) {
                       if(!/^https?\:\/\/.+$/.test(v = "http://" + v)) {
                         self.Message.set( self.local(nm === "location" ? "invalid_location" : "invalid_referer"), "warning", {
                             modal: true,
@@ -1465,7 +1462,7 @@
               case "time_from":
               case "time_to":
               case "uid":
-                if((v = r.value) !== "" && (v = $.trim(v)) && (v = parseInt(v, 10))) {
+                if((v = r.value) !== "" && (v = $.trim(v)).length && (v = parseInt(v, 10)) > -1) {
                   ++n;
                   conditions[nm] = v;
                 }
@@ -1505,7 +1502,7 @@
               case "hostname":
               case "location":
               case "referer":
-                if((v = r.value) !== "" && (v = $.trim(v))) {
+                if((v = r.value) !== "" && (v = $.trim(v)) && v !== '*') {
                   ++n;
                   conditions[nm] = v;
                 }
@@ -1676,7 +1673,7 @@
      * @return {void}
      */
     _listLogs = function(logs, conditions, offset, nTotal) {
-      var le = logs.length, i, o, v, css = 'log-filter-list', s, nCols = 5, wid;
+      var le = logs.length, i, o, v, css = 'log-filter-list', s, nCols = 5, wid, optionalColumns = {};
       _.logs = {};
       _.currentOffset = offset || 0;
       if(le) {
@@ -1729,16 +1726,19 @@
         '<th>' + Drupal.t('Type') + '</th>' +
         '<th>' + Drupal.t('Time') + '</th>' +
         '<th>' + Drupal.t('User') + '</th>';
-      if(conditions.hostname) {
+      if(conditions.hostname || _elements.conditions.hostname.value === '*') {
         ++nCols;
+        optionalColumns.hostname = true;
         s += '<th>' + Drupal.t('Hostname') + '</th>';
       }
-      if(conditions.location) {
+      if(conditions.location || _elements.conditions.location.value === '*') {
         ++nCols;
+        optionalColumns.location = true;
         s += '<th>' + Drupal.t('Location') + '</th>';
       }
-      if(conditions.referer) {
+      if(conditions.referer || _elements.conditions.referer.value === '*') {
         ++nCols;
+        optionalColumns.referer = true;
         s += '<th>' + Drupal.t('Referrer') + '</th>';
       }
       s += '<th>' + Drupal.t('Message') + '</th>' +
@@ -1757,16 +1757,19 @@
         }
         for(i = 0; i < le; i++) {
           o = logs[i];
-          s += '<tr id="log_filter_list_log_' + o.wid + '" log_filter_list_event_id="' + o.wid + '" class="' + (i % 2 ? 'even' : 'odd') +
+          s += '<tr id="log_filter_list_log_' + o.wid + '" onclick="LogFilter.displayLog(' + o.wid + ');" class="' + (i % 2 ? 'even' : 'odd') +
               '" title="' + self.local("log_display", { '!number': o.wid }) + '">' +
             '<td class="' + css + '-severity ' + css + '-' + (v = o.severity) + '" title="' + self.local(v) + '">&#160;</td>' +
             '<td class="' + css + '-type">' + o.type + '</td>' +
             '<td class="' + css + '-time">' + o.time + '</td>' +
-            '<td class="' + css + '-user">' +
-              (!o.uid ? o.name : ('<a href="/user/' + o.uid + '" title="' + self.local('log_user') + ' ' + o.uid + '">' + o.name + '</a>')) + '</td>' +
-            (!conditions.hostname ? '' : '<td class="' + css + '-hostname">' + o.hostname + '</td>') +
-            (!conditions.location ? '' : '<td class="' + css + '-location">' + o.location + '</td>') +
-            (!conditions.referer ? '' : '<td class="' + css + '-referer">' + o.referer + '</td>') +
+            '<td class="' + css + '-user" title="' + self.local('log_user') + ' ' + o.uid + '">' +
+              (!o.uid ? o.name : ('<a href="/user/' + o.uid + '">' + o.name + '</a>')) + '</td>' +
+            (!optionalColumns.hostname ? '' :
+              '<td class="' + css + '-hostname" oncontextmenu="LogFilter.setFromList(\' + o.uid + \');">' + o.hostname + '</td>') +
+            (!optionalColumns.location ? '' :
+              '<td class="' + css + '-location">' + o.location + '</td>') +
+            (!optionalColumns.referer ? '' :
+              '<td class="' + css + '-referer">' + o.referer + '</td>') +
             '<td class="' + css + '-message"><div>' +
               Judy.stripTags(o.message.replace(/\r?\n/g, " ")).substr(0, _.listMessageTruncate) + '</div></td>' +
             '</tr>';
