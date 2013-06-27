@@ -797,6 +797,18 @@ div#log_filter_log_list {
         line-height: 1.2em;
         padding: 0.7em;
       }
+      div#log_filter_log_list td.log-filter-list-user {
+        padding: 0 0.7em;
+      }
+        div#log_filter_log_list td.log-filter-list-user a {
+          display: block;
+          white-space: nowrap;
+          cursor: pointer;
+          text-align: left;
+          vertical-align: middle;
+          line-height: 1.2em;
+          padding: 0.7em 0;
+        }
       div#log_filter_log_list td.log-filter-list-no-match {
         font-weight: bold;
       }

@@ -431,7 +431,6 @@ class LogFilter {
       $theme = $GLOBALS['theme'];
 
       //  Build form.
-      $title_require_admin = '';
       $form['log_filter_filter_edit'] = array(
         '#type' => 'fieldset',
         '#title' => t('Filter') . ': <span id="log_filter_title_display">' . $title . '</span>',
@@ -670,11 +669,11 @@ class LogFilter {
         'log_filter_require_admin' => array(
           '#access' => $allow_filter_edit && $user_admin_permission,
           '#type' => 'checkbox',
-          '#title' => t('Restrict access') . '<span>?</span>',
+          '#title' => t('Restrict access') . '<span title="' . ($title = t('Require the \'Administer log filtering\' permission.')) . '">?</span>',
           '#default_value' => $require_admin,
           '#attributes' => array(
             'autocomplete' => 'off',
-            'title' => ($title_require_admin = t('Require the \'Administer log filtering\' permission.')),
+            'title' => $title,
           ),
         ),
         array( // End: log_filter_filters_cell_1
@@ -814,8 +813,6 @@ class LogFilter {
         ),
       );
 
-      $title_translate = t('Translating messages is heavy performance-wise.');
-
       $form['log_filter_list_controls'] = array(
         'frontend_setup' => array(
           '#type' => 'markup',
@@ -826,15 +823,10 @@ class LogFilter {
   }
   $(document).bind("ready", function() {
     var elm;
-    //  Set hover title on some field labels.
-    $("div.form-item-log-filter-translate label").get(0).setAttribute("title", "' . str_replace(array("\n", "\r", '"'), '', $title_translate) . '");
-    ' . (!$allow_filter_edit ? '' :
-    ('if((elm = $("div.form-item-log-filter-require-admin label").get(0))) {
-      elm.setAttribute("title", "' . str_replace(array("\n", "\r", '"'), '', $title_require_admin) . '");
-    }')) . '
+    // t() ruins this, because of some hocus pocus.
     $("div.form-item-log-filter-time-from-proxy label").get(0).setAttribute("title", "'
       . t('Date format: YYYY-MM-DD!newlineTime formats: N, NN, NNNN, NNNNNN, NN:NN, NN:NN:NN') . '".replace(/\!newline/, "\n"));
-    //  Go.
+    // Go.
     LogFilter.setup(
       ' . $js_filters . ',
       ' . ($messages ? json_encode($messages) : 'null') . '
@@ -881,11 +873,11 @@ class LogFilter {
         ),
         'log_filter_translate' => array(
           '#type' => 'checkbox',
-          '#title' => t('Translate messages') . '<span>?</span>',
+          '#title' => t('Translate messages') . '<span title="' . ($title = t('Translating messages is heavy performance-wise.')) . '">?</span>',
           '#default_value' => $settings && array_key_exists('translate', $settings) ? $settings['translate'] : variable_get('log_filter_trnslt', 0),
           '#attributes' => array(
             'autocomplete' => 'off',
-            'title' => $title_translate,
+            'title' => $title,
           ),
         ),
         'actions' => array(

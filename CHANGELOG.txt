@@ -1,3 +1,8 @@
+log_filter 7.x-1.x, 2013-06-27
+------------------------------
+* Time date is allowed to be the same for From as well as To, regardless of the time values.
+* Implemented set filter condition by event column feature.
+
 log_filter 7.x-1.x, 2013-06-25
 ------------------------------
 * Added support for Inspect output folding/formatting.

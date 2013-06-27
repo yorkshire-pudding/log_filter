@@ -93,13 +93,19 @@
     /**
      * @ignore
      * @private
-     * @type {bool|undefined}
+     * @type {array}
+     */
+    _severity = ['emergency', 'alert', 'critical', 'error', 'warning', 'notice', 'info', 'debug'],
+    /**
+     * @ignore
+     * @private
+     * @type {boolean|undefined}
      */
     _submitted,
     /**
      * @ignore
      * @private
-     * @type {bool|undefined}
+     * @type {boolean|undefined}
      */
     _ajaxRequestingBlocking,
     /**
@@ -205,7 +211,7 @@
     _machineNameConvert, _machineNameIllegals, _machineNameValidate,
     _validateTimeSequence,
     _resize,
-    _url, _submit, _prepareForm, _setMode, _crudRelay, _changedCriterion, _resetCriteria, _getCriteria, _deleteLogs,
+    _url, _submit, _typeProxyHandler, _prepareForm, _setMode, _crudRelay, _changedCriterion, _resetCriteria, _deleteLogs, _filterByEventColumn,
     _getLogList, _listLogs,
     _ajaxResponse, _ajaxRequest;
     /**
@@ -214,7 +220,7 @@
      * @private
      * @param {Error} [error]
      * @param {mixed} [variable]
-     * @param {object|integer|bool|string} [options]
+     * @param {object|integer|boolean|string} [options]
      * @return {void}
      */
     _errorHandler = function(error, variable, options) {
@@ -348,13 +354,17 @@
     /**
      * @ignore
      * @param {string} nm
+     * @param {boolean} [date]
      * @return {void}
      */
-    _validateTimeSequence = function(nm) {
+    _validateTimeSequence = function(nm, date) {
       var o = _elements.conditions, v, from = (v = o.time_from.value) ? parseInt(v, 10) : 0, to;
-      if(from && (to = (v = o.time_to.value) ? parseInt(v, 10) : 0) && from > to) {
+      if (from && (to = (v = o.time_to.value) ? parseInt(v, 10) : 0) && from > to) {
+        // Date To and From must be allowed to be the same, otherwise user can't enter same date.
+        if (date && $.trim(o.time_to_proxy.value) === $.trim(o.time_from_proxy.value)) {
+          return;
+        }
         o[ "time_" + nm ].value = o[ "time_" + nm + "_proxy" ].value = o[ "time_" + nm + "_time" ].value = "";
-        //alert(self.local("invalid_timeSequence_" + nm));
         self.Message.set( self.local("invalid_timeSequence_" + nm), "warning", { modal: true });
       }
     };
@@ -420,6 +430,35 @@
       setTimeout(function() {
         $(_elements.buttons.submit).trigger("click");
       }, 100);
+    };
+    /**
+     * @ignore
+     * @return {void}
+     */
+    _typeProxyHandler = function() {
+      var v, i;
+      if(this.checked) { // Un-check type_any.
+        _elements.conditions.type_any.checked = false;
+        // Pass value to type_some.
+        if (Judy.arrayIndexOf(v = $.trim(_elements.conditions.type_some.value).split(/\n/), this.value) === -1) {
+          v.push(this.value);
+          _elements.conditions.type_some.value = $.trim(v.join("\n"));
+        }
+      }
+      else {
+        // Remove from hidden type_some.
+        if ((i = Judy.arrayIndexOf(v = $.trim(_elements.conditions.type_some.value).split(/\n/), this.value)) > -1) {
+          v.splice(i, 1);
+          if (v.length) {
+            _elements.conditions.type_some.value = $.trim(v.join("\n"));
+          }
+          else {
+            _elements.conditions.type_some.value = "";
+            _elements.conditions.type_any.checked = "checked";
+          }
+        }
+      }
+      _changedCriterion();
     };
     /**
      * @ignore
@@ -603,11 +642,10 @@
                         r.value = Math.floor(d.getTime() / 1000);
                       }
                       else {
-                        _validateTimeSequence(nm);
+                        _validateTimeSequence(nm, true);
                       }
                     }
                     else {
-                      //alert( self.local("invalid_date", {"!date": v, "!format": _.dateFormat}) );
                       self.Message.set( self.local("invalid_date", {"!date": v, "!format": _.dateFormat}), "warning", { modal: true });
                       r.value = "";
                       return; // No change, skip _changedCriterion()
@@ -704,32 +742,8 @@
                   _.recordedValues.type_options.push(this.value);
                 });
                 // Pass values from type_some (hidden textarea; real name: log_filter_type).
-                Judy.fieldValue(_elements.conditions.type_proxy, null, $.trim(_elements.conditions.type_some.value).split(/\n/), "checkboxes");
-                jq.change(function() {
-                  var v, i;
-                  if(this.checked) { // Un-check type_any.
-                    _elements.conditions.type_any.checked = false;
-                    // Pass value to type_some.
-                    if (Judy.arrayIndexOf(v = $.trim(_elements.conditions.type_some.value).split(/\n/), this.value) === -1) {
-                      v.push(this.value);
-                      _elements.conditions.type_some.value = $.trim(v.join("\n"));
-                    }
-                  }
-                  else {
-                    // Remove from hidden type_some.
-                    if ((i = Judy.arrayIndexOf(v = $.trim(_elements.conditions.type_some.value).split(/\n/), this.value)) > -1) {
-                      v.splice(i, 1);
-                      if (v.length) {
-                        _elements.conditions.type_some.value = $.trim(v.join("\n"));
-                      }
-                      else {
-                        _elements.conditions.type_some.value = "";
-                        _elements.conditions.type_any.checked = "checked";
-                      }
-                    }
-                  }
-                  _changedCriterion();
-                });
+                Judy.fieldValue(_elements.conditions.type_proxy, _elements.form, $.trim(_elements.conditions.type_some.value).split(/\n/), "checkboxes");
+                jq.change(_typeProxyHandler);
                 // Insert 'Add type' option.
                 $(par).prepend(
                   '<div class="form-item form-type-checkbox">' +
@@ -750,8 +764,10 @@
                           '<div class="form-item form-type-checkbox">' +
                             '<input type="checkbox" class="form-checkbox" value="' + v + '" checked="checked" />' +
                             ' <label class="option">' + v + '</label>' +
-                          '</div>'
+                           '</div>'
                         );
+                        $('input[value="' + v +'"]', par).change(_typeProxyHandler);
+                        _elements.conditions.type_any.checked = false;
                       }
                       else {
                         self.Message.set(self.local('type_option_dupe', { '!option': v }), "warning", {
@@ -1314,7 +1330,7 @@
               }
               Judy.overlay(1, false, self.local("wait_" + _.mode));
               _ajaxRequestingBlocking = true;
-              v = _getCriteria();
+              v = self.getCriteria();
               _ajaxRequest("filter_" + _.mode, { // filter_create|filter_edit
                 name: nm,
                 filter: {
@@ -1438,105 +1454,11 @@
       }
     };
     /**
-     * For querying backend.
-     *
-     * Must be called delayed (after displaying overlay) to secure that validation (set-up in _prepareForm()) has done it's job.
-     *
-     * @ignore
-     * @return {object}
-     */
-    _getCriteria = function() {
-      var n = 0, conditions = {}, order_by = [], oElms = _elements.conditions, nm, r, v, le, i;
-      try {
-        //  Rely on validation set-up in _prepareForm(), dont do the same thing once over.
-        for(nm in oElms) {
-          if(oElms.hasOwnProperty(nm)) {
-            r = oElms[nm];
-            switch(nm) {
-              case "time_from_proxy":
-              case "time_to_proxy":
-              case "time_from_time":
-              case "time_to_time":
-                break;
-              case "time_range":
-              case "time_from":
-              case "time_to":
-              case "uid":
-                if((v = r.value) !== "" && (v = $.trim(v)).length && (v = parseInt(v, 10)) > -1) {
-                  ++n;
-                  conditions[nm] = v;
-                }
-                break;
-              case "role":
-                if((v = Judy.fieldValue(r)) !== "" && v !== "_none" && (v = $.trim(v)) && (v = parseInt(v, 10))) {
-                  ++n;
-                  conditions[nm] = v;
-                }
-                break;
-              case "severity_any":
-              case "type_any":
-              case "type_proxy":
-                //  Check at severity_some/type_some instead.
-                break;
-              case "severity_some":
-                if(!oElms.severity_any.checked) {
-                  v = [];
-                  le = r.length;
-                  for(i = 0; i < le; i++) {
-                    if(r[i].checked) {
-                      v.push(r[i].value);
-                    }
-                  }
-                  if(v.length) {
-                    ++n;
-                    conditions.severity = v;
-                  }
-                }
-                break;
-              case "type_some":
-                if((v = r.value) !== "" && (v = $.trim(v))) {
-                  ++n;
-                  conditions.type = v.split(/\n/);
-                }
-                break;
-              case "hostname":
-              case "location":
-              case "referer":
-                if((v = r.value) !== "" && (v = $.trim(v)) && v !== '*') {
-                  ++n;
-                  conditions[nm] = v;
-                }
-                break;
-              default:
-                throw new Error("Condition[" + nm + "] not supported.");
-            }
-          }
-        }
-        le = (oElms = _elements.orderBy).length;
-        for(i = 0; i < le; i++) {
-          if((v = Judy.fieldValue(oElms[i][0])) && v !== "_none" && (v = $.trim(v))) {
-            order_by.push([
-              v,
-              oElms[i][1].checked ? "DESC" : "ASC"
-            ]);
-          }
-        }
-      }
-      catch(er) {
-        _errorHandler(er, 0, _name + "._getCriteria()");
-      }
-      return {
-        nConditions: n,
-        conditions: conditions,
-        order_by: order_by
-      };
-    };
-    /**
      * @ignore
      * @return {void}
      */
     _deleteLogs = function() {
-      var o = _getCriteria(), v, offset = _.currentOffset, max = (v = _elements.settings.delete_logs_max.value) !== "" ? parseInt(v) : 0;
+      var o = self.getCriteria(), v, offset = _.currentOffset, max = (v = _elements.settings.delete_logs_max.value) !== "" ? parseInt(v) : 0;
       if(!o.nConditions) { // Even stored filters go here; if a stored filter has no conditions, than THAT is the important thing.
         //  We warn every time, when no conditions at all.
         if(!max) {
@@ -1621,13 +1543,85 @@
         return;
       }
       _ajaxRequestingBlocking = true;
-      v = _getCriteria();
+      v = self.getCriteria();
       _ajaxRequest("delete_logs", {
         conditions: v.conditions,
         order_by: v.order_by,
         offset: offset,
         max: max
       });
+    };
+
+    /**
+     * @ignore
+     * @param {Event} evt
+     * @return {void}
+     */
+    _filterByEventColumn = function(evt) {
+      var that = evt.target, tag, logId, col, log, u, o = _elements.conditions, elm, v, a;
+      if (evt.type === 'contextmenu') {
+        evt.preventDefault();
+      }
+      // Get out if not td or link within td.
+      switch ((tag = that.tagName || 'none').toLowerCase()) {
+        case 'td':
+          break;
+        case 'a': // User column may contain link.
+          that = that.parentNode;
+          break;
+        default:
+          return;
+      }
+      // The td must have column attribute.
+      if (!(col = that.getAttribute('log_filter_list_event_column'))) {
+        return;
+      }
+      // Parent tr must have a log id attribute, and the log must exist.
+      if (!(logId = that.parentNode.getAttribute('log_filter_list_event_id')) ||
+        !(log = _.logs['_' + logId]) || !_.logs.hasOwnProperty('_' + logId)
+      ) {
+        return;
+      }
+
+      switch (col) {
+        case 'severity':
+          v = log.severity || 'zero';
+          if ((a = Judy.fieldValue(elm = o.severity_some, _elements.form, undefined, 'checklist'))) {
+            a.push(v);
+            v = a;
+          }
+          Judy.fieldValue(elm, _elements.form, v, 'checklist');
+          $(elm).trigger('change');
+          break;
+        case 'type':
+          // If no such option exists yet: add it.
+          if (Judy.arrayIndexOf(_.recordedValues.type_options, v = log.type) === -1) {
+            $('input[name="log_filter_type_proxy_add_item_value"]', _elements.form).val(v);
+            $('input[name="log_filter_type_proxy_add_item"]', _elements.form).get(0).checked = 'checked';
+            $('input[name="log_filter_type_proxy_add_item"]', _elements.form).trigger('change');
+          }
+          else {
+            if ((a = Judy.fieldValue(elm = o.type_proxy, _elements.form, undefined, 'checklist'))) {
+              a.push(v);
+              v = a;
+            }
+            Judy.fieldValue(elm, _elements.form, v, 'checklist');
+            $('div#edit-log-filter-type-proxy input[value="' + v + '"]').trigger('change');
+          }
+          break;
+        case 'time': // Time: right-click/f means Time From, shift+f means Time To.
+          u = evt.type === 'keydown' && evt.keystrokes !== 'f' ? 'time_to' : 'time_from';
+          (elm = o[u + '_proxy']).value = log.time.substr(0, 10);
+          $(elm).trigger('change');
+          (elm = o[u + '_time']).value = log.time.substr(11);
+          $(elm).trigger('change');
+          col = u; // For Message.
+          break;
+        default:
+          (elm = o[col]).value = log[col];
+          $(elm).trigger('change');
+      }
+      self.Message.set( self.local("filtered_event_column", { "!logId": logId, '!column': self.local('log_' + col) }), "info");
     };
 
     /**
@@ -1640,7 +1634,7 @@
      * @return {void}
      */
     _getLogList = function(wid, offset) {
-      var v = _getCriteria();
+      var v = self.getCriteria();
       Judy.overlay(1, false, self.local("wait"));
       if(wid) {
         v.conditions = {
@@ -1673,7 +1667,7 @@
      * @return {void}
      */
     _listLogs = function(logs, conditions, offset, nTotal) {
-      var le = logs.length, i, o, v, css = 'log-filter-list', s, nCols = 5, wid, optionalColumns = {};
+      var le = logs.length, i, o, v, css = 'log-filter-list', s, nCols = 5, wid, optionalColumns = {}, tabindex = 999;
       _.logs = {};
       _.currentOffset = offset || 0;
       if(le) {
@@ -1685,32 +1679,8 @@
           }
           delete o.variables;
           //  Resolve severity.
-          switch("" + o.severity) {
-            case "1": // WATCHDOG_ALERT
-              v = "alert";
-              break;
-            case "2": // WATCHDOG_CRITICAL
-              v = "critical";
-              break;
-            case "3": // WATCHDOG_ERROR
-              v = "error";
-              break;
-            case "4": // WATCHDOG_WARNING
-              v = "warning";
-              break;
-            case "5": // WATCHDOG_NOTICE
-              v = "notice";
-              break;
-            case "6": // WATCHDOG_INFO
-              v = "info";
-              break;
-            case "7": // WATCHDOG_DEBUG
-              v = "debug";
-              break;
-            default: // 0 ~ WATCHDOG_EMERGENCY
-              v = "emergency";
-          }
-          o.severity = v;
+          o.severity = parseInt('' + o.severity, 10);
+          o.severity_string = _severity[o.severity];
           // Set other properties.
           o.time = Judy.dateTime(new Date(o.timestamp * 1000));
           if (!o.uid || o.uid === "0") {
@@ -1721,7 +1691,7 @@
         }
       }
       // Render.
-      s = '<table id="" class="sticky-enabled"><thead><tr>' +
+      s = '<table id="log_filter_log_list_table" class="sticky-enabled" tabindex="' + (++tabindex) + '"><thead><tr>' +
         '<th>' + Drupal.t('Severity') + '</th>' +
         '<th>' + Drupal.t('Type') + '</th>' +
         '<th>' + Drupal.t('Time') + '</th>' +
@@ -1757,19 +1727,33 @@
         }
         for(i = 0; i < le; i++) {
           o = logs[i];
-          s += '<tr id="log_filter_list_log_' + o.wid + '" onclick="LogFilter.displayLog(' + o.wid + ');" class="' + (i % 2 ? 'even' : 'odd') +
-              '" title="' + self.local("log_display", { '!number': o.wid }) + '">' +
-            '<td class="' + css + '-severity ' + css + '-' + (v = o.severity) + '" title="' + self.local(v) + '">&#160;</td>' +
-            '<td class="' + css + '-type">' + o.type + '</td>' +
-            '<td class="' + css + '-time">' + o.time + '</td>' +
-            '<td class="' + css + '-user" title="' + self.local('log_user') + ' ' + o.uid + '">' +
-              (!o.uid ? o.name : ('<a href="/user/' + o.uid + '">' + o.name + '</a>')) + '</td>' +
+          s += '<tr id="log_filter_list_log_' + o.wid + '" log_filter_list_event_id="' + o.wid + '" onclick="LogFilter.displayLog(' + o.wid +
+              ');" class="' + (i % 2 ? 'even' : 'odd') + '" title="' + self.local("eventItem_display", { '!logId': o.wid }) + '">' +
+            '<td log_filter_list_event_column="severity" class="' + css + '-severity ' + css + '-' + (v = o.severity_string) + '" title="' +
+              self.local('eventItemHover_severity', { '!logId': o.wid, '!severity': self.local(v) }) + '" tabindex="' + (++tabindex) +
+              '" onmouseover="focus(this);">&#160;</td>' +
+            '<td log_filter_list_event_column="type" class="' + css + '-type" title="' +
+              self.local('eventItemHover_filter', { '!logId': o.wid, '!filter': self.local('log_type') }) +
+              '" tabindex="' + (++tabindex) + '" onmouseover="focus(this);">' + o.type + '</td>' +
+            '<td log_filter_list_event_column="time" class="' + css + '-time" title="' + self.local('eventItemHover_time', { '!logId': o.wid }) +
+              '" tabindex="' + (++tabindex) + '" onmouseover="focus(this);">' + o.time + '</td>' +
+            '<td log_filter_list_event_column="uid" class="' + css + '-user" title="' +
+              self.local('eventItemHover_user', { '!logId': o.wid, '!uid': o.uid }) + '"' +
+              (!o.uid ? (' onmouseover="focus(this);">' + o.name) :
+                ('><a href="/user/' + o.uid + '" onmouseover="focus(this);">' + o.name + '</a>')) +
+              '</td>' +
             (!optionalColumns.hostname ? '' :
-              '<td class="' + css + '-hostname" oncontextmenu="LogFilter.setFromList(\' + o.uid + \');">' + o.hostname + '</td>') +
+              '<td log_filter_list_event_column="hostname" class="' + css + '-hostname" title="' +
+                self.local('eventItemHover_filter', { '!logId': o.wid, '!filter': self.local('log_hostname') }) +
+                '" tabindex="' + (++tabindex) + '" onmouseover="focus(this);">' + o.hostname + '</td>') +
             (!optionalColumns.location ? '' :
-              '<td class="' + css + '-location">' + o.location + '</td>') +
+              '<td log_filter_list_event_column="location" class="' + css + '-location" title="' +
+                self.local('eventItemHover_filter', { '!logId': o.wid, '!filter': self.local('log_location') }) +
+                '" tabindex="' + (++tabindex) + '" onmouseover="focus(this);">' + o.location + '</td>') +
             (!optionalColumns.referer ? '' :
-              '<td class="' + css + '-referer">' + o.referer + '</td>') +
+              '<td log_filter_list_event_column="referer" class="' + css + '-referer" title="' +
+                self.local('eventItemHover_filter', { '!logId': o.wid, '!filter': self.local('log_referer') }) +
+                '" tabindex="' + (++tabindex) + '" onmouseover="focus(this);">' + o.referer + '</td>') +
             '<td class="' + css + '-message"><div>' +
               Judy.stripTags(o.message.replace(/\r?\n/g, " ")).substr(0, _.listMessageTruncate) + '</div></td>' +
             '</tr>';
@@ -1814,26 +1798,9 @@
         $('#log_filter_log_list table.sticky-enabled').once('tableheader', function () {
           $(this).data("drupal-tableheader", new Drupal.tableHeader(this));
         });
-        // Set click behaviour on log list rows, but avoid triggering the behaviour if the user selects text.
-        $('div#log_filter_log_list tbody tr').bind('mousedown mouseup', function(evt) {
-          var moves;
-          if (evt.type === 'mousedown') {
-            $(this).mousemove(function() {
-              this.setAttribute('judy_mousedragged', (moves = this.getAttribute('judy_mousedragged')) ? (parseInt(moves, 10) + 1) : 1);
-            });
-          }
-          else {
-            $(this).unbind('mousemove');
-          }
-        }).click(function() {
-          var moves, logId;
-          if ((moves = this.getAttribute('judy_mousedragged'))) {
-            this.removeAttribute('judy_mousedragged');
-          }
-          if((!moves || moves < 10) && (logId = this.getAttribute('log_filter_list_event_id'))) {
-            self.displayLog(logId);
-          }
-        });
+        // Add filter by event column value handlers.
+        $('table#log_filter_log_list_table').bind('contextmenu', _filterByEventColumn);
+        Judy.keydown('table#log_filter_log_list_table', 'f shift+f', _filterByEventColumn, true); // preventDefault
       }, 100);
     };
 
@@ -2103,16 +2070,6 @@
       }
     };
     /**
-     * @function
-     * @name LogFilter.inspectCriteria
-     * @return {void}
-     */
-    this.inspectCriteria = function() {
-      if(typeof window.inspect === "function" && inspect.tcepsni === true) {
-        inspect(_getCriteria());
-      }
-    };
-    /**
      * Caches translated labels/message having no replacers.
      *
      * @function
@@ -2268,35 +2225,31 @@
             _local[nm] = s = Drupal.t("Sorry, something unexpected happened.");
             break;
           case "emergency":
-            _local[nm] = s = Drupal.t("Emergency");
+            _local[nm] = s = Drupal.t("emergency");
             break;
           case "alert":
-            _local[nm] = s = Drupal.t("Alert");
+            _local[nm] = s = Drupal.t("alert");
             break;
           case "critical":
-            _local[nm] = s = Drupal.t("Critical");
+            _local[nm] = s = Drupal.t("critical");
             break;
           case "error":
-            _local[nm] = s = Drupal.t("Error");
+            _local[nm] = s = Drupal.t("error");
             break;
           case "warning":
-            _local[nm] = s = Drupal.t("Warning");
+            _local[nm] = s = Drupal.t("warning");
             break;
           case "notice":
-            _local[nm] = s = Drupal.t("Notice");
+            _local[nm] = s = Drupal.t("notice");
             break;
           case "info":
-            _local[nm] = s = Drupal.t("Info");
+            _local[nm] = s = Drupal.t("info");
             break;
           case "debug":
-            _local[nm] = s = Drupal.t("Debug");
+            _local[nm] = s = Drupal.t("debug");
             break;
           case "anonymous_user":
             _local[nm] = s = Drupal.t("anonymous");
-            break;
-          case "log_display":
-            //  {"!number": integer}
-            s = Drupal.t("Event !number", replacers);
             break;
           case "log_event":
             _local[nm] = s = Drupal.t("Event");
@@ -2310,7 +2263,14 @@
           case "log_time":
             _local[nm] = s = Drupal.t("Time");
             break;
+          case "log_time_from":
+            _local[nm] = s = Drupal.t("Time From");
+            break;
+          case "log_time_to":
+            _local[nm] = s = Drupal.t("Time To");
+            break;
           case "log_user":
+          case "log_uid":
             _local[nm] = s = Drupal.t("User");
             break;
           case "log_location":
@@ -2327,6 +2287,30 @@
             break;
           case "log_link":
             _local[nm] = s = Drupal.t("Link");
+            break;
+          case "eventItem_display":
+            //  {"!logId": integer}
+            s = Drupal.t("Event !logId", replacers);
+            break;
+          case "eventItemHover_filter":
+            //  {"!logId": logId, '!filter': filter }
+            s = Drupal.t("Event !logId - press F key (or right-click) to filter !filter", replacers);
+            break;
+          case "eventItemHover_severity":
+            //  {"!logId": logId, '!severity': severity}
+            s = Drupal.t("Event !logId (!severity) - press F key (or right-click) to filter Severity", replacers);
+            break;
+          case "eventItemHover_time":
+            //  {"!logId": logId }
+            s = Drupal.t("Event !logId!newline - press F key (or right-click) to filter Time From!newline - press shift+F to filter Time To", replacers);
+            break;
+          case "eventItemHover_user":
+            //  {"!logId": logId, '!uid': uid}
+            s = Drupal.t("Event !logId (user !uid) - press F key (or right-click) to filter User", replacers);
+            break;
+          case "filtered_event_column":
+            //  {"!logId": logId, '!column': column }
+            s = Drupal.t("Filter !column by value of event !logId.", replacers);
             break;
           case "event_link":
             _local[nm] = s = Drupal.t("Link to this log event");
@@ -2365,6 +2349,102 @@
         }
       }
       return s.replace(/\!newline/g, "\n");
+    };
+
+    /**
+     * For querying backend.
+     *
+     * Must be called delayed (after displaying overlay) to secure that validation (set-up in _prepareForm()) has done it's job.
+     *
+     * @function
+     * @name LogFilter.getCriteria
+     * @return {object}
+     */
+    this.getCriteria = function() {
+      var n = 0, conditions = {}, order_by = [], oElms = _elements.conditions, nm, r, v, le, i;
+      try {
+        //  Rely on validation set-up in _prepareForm(), dont do the same thing once over.
+        for(nm in oElms) {
+          if(oElms.hasOwnProperty(nm)) {
+            r = oElms[nm];
+            switch(nm) {
+              case "time_from_proxy":
+              case "time_to_proxy":
+              case "time_from_time":
+              case "time_to_time":
+                break;
+              case "time_range":
+              case "time_from":
+              case "time_to":
+              case "uid":
+                if((v = r.value) !== "" && (v = $.trim(v)).length && (v = parseInt(v, 10)) > -1) {
+                  ++n;
+                  conditions[nm] = v;
+                }
+                break;
+              case "role":
+                if((v = Judy.fieldValue(r)) !== "" && v !== "_none" && (v = $.trim(v)) && (v = parseInt(v, 10))) {
+                  ++n;
+                  conditions[nm] = v;
+                }
+                break;
+              case "severity_any":
+              case "type_any":
+              case "type_proxy":
+                //  Check at severity_some/type_some instead.
+                break;
+              case "severity_some":
+                if(!oElms.severity_any.checked) {
+                  v = [];
+                  le = r.length;
+                  for(i = 0; i < le; i++) {
+                    if(r[i].checked) {
+                      v.push(r[i].value);
+                    }
+                  }
+                  if(v.length) {
+                    ++n;
+                    conditions.severity = v;
+                  }
+                }
+                break;
+              case "type_some":
+                if((v = r.value) !== "" && (v = $.trim(v))) {
+                  ++n;
+                  conditions.type = v.split(/\n/);
+                }
+                break;
+              case "hostname":
+              case "location":
+              case "referer":
+                if((v = r.value) !== "" && (v = $.trim(v)) && v !== '*') {
+                  ++n;
+                  conditions[nm] = v;
+                }
+                break;
+              default:
+                throw new Error("Condition[" + nm + "] not supported.");
+            }
+          }
+        }
+        le = (oElms = _elements.orderBy).length;
+        for(i = 0; i < le; i++) {
+          if((v = Judy.fieldValue(oElms[i][0])) && v !== "_none" && (v = $.trim(v))) {
+            order_by.push([
+              v,
+              oElms[i][1].checked ? "DESC" : "ASC"
+            ]);
+          }
+        }
+      }
+      catch(er) {
+        _errorHandler(er, 0, _name + ".getCriteria()");
+      }
+      return {
+        nConditions: n,
+        conditions: conditions,
+        order_by: order_by
+      };
     };
 
     /**
@@ -2635,7 +2715,6 @@
         }
       };
     };
-
     /**
      * @param {integer|falsy|string} logId
      * @return {void}
@@ -2654,7 +2733,7 @@
           s = '<div class="' + css + '">' +
               '<table class="dblog-event"><tbody>' +
               '<tr class="odd"><th>' + self.local('log_severity') + '</th>' +
-                '<td>' + (v = o.severity) + '<div class="' + css + '-severity ' + css + '-' + v + '">&#160;</div></td></tr>' +
+                '<td>' + (v = o.severity_string) + '<div class="' + css + '-severity ' + css + '-' + v + '">&#160;</div></td></tr>' +
               '<tr class="even"><th>' + self.local('log_type') + '</th><td>' + o.type + '</td></tr>' +
               '<tr class="odd"><th>' + self.local('log_time') + '</th><td>' + o.time + '</td></tr>' +
               '<tr class="even"><th>' + self.local('log_user') + '</th>' +
@@ -2765,6 +2844,14 @@
           self.Message.set(a[i][0], a[i][1], o);
         }
       }
+
+      // Set title attribute of all labels containing a span that has a non-empty title attribute.
+      $('label > span[title]').each(function() {
+        var t = this.getAttribute('title');
+        if (t) {
+          this.parentNode.setAttribute('title', t);
+        }
+      });
 
       // Check if administrative Overlay is on.
       if (!/^#overlay=admin\//.test(top.location.hash)) {
