@@ -355,18 +355,20 @@
      * @ignore
      * @param {string} nm
      * @param {boolean} [date]
-     * @return {void}
+     * @return {boolean}
      */
     _validateTimeSequence = function(nm, date) {
       var o = _elements.conditions, v, from = (v = o.time_from.value) ? parseInt(v, 10) : 0, to;
       if (from && (to = (v = o.time_to.value) ? parseInt(v, 10) : 0) && from > to) {
         // Date To and From must be allowed to be the same, otherwise user can't enter same date.
         if (date && $.trim(o.time_to_proxy.value) === $.trim(o.time_from_proxy.value)) {
-          return;
+          return true;
         }
         o[ "time_" + nm ].value = o[ "time_" + nm + "_proxy" ].value = o[ "time_" + nm + "_time" ].value = "";
         self.Message.set( self.local("invalid_timeSequence_" + nm), "warning", { modal: true });
+        return false;
       }
+      return true;
     };
     /**
      * @ignore
@@ -1558,7 +1560,7 @@
      * @return {void}
      */
     _filterByEventColumn = function(evt) {
-      var that = evt.target, tag, logId, col, log, u, o = _elements.conditions, elm, v, a;
+      var that = evt.target, tag, logId, col, log, u, o = _elements.conditions, elm, elm1, v, v1, a, vShow;
       if (evt.type === 'contextmenu') {
         evt.preventDefault();
       }
@@ -1585,6 +1587,7 @@
 
       switch (col) {
         case 'severity':
+          vShow = self.local(_severity[ log.severity ]);
           v = log.severity || 'zero';
           if ((a = Judy.fieldValue(elm = o.severity_some, _elements.form, undefined, 'checklist'))) {
             a.push(v);
@@ -1608,20 +1611,25 @@
             Judy.fieldValue(elm, _elements.form, v, 'checklist');
             $('div#edit-log-filter-type-proxy input[value="' + v + '"]').trigger('change');
           }
+          vShow = v;
           break;
         case 'time': // Time: right-click/f means Time From, shift+f means Time To.
           u = evt.type === 'keydown' && evt.keystrokes !== 'f' ? 'time_to' : 'time_from';
-          (elm = o[u + '_proxy']).value = log.time.substr(0, 10);
+          (elm = o[u + '_proxy']).value = v = log.time.substr(0, 10);
           $(elm).trigger('change');
-          (elm = o[u + '_time']).value = log.time.substr(11);
-          $(elm).trigger('change');
+          (elm1 = o[u + '_time']).value = v1 = log.time.substr(11);
+          $(elm1).trigger('change');
+          if (elm.value !== v || elm1.value !== v1) {
+            return; // Dont set message.
+          }
           col = u; // For Message.
+          vShow = log.time;
           break;
         default:
-          (elm = o[col]).value = log[col];
+          (elm = o[col]).value = vShow = v = log[col];
           $(elm).trigger('change');
       }
-      self.Message.set( self.local("filtered_event_column", { "!logId": logId, '!column': self.local('log_' + col) }), "info");
+      self.Message.set( self.local("filtered_event_column", { '!column': self.local('log_' + col), '!value': vShow }), "info");
     };
 
     /**
@@ -2309,8 +2317,8 @@
             s = Drupal.t("Event !logId (user !uid) - press F key (or right-click) to filter User", replacers);
             break;
           case "filtered_event_column":
-            //  {"!logId": logId, '!column': column }
-            s = Drupal.t("Filter !column by value of event !logId.", replacers);
+            //  {"!logId": logId, '!value': value }
+            s = Drupal.t("Filter !column by '!value'.", replacers);
             break;
           case "event_link":
             _local[nm] = s = Drupal.t("Link to this log event");
@@ -2715,6 +2723,7 @@
         }
       };
     };
+
     /**
      * @param {integer|falsy|string} logId
      * @return {void}

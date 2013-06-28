@@ -1,3 +1,7 @@
+log_filter 7.x-1.x, 2013-06-28
+------------------------------
+* Don't show filter by event message when validation fails.
+
 log_filter 7.x-1.x, 2013-06-27
 ------------------------------
 * Time date is allowed to be the same for From as well as To, regardless of the time values.

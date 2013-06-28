@@ -142,6 +142,7 @@ body.page-admin-reports-dblog-log-filter #page.theme-seven {
 
 /* messages */
 div#log_filter__message {
+  width: 67%;
   text-align: center;
   height: 0; max-height: 0;
 }
@@ -796,6 +797,12 @@ div#log_filter_log_list {
         vertical-align: middle;
         line-height: 1.2em;
         padding: 0.7em;
+      }
+      div#log_filter_log_list td:hover {
+        background-color: #E8F3FF;
+      }
+      div#log_filter_log_list td.log-filter-list-message:hover {
+        background-color: #D8E8F7;
       }
       div#log_filter_log_list td.log-filter-list-user {
         padding: 0 0.7em;
