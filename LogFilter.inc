@@ -144,9 +144,9 @@ class LogFilter {
     );
 
     // Use the module's default css.
-    if (($use_module_css = variable_get('log_filter_cssdefault', TRUE))) {
+    if (($use_module_css = variable_get('log_filter_cssdefault', FALSE))) {
       drupal_add_css(
-        $path . '/css/log_filter.css',
+        $path . '/css/log_filter.min.css',
         array('type' => 'file', 'group' => CSS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
       );
     }
@@ -154,7 +154,7 @@ class LogFilter {
     drupal_add_js('misc/tableheader.js');
 
     drupal_add_js(
-      $path . '/js/log_filter.js',
+      $path . '/js/log_filter.min.js',
       array('type' => 'file', 'group' => JS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
     );
 
@@ -461,7 +461,7 @@ class LogFilter {
         'log_filter_time_range' => array( // (3 open)
           '#type' => 'textfield',
           '#title' => t('Preceding hours'),
-          '#default_value' => $conditions['time_range'],
+          '#default_value' => $conditions['time_range'] ? $conditions['time_range'] : '',
           '#size' => 2,
           '#attributes' => array('autocomplete' => 'off'),
           '#prefix' => '<div id="log_filter_criteria"><div class="filter-conditions"><div class="form-item log-filter-time">'
@@ -1039,11 +1039,12 @@ class LogFilter {
                 $submitted['mode'] = $mode = 'stored';
                 break;
               default: // delete
+                global $user;
                 db_delete('log_filter')->condition('name', $filter_name, '=')->execute();
                 watchdog(
                   'log_filter',
-                  'User !user deleted the log filter \'!name\'.',
-                  array('!name' => $filter_name, '!user' => $GLOBALS['user']->name),
+                  'User (%uid) %name deleted the log filter \'!filter\'.',
+                  array('%uid' => $user->uid, '%name' => $user->name, '!filter' => $filter_name),
                   WATCHDOG_INFO
                 );
                 $messages[] = array(
@@ -1369,7 +1370,7 @@ class LogFilter {
           }
           break;
         case 'time_range':
-          $fields[$key] = !empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v < 1000 ? $v : 0;
+          $fields[$key] = !empty($conditions[$key]) && ($v = (int)$conditions[$key]) > 0 && $v < 10000 ? $v : 0;
           break;
         case 'time_from':
         case 'time_to':
@@ -1439,9 +1440,6 @@ class LogFilter {
   }
 
   /**
-   * MySQL version<any doesn't support LIMIT for sub queries.
-   *
-   * @see LogFilter::DB_SUBQUERY_LIMIT
    * @param array &$conditions
    *  - empty or invalid conditions will be removed from the array
    * @param array $order_by
@@ -1451,14 +1449,18 @@ class LogFilter {
    * @param integer $max
    *  - default: zero
    *  - ignored until MySQL supports LIMIT for sub queries
-   * @param array|NULL|FALSE $log_columns
+   * @param array|NULL|boolean $log_columns
    *  - default: NULL (~ all watchdog columns)
    *  - FALSE: count only
-   * @param array|FALSE $user_columns
+   * @param array|boolean $user_columns
    *  - default: FALSE (~ no user columns)
-   * @return SelectQuery
+   * @param boolean $deletion
+   *  - default: FALSE (~ not for deleting logs)
+   * @return SelectQuery|SelectQueryInterface
+   * @throws Exception
+   *  - PDOException
    */
-  protected static function _logListQuery(&$conditions, $order_by, $offset = 0, $max = 0, $log_columns = NULL, $user_columns = FALSE) {
+  protected static function _logListQuery(&$conditions, $order_by, $offset = 0, $max = 0, $log_columns = NULL, $user_columns = FALSE, $deletion = FALSE) {
     $query = db_select('watchdog', 'w');
     if ($user_columns) {
       $query->leftJoin('users', 'u', 'w.uid = u.uid');
@@ -1479,7 +1481,7 @@ class LogFilter {
       }
     }
     //  Conditions.
-    if ($conditions) {
+    if ($deletion || $conditions) {
       // The wid (log id) condition is not part of the overall used conditions, so we have to handle it differently.
       $wid = 0;
       if (isset($conditions['wid'])) {
@@ -1512,6 +1514,14 @@ class LogFilter {
           }
         }
 
+        // Deleting events that log deletion of events is illegal.
+        if ($deletion) {
+          if (!empty($conditions['type'])) {
+            unset($conditions['type']['log_filter delete logs']);
+          }
+          $query->condition('w.' . 'type', 'log_filter delete logs', '!=');
+        }
+
         foreach ($names as $key) {
           if (isset($conditions[$key])) {
             if (!($v = $conditions[$key]) && $key != 'uid') {
@@ -1535,12 +1545,8 @@ class LogFilter {
                   $query->condition('w.' . $key, explode(',', check_plain(join(',', $v))), 'IN');
                   break;
                 case 'time_range':
-                  if (($v = (int)$v) > 0 && $v < 1000) {
-                    if (!is_array($v = $conditions[$key])) {
-                      throw new Exception('Non-empty condition[' . $key . '], type[' . gettype($v) . '], must be array.',
-                        self::$_errorCodes['bad_filter_condition']);
-                    }
-                    $query->condition('w.' . $key, REQUEST_TIME - ($v * 60 * 60), '>=');
+                  if (($v = (int)$v) > 0 && $v < 10000) {
+                    $query->condition('w.' . 'timestamp', REQUEST_TIME - ($v * 60 * 60), '>=');
                   }
                   else {
                     unset($conditions[$key]);
@@ -1731,42 +1737,44 @@ class LogFilter {
    */
   protected static function _deleteLogs($conditions, $order_by, $offset, $max) {
     global $user;
-    if (!$conditions && !$offset && !$max) {
-      $deleted = db_delete('watchdog')
-        ->execute();
-    }
-    else {
-      $query = self::_logListQuery($conditions, $order_by, $offset, $max, array('wid'));
-      if (($offset || $max) && !self::DB_SUBQUERY_LIMIT) {
-        // A range must have a max length, otherwise it's ignored.
-        if (!$max) {
-          $max = PHP_INT_MAX - $offset;
-        }
-        $query->range($offset, $max);
-      }
-      $ids = $query->execute()->fetchCol();
 
-      if (!($le = count($ids))) {
-        return 0;
+    // Deleting all logs unconditionally is not an option, because deleting logs of type 'log_filter delete logs' is illegal.
+    //if (!$conditions && !$offset && !$max) {
+    //  $deleted = db_delete('watchdog')
+    //    ->execute();
+    //}
+    //else {
+    $query = self::_logListQuery($conditions, $order_by, $offset, $max, array('wid'), FALSE, TRUE);
+    if (($offset || $max) && !self::DB_SUBQUERY_LIMIT) {
+      // A range must have a max length, otherwise it's ignored.
+      if (!$max) {
+        $max = PHP_INT_MAX - $offset;
       }
-      //  This may fail because the list of ids may exceed query limit (query max length).
-      if ($le > 40000) {
-        $le = count($ids = array_chunk($ids, 40000));
-        $deleted = 0;
-        for ($i = 0; $i < $le; $i++) {
-          $deleted += db_delete('watchdog')
-            ->condition('wid', $ids[$i], 'IN')
-            ->execute();
-        }
-      }
-      else {
-        $deleted = db_delete('watchdog')
-          ->condition('wid', $ids, 'IN')
+      $query->range($offset, $max);
+    }
+    $ids = $query->execute()->fetchCol();
+
+    if (!($le = count($ids))) {
+      return 0;
+    }
+    //  This may fail because the list of ids may exceed query limit (query max length).
+    if ($le > 40000) {
+      $le = count($ids = array_chunk($ids, 40000));
+      $deleted = 0;
+      for ($i = 0; $i < $le; $i++) {
+        $deleted += db_delete('watchdog')
+          ->condition('wid', $ids[$i], 'IN')
           ->execute();
       }
     }
+    else {
+      $deleted = db_delete('watchdog')
+        ->condition('wid', $ids, 'IN')
+        ->execute();
+    }
+    //}
     watchdog(
-      'log_filter',
+      'log_filter delete logs',
       'User (%uid) %name deleted !deleted log events.',
       array('%uid' => $user->uid, '%name' => $user->name, '!deleted' => $deleted),
       WATCHDOG_NOTICE

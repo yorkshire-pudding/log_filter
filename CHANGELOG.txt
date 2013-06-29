@@ -1,3 +1,13 @@
+log_filter 7.x-1.x, 2013-06-29
+------------------------------
+* Prevent deletion of events that log log deletion.
+* Fixed defaults of settings variables.
+* Moved filter delete button to prevent mix-up with delete logs button.
+* Added overlay when user goes from one filter to another.
+* Increased max allowed value of time_range to 9999 (from 1000).
+* Removed menu option; Log Filter now always takes over dblog's menu item, and adds dblog's view as a tab instead.
+* Install now inserts some default filters.
+
 log_filter 7.x-1.x, 2013-06-28
 ------------------------------
 * Don't show filter by event message when validation fails.

@@ -269,7 +269,7 @@ div#log_filter__message {
           }
             form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-time-range input {
               display: inline-block;
-              width: 2.5em;
+              width: 2.8em;
               text-align: right;
             }
           form#log-filter-form div#log_filter_criteria div.filter-conditions div div.log-filter-time-or {
@@ -445,7 +445,7 @@ div#log_filter__message {
       /* ~ #page.log-filter-viewport-small form#log-filter-form fieldset#edit-log-filter-filter-edit */
       width: auto; max-width: none; min-width: 63.5em;
 
-      height: auto; min-height: auto;
+      height: auto; min-height: auto;/*yes; min:auto,max:none*/
     }
     form#log-filter-form div#log_filter_filters:after {
       /*clearfix*/clear:both;content:".";display:block;height:0;visibility:hidden;font-size:0;
@@ -457,7 +457,7 @@ div#log_filter__message {
         height: 17em; min-height: 17em;
       }
       #page.log-filter-viewport-small div#log_filter_filters > div#log_filter_box_filter {
-        height: auto; min-height: auto;
+        height: auto; min-height: auto;/*yes; min:auto,max:none*/
       }
         form#log-filter-form  div#log_filter_filters > div#log_filter_box_filter:after {
           /*clearfix*/clear:both;content:".";display:block;height:0;visibility:hidden;font-size:0;
@@ -512,7 +512,7 @@ div#log_filter__message {
         form#log-filter-form div#log_filter_filters > div#log_filter_box_filter > div#log_filter_filters_cell_1 {
         }
         #page.log-filter-viewport-small form#log-filter-form div#log_filter_filters > div#log_filter_box_filter > div#log_filter_filters_cell_1 {
-          width: auto; min-width: auto;
+          width: auto; min-width: auto;/*yes; min:auto,max:none*/
         }
           form#log-filter-form div#log_filter_filters > div#log_filter_box_filter > div#log_filter_filters_cell_1 > div.form-item-log-filter-name-suggest {
             display: none;
@@ -542,7 +542,7 @@ div#log_filter__message {
         form#log-filter-form div#log_filter_filters > div#log_filter_box_filter > div.log-filter-edit-create {
         }
         #page.log-filter-viewport-small form#log-filter-form div#log_filter_filters > div#log_filter_box_filter > div.log-filter-edit-create {
-          width: auto; min-width: auto; max-width: none;
+          width: auto; min-width: auto;/*yes; min:auto,max:none*/ max-width: none;
         }
           form#log-filter-form div#log_filter_filters > div#log_filter_box_filter > div.log-filter-edit-create:after {
             /*clearfix*/clear:both;content:".";display:block;height:0;visibility:hidden;font-size:0;
@@ -571,7 +571,7 @@ div#log_filter__message {
         }
         #page.log-filter-viewport-small form#log-filter-form div#log_filter_filters > div#log_filter_box_filter > div.form-item-log-filter-description {
           margin-top: 0;
-          width: auto; min-width: auto;
+          width: auto; min-width: auto;/*yes; min:auto,max:none*/
         }
           #page.log-filter-viewport-small form#log-filter-form div#log_filter_filters > div#log_filter_box_filter > div.form-item-log-filter-description label {
             padding-bottom: 0.3em;
@@ -589,7 +589,7 @@ div#log_filter__message {
         form#log-filter-form div#log_filter_filters > div#log_filter_box_filter > div.log-filter-cancel-save {
         }
         #page.log-filter-viewport-small form#log-filter-form div#log_filter_filters > div#log_filter_box_filter > div.log-filter-cancel-save {
-          width: auto; min-width: auto; max-width: none;
+          width: auto; min-width: auto;/*yes; min:auto,max:none*/ max-width: none;
           margin-bottom: 1em;
         }
           form#log-filter-form div#log_filter_filters > div#log_filter_box_filter > div.log-filter-cancel-save:after {
@@ -617,16 +617,16 @@ div#log_filter__message {
             margin-top: 1.5em;
         }
         #page.log-filter-viewport-small form#log-filter-form div#log_filter_filters > div#log_filter_box_filter > div.log-filter-delete {
-            width: auto; min-width: auto; max-width: none;
+            width: auto; min-width: auto;/*yes; min:auto,max:none*/ max-width: none;
             margin-top: 0;
         }
-          form#log-filter-form div#log_filter_filters > div#log_filter_box_filter > div.log-filter-delete:after {
+          form#log-filter-form div#log_filter_filters > div#log_filter_box_filter > div.log-filter-delete input {
+          }
+          #page.log-filter-viewport-small form#log-filter-form div#log_filter_filters > div#log_filter_box_filter > div.log-filter-delete:after {
             /*clearfix*/clear:both;content:".";display:block;height:0;visibility:hidden;font-size:0;
           }
-          form#log-filter-form div#log_filter_filters > div#log_filter_box_filter > div.log-filter-delete input {
-            float: right;
-          }
           #page.log-filter-viewport-small form#log-filter-form div#log_filter_filters > div#log_filter_box_filter > div.log-filter-delete input {
+            float: right;
             margin-top: 1em;
           }
       form#log-filter-form div#log_filter_filters > div#log_filter_box_delete_logs {
@@ -858,6 +858,21 @@ div#log_filter_log_list {
 div.log-filter-log-display-dialog {
   box-shadow:0px 2px 5px #555;
 }
+  div.log-filter-log-display-dialog a.ui-dialog-titlebar-close {
+    width: 33%;
+    background-color: #C8C9C5;
+  }
+  div.log-filter-log-display-dialog a.ui-dialog-titlebar-close:hover,
+  div.log-filter-log-display-dialog a.ui-dialog-titlebar-close:focus {
+    padding: 1px;
+    opacity:0.7; -ms-filter:'progid:DXImageTransform.Microsoft.Alpha(Opacity=70)'; filter:alpha(opacity=70);
+  }
+    div.log-filter-log-display-dialog a.ui-dialog-titlebar-close:after {
+      /*clearfix*/clear:both;content:".";display:block;height:0;visibility:hidden;font-size:0;
+    }
+    div.log-filter-log-display-dialog a.ui-dialog-titlebar-close > span {
+      float: right;
+    }
   div.log-filter-log-display {
     overflow: auto;
   }

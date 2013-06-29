@@ -488,6 +488,7 @@
                     _resetCriteria(null, "default");
                     return;
                   }
+                  Judy.overlay(1, false, self.local("wait")); // Transparent.
                   _submit();
                 });
                 break;
@@ -529,6 +530,7 @@
                     _elements.filter.origin.value = _.name; // Pass name to origin.
                     _elements.filter.name.value = "";
                   }
+                  Judy.overlay(1, false, self.local("wait")); // Transparent.
                   _submit();
                 });
                 break;
@@ -590,6 +592,9 @@
                       this.value = v = "";
                     }
                     else {
+                      if (v.length > 4) {
+                        this.value = v = '9999';
+                      }
                       (o = _elements.conditions).time_from.value =
                         o.time_from_proxy.value =
                         o.time_from_time.value =
@@ -2760,7 +2765,7 @@
             content: s,
             fixed: true,
             resizable: false,
-            closeOnEscape: true,
+            closeOnEscape: false, // Set behaviour that closes all log filter dialogs on escape, disregarding current focus.
             dialogClass: "log-filter-log-display-dialog",
             contentClass: "log-filter-log-display-content",
             autoOpen: false,
@@ -2877,6 +2882,13 @@
         /^.+\/(\d+)\/?$/.test(url = url) && (wid = parseInt(url.replace(/^.+\/(\d+)\/?$/, '$1'), 10)) &&
           wid <= Math.pow(2, 31) ? wid : 0
       );
+
+      // Make all event dialogs close on escape, and no matter what has focus.
+      Judy.keydown(document.documentElement, "escape", function() {
+        $('div.log-filter-log-display-content').each(function() {
+          $(this).dialog("close");
+        });
+      });
     };
   }
   window.LogFilter = new LogFilter($);

@@ -7,16 +7,9 @@
 /**
  * Implements hook_schema().
  *
- * Log Filter doesn't use the Cache API because it's inefficient for working with multiple items.
- *
  * @return array
  */
 function log_filter_schema() {
-  /*
-  $schema['cache_log_filter'] = drupal_get_schema_unprocessed('system', 'cache');
-  $schema['cache_log_filter']['description'] = 'Cache table for Log Filter to store translated log posts.';
-  return $schema;
-   */
   return array(
     'log_filter' => array(
       'description' => 'Log filters.',
@@ -59,7 +52,7 @@ function log_filter_schema() {
           'type' => 'text',
           'not null' => TRUE,
           //  Text fields don't support default value; at least not MySQL.
-          'description' => 'Comma-separated list.',
+          'description' => 'Comma-separated list. Empty default because it\'s a text field (not char/varchar).',
         ),
         'time_range' => array(
           'type' => 'int',
@@ -133,37 +126,6 @@ function log_filter_schema() {
           'name' => array('name'),
       ),
     ),
-    /* 'log_filter_cache' => array(
-      'description' => 'Cached logs - Log Filter doesn\'t use the Cache API because it\'s inefficient for working with multiple items.',
-      'fields' => array(
-        'lid' => array(
-          'type' => 'serial',
-          'size' => 'big',
-          'not null' => TRUE,
-        ),
-        'wid' => array(
-          'type' => 'int',
-          'not null' => TRUE,
-          'description' => 'Watchdog event ID.',
-        ),
-        'lang' => array( // 'language' is a reserved word in SQL standards.
-          'type' => 'varchar',
-          'length' => 12,
-          'not null' => TRUE,
-          'default' => 'en',
-          'description' => 'Translation language.',
-        ),
-        'data' => array(
-          'type' => 'blob', // To prevent character set issues.
-          'not null' => FALSE,
-          'description' => 'JSON serialized log with translated message field and derivate properties.',
-        ),
-      ),
-      'primary key' => array('lid'),
-      'unique keys' => array(
-        'log_by_lang' => array('wid', 'lang'),
-      ),
-    ), */
   );
 }
 
@@ -171,8 +133,38 @@ function log_filter_schema() {
  * Implements hook_install().
  */
 function log_filter_install() {
-  //
-  //variable_set('log_filter_x', 'y');
+  variable_set('log_filter_admintheme', TRUE);
+  variable_set('log_filter_cssdefault', TRUE);
+
+  // Insert some default filters.
+  $uid = $GLOBALS['user']->uid;
+  $filters = array(
+    array('name' => 'errors_day', 'creator' => $uid, 'description' => '', 'require_admin' => 1, 'severity' => '0,1,2,3', 'type' => '', 'time_range' => 30, 'time_from' => 0, 'time_to' => 0, 'role' => -1, 'uid' => -1, 'hostname' => '', 'location' => '', 'referer' => '', 'order_by' => '', 'editor' => $uid, 'created' => 1, 'changed' => 1),
+    array('name' => 'errors_month', 'creator' => $uid, 'description' => '', 'require_admin' => 1, 'severity' => '0,1,2,3', 'type' => '', 'time_range' => 750, 'time_from' => 0, 'time_to' => 0, 'role' => -1, 'uid' => -1, 'hostname' => '', 'location' => '', 'referer' => '', 'order_by' => '', 'editor' => $uid, 'created' => 1, 'changed' => 1),
+    array('name' => 'errors_week', 'creator' => $uid, 'description' => '', 'require_admin' => 1, 'severity' => '0,1,2,3', 'type' => '', 'time_range' => 175, 'time_from' => 0, 'time_to' => 0, 'role' => -1, 'uid' => -1, 'hostname' => '', 'location' => '', 'referer' => '', 'order_by' => '', 'editor' => $uid, 'created' => 1, 'changed' => 1),
+    array('name' => 'latest_day', 'creator' => $uid, 'description' => '', 'require_admin' => 0, 'severity' => '', 'type' => '', 'time_range' => 30, 'time_from' => 0, 'time_to' => 0, 'role' => -1, 'uid' => -1, 'hostname' => '', 'location' => '', 'referer' => '', 'order_by' => '', 'editor' => $uid, 'created' => 1, 'changed' => 1),
+    array('name' => 'latest_month', 'creator' => $uid, 'description' => '', 'require_admin' => 0, 'severity' => '', 'type' => '', 'time_range' => 750, 'time_from' => 0, 'time_to' => 0, 'role' => -1, 'uid' => -1, 'hostname' => '', 'location' => '', 'referer' => '', 'order_by' => '', 'editor' => $uid, 'created' => 1, 'changed' => 1),
+    array('name' => 'latest_week', 'creator' => $uid, 'description' => '', 'require_admin' => 0, 'severity' => '', 'type' => '', 'time_range' => 175, 'time_from' => 0, 'time_to' => 0, 'role' => -1, 'uid' => -1, 'hostname' => '', 'location' => '', 'referer' => '', 'order_by' => '', 'editor' => $uid, 'created' => 1, 'changed' => 1),
+    array('name' => 'severity_debug', 'creator' => $uid, 'description' => 'Debug severity', 'require_admin' => 1, 'severity' => 7, 'type' => '', 'time_range' => 0, 'time_from' => 0, 'time_to' => 0, 'role' => -1, 'uid' => -1, 'hostname' => '', 'location' => '', 'referer' => '', 'order_by' => '', 'editor' => $uid, 'created' => 1, 'changed' => 1),
+    array('name' => 'severity_error', 'creator' => $uid, 'description' => 'All error severities', 'require_admin' => 1, 'severity' => '0,1,2,3', 'type' => '', 'time_range' => 0, 'time_from' => 0, 'time_to' => 0, 'role' => -1, 'uid' => -1, 'hostname' => '', 'location' => '', 'referer' => '', 'order_by' => '', 'editor' => $uid, 'created' => 1, 'changed' => 1),
+    array('name' => 'severity_warning_notice_info', 'creator' => $uid, 'description' => 'All non-error severities but debug', 'require_admin' => 1, 'severity' => '4,5,6', 'type' => '', 'time_range' => 0, 'time_from' => 0, 'time_to' => 0, 'role' => -1, 'uid' => -1, 'hostname' => '', 'location' => '', 'referer' => '', 'order_by' => '', 'editor' => $uid, 'created' => 1, 'changed' => 1)
+  );
+  try {
+    $le = count($filters);
+    for ($i = 0; $i < $le; ++$i) {
+      db_insert('log_filter')
+        ->fields($filters[$i])
+        ->execute();
+    }
+  }
+  catch (Exception $xc) {
+    watchdog(
+      'log_filter',
+      'Failed to insert default filters during installation of module Log Filter.',
+      NULL,
+      WATCHDOG_ERROR
+    );
+  }
 }
 
 /**
@@ -181,7 +173,6 @@ function log_filter_install() {
  * Implements hook_uninstall().
  */
 function log_filter_uninstall() {
-  variable_del('log_filter_hidedblog');
   variable_del('log_filter_admintheme');
   variable_del('log_filter_cssdefault');
   variable_del('log_filter_trnslt');

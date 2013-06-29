@@ -58,43 +58,25 @@ function log_filter_menu() {
   );
 
   //  NB: Accessing a saved filter is done via an extra url argument after admin/reports/dblog/log_filter; see LogFilter::FILTER_NAME_ARG.
+  //  And accessing a log event is done by adding /NUMBER to the end of url (saved filter or not).
+
+  // Take over the url of dblog's default viewer.
   $i = 0;
-  //  Add two tabs to dblog's default viewer.
-  if (!variable_get('log_filter_hidedblog', FALSE)) {
-    $items['admin/reports/dblog/dblog'] = array(
-      'type' => MENU_DEFAULT_LOCAL_TASK,
-      'title' => 'Recent log messages',
-      'weight' => ++$i,
-    );
-    $items['admin/reports/dblog/log_filter'] = array(
-      'title' => 'Filtered log messages',
-      'description' => 'View logged events using filters',
-      'page callback' => 'drupal_get_form', // Hook to implement.
-      'page arguments' => array('log_filter_form'), // Name of implementing function.
-      'access arguments' => array('access site reports'), // Permission required.
-      'type' => MENU_LOCAL_TASK,
-      'weight' => ++$i,
-      'theme callback' => 'log_filter_use_admin_theme',
-    );
-  }
-  //  ... or take over url of dblog's default viewer.
-  else {
-    $items['admin/reports/dblog'] = array(
-      'title' => 'Recent log messages',
-      'description' => 'View logged events using filters',
-      'page callback' => 'drupal_get_form', // Hook to implement.
-      'page arguments' => array('log_filter_form'), // Name of implementing function.
-      'access arguments' => array('access site reports'), // Permission required.
-      'type' => MENU_NORMAL_ITEM,
-      'weight' => -1,
-      'theme callback' => 'log_filter_use_admin_theme',
-    );
-    $items['admin/reports/dblog/log_filter'] = array(
-      'type' => MENU_DEFAULT_LOCAL_TASK,
-      'title' => 'Recent log messages',
-      'weight' => ++$i,
-    );
-  }
+  $items['admin/reports/dblog'] = array(
+    'title' => 'Recent log messages',
+    'description' => 'View logged events using filters',
+    'page callback' => 'drupal_get_form', // Hook to implement.
+    'page arguments' => array('log_filter_form'), // Name of implementing function.
+    'access arguments' => array('access site reports'), // Permission required.
+    'type' => MENU_NORMAL_ITEM,
+    'theme callback' => 'log_filter_use_admin_theme', // Do always administrative theme, if set so.
+    'weight' => -1,
+  );
+  $items['admin/reports/dblog/log_filter'] = array(
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'title' => 'Recent log messages',
+    'weight' => ++$i,
+  );
   $items['admin/reports/dblog/log_filter_settings'] = array(
     'title' => 'Log filter settings',
     'description' => 'Configure Log Filtering',
@@ -103,9 +85,21 @@ function log_filter_menu() {
     'access arguments' => array('log_filter administer'), // permission required
     'file' => 'admin/log_filter.admin.inc',
     'type' => MENU_LOCAL_TASK,
+    'theme callback' => 'log_filter_use_admin_theme', // Do always administrative theme, if set so.
     'weight' => ++$i,
-    'theme callback' => 'log_filter_use_admin_theme',
   );
+  $items['admin/reports/dblog/dblog_view'] = array(
+    'title' => 'dblog view',
+    'description' => 'View events that have recently been logged.',
+    'page callback' => 'dblog_overview',
+    'access arguments' => array('access site reports'),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => drupal_get_path('module', 'dblog'),
+    'file' => 'dblog.admin.inc',
+    'theme callback' => 'log_filter_use_admin_theme', // Do always administrative theme, if set so.
+    'weight' => ++$i,
+  );
+
   return $items;
 }
 
@@ -115,7 +109,7 @@ function log_filter_menu() {
  * @return string
  */
 function log_filter_use_admin_theme() {
-  return variable_get('log_filter_admintheme', TRUE) ? variable_get('admin_theme') : (
+  return variable_get('log_filter_admintheme', FALSE) ? variable_get('admin_theme') : (
     !empty($GLOBALS['user']->theme) ? $GLOBALS['user']->theme : variable_get('theme_default', 'seven')
   );
 }
