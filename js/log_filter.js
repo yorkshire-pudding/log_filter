@@ -4,7 +4,7 @@
  */
 
 'use strict';
-/*jslint ass: true, browser: true, continue: true, indent: 2, newcap: true, nomen: true, plusplus: true, regexp: true, white: true*/
+/*jslint browser: true, continue: true, indent: 2, newcap: true, nomen: true, plusplus: true, regexp: true, white: true*/
 /*global alert: false, confirm: false, console: false*/
 /*global jQuery: false, Drupal: false, inspect: false, Judy: false*/
 
@@ -231,9 +231,11 @@
           if(u) {
             if((t = typeof u) === "string") {
               o.message = u;
+              o.wrappers = 1; // This function wraps Inspect.errorHandler().
             }
             else if(t === "object") {
               o = u;
+              o.wrappers = !u.wrappers ? 1 : (u.wrappers + 1);
             }
             //  Otherwise: ignore; use object argument for options if other properties are needed.
           }
@@ -334,7 +336,7 @@
      * @param {string} [value]
      * @param {boolean} [noFeedback]
      *  - default: false (~ do pop alert upon validation failure)
-     * @return {void}
+     * @return {boolean}
      */
     _machineNameValidate = function(evt, elm, value, noFeedback) {
       var v = evt ? this.value : (elm ? elm.value : value), le = v.length;
@@ -426,7 +428,7 @@
       // Add filter name to action url.
       _elements.form.setAttribute(
         "action",
-        _elements.form.getAttribute("action").replace(/\/dblog(\/[^\?\&]+)([\?\&].+)?$/, "/dblog/log_filter/" + nm + "$2")
+        _elements.form.getAttribute("action").replace(/\/dblog(\/[^\?&]+)([\?&].+)?$/, "/dblog/log_filter/" + nm + "$2")
       );
       //  Delay; otherwise it may in some situations not submit, presumably because Judy.enable() hasnt finished it's job yet(?).
       setTimeout(function() {
@@ -857,8 +859,8 @@
                     if(v !== "") {
                       this.value = v = Judy.stripTags(v);
                     }
-                    if(v !== "" && v !== "*" && !/^https?\:\/\/.+$/.test(v)) {
-                      if(!/^https?\:\/\/.+$/.test(v = "http://" + v)) {
+                    if(v !== "" && v !== "*" && !/^https?:\/\/.+$/.test(v)) {
+                      if(!/^https?:\/\/.+$/.test(v = "http://" + v)) {
                         self.Message.set( self.local(nm === "location" ? "invalid_location" : "invalid_referer"), "warning", {
                             modal: true,
                             close: function() {
@@ -1032,6 +1034,10 @@
       catch(er) {
         _errorHandler(er, 0, _name + "._prepareForm()");
       }
+    };
+
+    self.inspector = function(u) {
+      inspect(u, {wrappers:1});
     };
 
     /**
@@ -1906,7 +1912,7 @@
             });
             return;
           //  Errors by more than one request type.
-          case _errorCodes.error_perm_filter_crud:
+          case _errorCodes.perm_filter_crud:
             self.Message.set( self.local("error_perm_filter_crud"), "warning", {
                 modal: true,
                 close: function() {
