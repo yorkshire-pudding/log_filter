@@ -109,7 +109,7 @@ function log_filter_menu() {
  * @return string
  */
 function log_filter_use_admin_theme() {
-  return variable_get('log_filter_admintheme', FALSE) ? variable_get('admin_theme') : (
+  return variable_get('log_filter_admintheme', TRUE) ? variable_get('admin_theme') : (
     !empty($GLOBALS['user']->theme) ? $GLOBALS['user']->theme : variable_get('theme_default', 'seven')
   );
 }

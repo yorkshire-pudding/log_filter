@@ -133,9 +133,6 @@ function log_filter_schema() {
  * Implements hook_install().
  */
 function log_filter_install() {
-  variable_set('log_filter_admintheme', TRUE);
-  variable_set('log_filter_cssdefault', TRUE);
-
   // Insert some default filters.
   $uid = $GLOBALS['user']->uid;
   $filters = array(

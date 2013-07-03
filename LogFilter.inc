@@ -144,7 +144,7 @@ class LogFilter {
     );
 
     // Use the module's default css.
-    if (($use_module_css = variable_get('log_filter_cssdefault', FALSE))) {
+    if (($use_module_css = variable_get('log_filter_cssdefault', TRUE))) {
       drupal_add_css(
         $path . '/css/log_filter.min.css',
         array('type' => 'file', 'group' => CSS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)

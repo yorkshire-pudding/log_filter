@@ -40,14 +40,14 @@ function _log_filter_admin_form($form, &$form_state) {
     'log_filter_admintheme' => array(
       '#type' => 'checkbox',
       '#title' => t('Do always use the administrative theme on log view pages'),
-      '#default_value' => variable_get('log_filter_admintheme', FALSE),
+      '#default_value' => variable_get('log_filter_admintheme', TRUE),
       '#attributes' => array('autocomplete' => 'off'),
     ),
     'log_filter_cssdefault' => array(
       '#type' => 'checkbox',
       '#title' => t('Link this module\'s default stylesheet'),
       '#description' => t('Otherwise, implement styling in the site\'s theme layer.'),
-      '#default_value' => variable_get('log_filter_cssdefault', FALSE),
+      '#default_value' => variable_get('log_filter_cssdefault', TRUE),
       '#attributes' => array('autocomplete' => 'off'),
     ),
   );
