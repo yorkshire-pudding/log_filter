@@ -1,14 +1,9 @@
 Log Filter 7.x-1.0
 
 
-New features
-------------
- * X
+First release.
 
-Bug fixes
----------
- * Y
 
 Install/update notes
 --------------------
- * Z
+* Clear cache.
