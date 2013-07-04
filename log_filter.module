@@ -89,7 +89,7 @@ function log_filter_menu() {
     'weight' => ++$i,
   );
   $items['admin/reports/dblog/dblog_view'] = array(
-    'title' => 'dblog view',
+    'title' => 'Standard dblog view',
     'description' => 'View events that have recently been logged.',
     'page callback' => 'dblog_overview',
     'access arguments' => array('access site reports'),

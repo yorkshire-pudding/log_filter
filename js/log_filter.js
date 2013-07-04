@@ -88,7 +88,9 @@
       adminOverlayOffset: 80, // Module Overlay.
       currentOffset: 0,
       currentMax: 100,
-      logs: {}
+      logs: {},
+      library_judy_version: 2.0,
+      library_judy_compatible: true
     },
     /**
      * @ignore
@@ -204,6 +206,12 @@
      * @type {array}
      */
     _filters = [],
+    /**
+     * @ignore
+     * @private
+     * @type {object}
+     */
+    _logs = {},
 
     //  Declare private methods, to make IDEs list them
     _errorHandler, _oGet, _toAscii,
@@ -1591,7 +1599,7 @@
       }
       // Parent tr must have a log id attribute, and the log must exist.
       if (!(logId = that.parentNode.getAttribute('log_filter_list_event_id')) ||
-        !(log = _.logs['_' + logId]) || !_.logs.hasOwnProperty('_' + logId)
+        !(log = _logs['_' + logId]) || !_logs.hasOwnProperty('_' + logId)
       ) {
         return;
       }
@@ -1687,7 +1695,7 @@
      */
     _listLogs = function(logs, conditions, offset, nTotal) {
       var le = logs.length, i, o, v, css = 'log-filter-list', s, nCols = 5, wid, optionalColumns = {}, tabindex = 999;
-      _.logs = {};
+      _logs = {};
       _.currentOffset = offset || 0;
       if(le) {
         for(i = 0; i < le; i++) {
@@ -1706,7 +1714,7 @@
             o.uid = 0;
             o.name = self.local("anonymous_user");
           }
-          _.logs[ "_" + o.wid ] = o;
+          _logs[ "_" + o.wid ] = o;
         }
       }
       // Render.
@@ -2363,6 +2371,10 @@
             //  { '!offset': offset, '!total': nTotal }
             s = Drupal.t("None after !offset, of !total", replacers);
             break;
+          case "library_judy_incompatible":
+            //  { '!version': version }
+            s = Drupal.t("Log Filter doesn't work without the Judy library, version !version or newer.", replacers);
+            break;
           default:
             s = "[LOCAL: " + nm + "]";
         }
@@ -2741,7 +2753,7 @@
      */
     this.displayLog = function(logId) {
       var o, s, v, css = 'log-filter-log-display', dialId = 'log_filter_logDisplay_' + logId, elm, $dialOuter, dialInner;
-      if ((o = _.logs['_' + logId]) && _.logs.hasOwnProperty('_' + logId)) {
+      if ((o = _logs['_' + logId]) && _logs.hasOwnProperty('_' + logId)) {
         // If already open: close the dialog.
         if ((elm = document.getElementById(dialId))) {
           $('#log_filter_list_log_' + logId).removeClass('log-filter-list-displayed');
@@ -2749,7 +2761,7 @@
         }
         else {
           $('#log_filter_list_log_' + logId).addClass('log-filter-list-displayed');
-          o = _.logs['_' + logId];
+          o = _logs['_' + logId];
           s = '<div class="' + css + '">' +
               '<table class="dblog-event"><tbody>' +
               '<tr class="odd"><th>' + self.local('log_severity') + '</th>' +
@@ -2821,8 +2833,16 @@
      * @return {void}
      */
     this.init = function(useModuleCss, theme) {
+      var v;
       /** @ignore */
       self.init = function() {};
+
+      // Make sure Judy exists and is version 2.0+.
+      if (typeof window.Judy !== 'object' || !(v = Judy.version) || Judy.version < _.library_judy_version) {
+        _.library_judy_compatible = false;
+        return;
+      }
+
       //  Tell styles about theme.
       if((_.useModuleCss = useModuleCss)) {
         $("div#page").addClass("theme-" + theme);
@@ -2844,6 +2864,12 @@
       /** @ignore */
       self.setup = function() {};
       _filters = filters || [];
+
+      if (!_.library_judy_compatible) {
+        alert(self.local('library_judy_incompatible', { '!version': _.library_judy_version }));
+        return;
+      }
+
       _prepareForm();
       _setMode(_.mode, false, true);
 

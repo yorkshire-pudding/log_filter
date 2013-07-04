@@ -1,3 +1,7 @@
+log_filter 7.x-1.x, 2013-07-04
+------------------------------
+* Frontend now checks that the Judy library exists and has version 2.0+.
+
 log_filter 7.x-1.x, 2013-06-29
 ------------------------------
 * Prevent deletion of events that log log deletion.
