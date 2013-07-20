@@ -146,7 +146,7 @@ class LogFilter {
     // Use the module's default css.
     if (($use_module_css = variable_get('log_filter_cssdefault', TRUE))) {
       drupal_add_css(
-        $path . '/css/log_filter.min.css',
+        $path . '/css/log_filter' /*. '.min'*/ . '.css',
         array('type' => 'file', 'group' => CSS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
       );
     }
@@ -154,7 +154,7 @@ class LogFilter {
     drupal_add_js('misc/tableheader.js');
 
     drupal_add_js(
-      $path . '/js/log_filter.min.js',
+      $path . '/js/log_filter' /*. '.min'*/ . '.js',
       array('type' => 'file', 'group' => JS_DEFAULT, 'preprocess' => FALSE, 'every_page' => FALSE)
     );
 

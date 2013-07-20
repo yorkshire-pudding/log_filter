@@ -218,7 +218,6 @@
     _textareaRemoveWrapper,
     _machineNameConvert, _machineNameIllegals, _machineNameValidate,
     _validateTimeSequence,
-    _resize,
     _url, _submit, _typeProxyHandler, _prepareForm, _setMode, _crudRelay, _changedCriterion, _resetCriteria, _deleteLogs, _filterByEventColumn,
     _getLogList, _listLogs,
     _ajaxResponse, _ajaxRequest;
@@ -379,31 +378,6 @@
         return false;
       }
       return true;
-    };
-    /**
-     * @ignore
-     * @param {Event} [evt]
-     * @param {boolean} [initially]
-     * @return {void}
-     */
-    _resize = function(evt, initially) {
-      var jq, o;
-      //  Detect small viewport.
-      //  If small, then the filter box will float/fall down below the criteria box.
-      //  Because there isnt room for it.
-      //  And thus the filter box will be placed at the same offset from window left as the criteria box.
-      if(_.useModuleCss) {
-        o = (jq = $("#log_filter_criteria")).offset();
-        $("#page")[
-          (o.left + jq.outerWidth(true) + $("div#log_filter_filters_cell_0").outerWidth(true)) >
-            (Judy.innerWidth(window) - 20) ? // 20 ~ To prevent ambiguity.
-            "addClass" : "removeClass"
-        ]("log-filter-viewport-small");
-      }
-      if(initially) {
-        Judy.overlay(0);
-        $(window).resize(_resize);
-      }
     };
     /**
      * @ignore
@@ -1092,7 +1066,6 @@
                 $(elm.parentNode).hide();
               }
               $(_elements.filter.name_suggest.parentNode).hide();
-              $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
               $(_elements.filter.description.parentNode).hide();
             }
             if(_.deleteLogs_allowed) {
@@ -1127,7 +1100,6 @@
                 $(elm.parentNode).hide();
               }
               $(_elements.filter.name_suggest.parentNode).hide();
-              $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
               $(_elements.filter.description.parentNode).hide();
             }
             if(_.deleteLogs_allowed) {
@@ -1154,7 +1126,6 @@
               }
             }
             if(_.crudFilters) {
-              $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
               $(_elements.settings.onlyOwn.parentNode).show();
               $(_elements.buttons.create).show();
               $(_elements.buttons.edit).show();
@@ -1195,7 +1166,6 @@
             }
             $(_elements.settings.onlyOwn.parentNode).hide();
             $(_elements.filter.name_suggest.parentNode).show();
-            $(_elements.filter.name_suggest.parentNode.parentNode).show(); // To secure correct display of delete_logs when .viewport-narrow.
             if ((elm = _elements.filter.require_admin)) {
               $(elm.parentNode).show();
             }
@@ -1221,10 +1191,6 @@
             }
             if ((elm = _elements.filter.require_admin)) {
               $(elm.parentNode).show();
-              $(elm.parentNode.parentNode).show(); // To secure correct display of delete_logs when .viewport-narrow.
-            }
-            else {
-              $(_elements.filter.name_suggest.parentNode.parentNode).hide(); // To secure correct display of delete_logs when .viewport-narrow.
             }
             $(_elements.filter.name_suggest.parentNode).hide();
             $(_elements.filter.description.parentNode).show();
@@ -2873,8 +2839,6 @@
       _prepareForm();
       _setMode(_.mode, false, true);
 
-      _resize(null, true); // Hides overlay.
-
       //  Display messages, if any.
       (self.Message = new self.Message()).setup();
       if(a) {
@@ -2921,6 +2885,8 @@
           $(this).dialog("close");
         });
       });
+
+      Judy.overlay(0);
     };
   }
   window.LogFilter = new LogFilter($);
