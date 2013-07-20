@@ -16,6 +16,504 @@
 
   /**
    * Singleton, instantiated to itself.
+   *
+   * Might get released, 'cause created in Jacob's spare time.
+   *
+   * @author Jacob Friis Mathiasen <jacob.friis.mathiasen@ks.kk.dk>
+   * @constructor
+   * @namespace
+   * @name _AjaxComplete
+   * @singleton
+   * @param {function} $
+   */
+  var _AjaxComplete = function() {
+    var self = this,
+      _name = '_AjaxComplete',
+      _moduleName = 'kk_seb_find_colleague',// NB: Change that if copied to another module.
+      _listeners = {},
+      _filtersWildcard = [
+        // These may tear down the browser.
+        { '!url': /\/inspect\/ajax/ }/*,
+        { '!url': /\/log_filter\/ajax/ }*/
+      ],
+      /**
+       * @ignore
+       * @see inspect.errorHandler
+       * @function
+       * @name KKSebFindColleague.errorHandler
+       * @param {Error} [error]
+       * @param {*} [variable]
+       * @param {object|integer|boolean|string} [options]
+       * @return {void}
+       */
+        _errorHandler = function(error, variable, options) {
+        var u = options, o = {}, t;
+        //  Do nothing, if inspect is the 'no action' type.
+        if(typeof window.inspect === 'function' && inspect.tcepsni) {
+          if(typeof inspect.errorHandler === 'function') {
+            if(u) {
+              if((t = typeof u) === 'string') {
+                o.message = u;
+                o.wrappers = 1; // This function wraps Inspect.errorHandler().
+              }
+              else if(t === 'object') {
+                o = u;
+                o.wrappers = !u.wrappers ? 1 : (u.wrappers + 1);
+              }
+              //  Otherwise: ignore; use object argument for options if other properties are needed.
+            }
+            o.category = _moduleName;
+            inspect.errorHandler(error, variable, o);
+          }
+          else {
+            inspect.console('Please update Inspect.');
+          }
+        }
+      },
+      /**
+       * Attempts to find name attribute, for compatibility with Drupal Form API ajax.settings._triggering_element_name.
+       *
+       * @ignore
+       * @param {string|element} selector
+       * @return {array|null}
+       *  - array: [ selector ] or [ selector, name ]
+       *  - null on error
+       */
+        _selector = function(selector) {
+        var s = selector, t = typeof s, v, tag;
+        try {
+          if (!s) {
+            throw new Error('Falsy selector, type[' + t + ']');
+          }
+          if (t === 'string') {
+            // Test name attribute.
+            return s.indexOf('[name=') === -1 ? [s] : [s, s.replace(/^.*\[name=['\"]([^'\"]+)['\"]\].*$/, '$1') ];
+          }
+          else if (t === 'object') {
+            if ($.isWindow(s)) {
+              return ['_win_'];
+            }
+            else if (s === 'document') {
+              return ['_doc_'];
+            }
+            else if (s === 'document.documentElement') {
+                return ['_docElm_'];
+              }
+              else if (typeof s.getAttributeNode !== 'function' || typeof s.getAttribute !== 'function') {
+                  throw new Error('Selector, type[' + t + '], isnt non-empty string|element');
+                }
+            tag = s.tagName.toLowerCase();
+            if ((v = s.getAttribute('name'))) {
+              return [ tag + '[name="' + v + '"]' , v ];
+            }
+            else if ((v = s.id)) {
+              return ['#' + v];
+            }
+            else if ((v = s.className)) {
+                return [ tag + '.' + v.replace(/ +/g, '.') ];
+              }
+              else if ((v = s.getAttribute('type'))) {
+                  return [ tag + '[type="' + v + '"]' ];
+                }
+            return [ tag ];
+          }
+          else {
+            throw new Error('Selector, type[' + t + '], isnt non-empty string|element');
+          }
+        }
+        catch (er) {
+          _errorHandler(er, null, _name + '._selector()')
+        }
+        return null;
+      },
+      /**
+       * @ignore
+       * @param {object} sttngs
+       * @param {array} fltr
+       * @return {boolean}
+       */
+        _filter = function(sttngs, fltr) {
+        var le = fltr.length, i, k, x, not, v;
+        for (i = 0; i < le; i++) {
+          for (k in fltr[i]) {
+            v = null; // Clear reference (loop).
+            if (fltr[i].hasOwnProperty(k)) {
+              x = k;
+              if ((not = x.charAt(0) === '!')) {
+                x = x.substr(1);
+              }
+              if (sttngs.hasOwnProperty(x)) {
+                if ((v = fltr[i][k]) && v instanceof RegExp) {
+                  if (typeof sttngs[x] === 'string') {
+                    if (v.test(sttngs[x])) {
+                      if (not) {
+                        return false;
+                      }
+                    }
+                    else if (!not) {
+                      return false;
+                    }
+                  }
+                }
+                else if (sttngs[x] === v) {
+                  if (not) {
+                    return false;
+                  }
+                }
+                else if (!not) {
+                    return false;
+                  }
+              }
+            }
+          }
+        }
+        return true;
+      },
+      /**
+       * @ignore
+       * @param {object|falsy} settings
+       * @param {string|element} [selector]
+       *  - for direct triggering
+       * @return {void}
+       */
+        _handler = function(settings, selector) {
+        var sttngs = settings || {}, lstnrs, nLstnrs, slctr, s, elms, nElms, $jq, i, j, o, nm, val, f, d, fltr, elm, evt;
+        // All events.
+        if ((lstnrs = _listeners['*']) && (nLstnrs = lstnrs.length)) {
+          for (i = 0; i < nLstnrs; i++) {
+            f = d = fltr = evt = null; // Clear references (loop);
+            if ((fltr = lstnrs[i][2]) && fltr.length) {
+              if (!_filter(sttngs, fltr)) {
+                continue;
+              }
+            }
+            f = lstnrs[i][0];
+            d = lstnrs[i][1];
+            evt = !d ? {
+              type: 'ajaxcomplete'
+            } : {
+              type: 'ajaxcomplete',
+              data: d
+            };
+            evt.ajax = sttngs;
+            f.apply(
+              document,
+              [evt]
+            );
+          }
+        }
+        // Events triggered directly.
+        if (selector) {
+          if ((slctr = _selector(selector)) && (lstnrs = _listeners[ (s = slctr[0]) ]) && (nLstnrs = lstnrs.length)) {
+            switch (s) {
+              case '_win_':
+                nElms = 1;
+                elms = [window];
+                break;
+              case '_doc_':
+                nElms = 1;
+                elms = [document];
+                break;
+              case '_docElm_':
+                nElms = 1;
+                elms = [document.documentElement];
+                break;
+              default:
+                nElms = (elms = $(s).get() ).length;
+            }
+          }
+        }
+        // Drupal Form API events.
+        else if ((o = sttngs.extraData) && // Drupal Form API.
+          (nm = o._triggering_element_name) && // Drupal Form API.
+          (lstnrs = _listeners[ '_name_:' + nm ]) && (nLstnrs = lstnrs.length) &&
+          (nElms = (elms = ($jq = $('[name="' + nm + '"]') ).get() ).length)
+          ) {
+          if ((val = o._triggering_element_value)) {
+            $jq.filter('[value="' + val + '"]');
+            nElms = (elms = $jq.get() ).length;
+          }
+        }
+        if (nElms) {
+          for (i = 0; i < nLstnrs; i++) {
+            f = d = fltr = evt = null; // Clear references (loop);
+            if ((fltr = lstnrs[i][2]) && fltr.length) {
+              if (!_filter(sttngs, fltr)) {
+                continue;
+              }
+            }
+            f = lstnrs[i][0];
+            d = lstnrs[i][1];
+            evt = !d ? {
+              type: 'ajaxcomplete'
+            } : {
+              type: 'ajaxcomplete',
+              data: d
+            };
+            evt.ajax = sttngs;
+            for (j = 0; j < nElms; j++) {
+              elm = null; // Clear references (loop);
+              elm = elms[j];
+              f.apply(
+                elm,
+                [evt]
+              );
+            }
+          }
+        }
+      },
+      /**
+       * @ignore
+       * @type boolean
+       */
+        _inited = false;
+    /**
+     * Dump listeners.
+     *
+     * @function
+     * @name _AjaxComplete.inspect
+     * @return {void}
+     */
+    this.inspect = function() {
+      if(typeof window.inspect === 'function' && inspect.tcepsni) {
+        inspect(_listeners);
+      }
+    };
+    /**
+     * Like jQuery().delegate and .on() the listener will apply now and in the future, no matter if such element(s) exist when calling this method.
+     *
+     * Will attempt to find name attribute, for compatibility with Drupal Form API ajax.settings._triggering_element_name.
+     *
+     * @function
+     * @name _AjaxComplete.on
+     * @param {string|element|array|jquery} selector
+     *  - '*' means all responses, and the event will be trigger on document
+     * @param {object|function} data_or_handler
+     * @param {function} [handler]
+     * @param {object|array} [filter]
+     *  - object keying properties of ajax settings object ('!key's mean exclude), values may be simple variables and regexes
+     *  - or an array of such
+     * @return {void}
+     */
+    this.on = function(selector, data_or_handler, handler, filter) {
+      var s = selector, t = typeof s, d = data_or_handler, h = handler, fltr = filter, le, i, nm;
+      try {
+        if (!s) {
+          throw new Error('Falsy selector, type[' + t + ']');
+        }
+        if (t === 'object') {
+          if (s instanceof $) {
+            s = s.selector || s.get();
+          }
+          if ($.isArray(s)) {
+            if (!(le = s.length)) {
+              throw new Error('Empty selector, type array or jquery');
+            }
+            for (i = 0; i < le; i++) {
+              self.on(s[i], d, h);
+              return;
+            }
+          }
+        }
+        if (!(s = _selector(s))) {
+          throw new Error('Bad selector, see previous error');
+        }
+
+        if (typeof d === 'function') {
+          h = d;
+          d = undefined;
+        }
+        else if (typeof h !== 'function') {
+          throw new Error('Cant resolve a handler');
+        }
+
+        if (!_inited) {
+          $(document).ajaxComplete(function(event, xhr, settings) {
+            _handler(settings);
+          });
+          _inited = true;
+        }
+
+        nm = s[1];
+        s = s[0];
+
+        if (fltr) {
+          if (typeof fltr !== 'object') {
+            throw new Error('Filter, type[' + typeof fltr + '], isnt object|array');
+          }
+          if (!$.isArray(fltr)) {
+            fltr = [fltr];
+          }
+          if (s === '*') {
+            fltr = fltr.concat(_filtersWildcard);
+          }
+        }
+        else if (s === '*') {
+          fltr = _filtersWildcard;
+        }
+
+        if (!_listeners[s]) {
+          _listeners[s] = [
+            [h, d, fltr]
+          ];
+        }
+        else {
+          _listeners[s].push([h, d, fltr]);
+        }
+        if (nm) { // For Drupal Form API ajax.settings._triggering_element_name.
+          s = '_name_:' + nm;
+          if (!_listeners[s]) {
+            _listeners[s] = [
+              [h, d, fltr]
+            ];
+          }
+          else {
+            _listeners[s].push([h, d, fltr]);
+          }
+        }
+      }
+      catch (er) {
+        _errorHandler(er, null, _name + '.on()')
+      }
+    };
+    /**
+     * @function
+     * @name _AjaxComplete.off
+     * @param {string|element|array|jquery} selector
+     * @param {function|falsy} [handler]
+     * @return {void}
+     */
+    this.off = function(selector, handler) {
+      var s = selector, t = typeof s, h = handler, nm, lstnrs, le, i, rm;
+      try {
+        if (!_inited) {
+          return;
+        }
+
+        if (!s) {
+          throw new Error('Falsy selector, type[' + t + ']');
+        }
+        if (t === 'object') {
+          if (s instanceof $) {
+            s = s.selector || s.get();
+          }
+          if ($.isArray(s)) {
+            if (!(le = s.length)) {
+              throw new Error('Empty selector, type array or jquery');
+            }
+            for (i = 0; i < le; i++) {
+              self.off(s[i], h);
+              return;
+            }
+          }
+        }
+        if (!(s = _selector(s))) {
+          throw new Error('Bad selector, see previous error');
+        }
+
+        if (h && typeof h !== 'function') {
+          throw new Error('Handler, type[' + typeof h + '], isnt function|falsy');
+        }
+
+        nm = s[1];
+        s = s[0];
+        if (_listeners[s]) {
+          if (!h) {
+            delete _listeners[s];
+          }
+          else {
+            le = (lstnrs = _listeners[s]);
+            rm = -1;
+            for (i = 0; i < le; i++) {
+              if (lstnrs[i][0] === h) {
+                rm = i;
+                break;
+              }
+            }
+            if (rm > -1) {
+              if (le === 1) {
+                delete _listeners[s];
+              }
+              else {
+                lstnrs.splice(rm, 1);
+              }
+            }
+          }
+        }
+        if (nm) { // For Drupal Form API ajax.settings._triggering_element_name.
+          s = '_name_:' + nm;
+          if (_listeners[s]) {
+            if (!h) {
+              delete _listeners[s];
+            }
+            else {
+              le = (lstnrs = _listeners[s]);
+              rm = -1;
+              for (i = 0; i < le; i++) {
+                if (lstnrs[i][0] === h) {
+                  rm = i;
+                  break;
+                }
+              }
+              if (rm > -1) {
+                if (le === 1) {
+                  delete _listeners[s];
+                }
+                else {
+                  lstnrs.splice(rm, 1);
+                }
+              }
+            }
+          }
+        }
+      }
+      catch (er) {
+        _errorHandler(er, null, _name + '.off()')
+      }
+    };
+    /**
+     * @function
+     * @name _AjaxComplete.trigger
+     * @param {string|element|array|jquery} selector
+     *  - '*' means all responses, and the event will be trigger on document
+     * @param {object|falsy} [settings]
+     *  - it's properties will be set on the event argument for the handler, as event.ajax
+     * @return {void}
+     */
+    this.trigger = function(selector, settings) {
+      var s = selector, t = typeof s, le, i;
+      try {
+        if (!s) {
+          throw new Error('Falsy selector, type[' + t + ']');
+        }
+        if (t === 'object') {
+          if (s instanceof $) {
+            s = s.selector || s.get();
+          }
+          if ($.isArray(s)) {
+            if (!(le = s.length)) {
+              throw new Error('Empty selector, type array or jquery');
+            }
+            for (i = 0; i < le; i++) {
+              self.trigger(s[i]);
+              return;
+            }
+          }
+        }
+        if (!(s = _selector(s))) {
+          throw new Error('Bad selector, see previous error');
+        }
+        _handler(settings|| {}, s[0]);
+      }
+      catch (er) {
+        _errorHandler(er, null, _name + '.trigger()')
+      }
+    };
+  };
+  _AjaxComplete = new _AjaxComplete($);
+
+  /**
+   * Singleton, instantiated to itself.
    * @constructor
    * @namespace
    * @name LogFilter
@@ -154,6 +652,7 @@
         type_proxy: "div#edit-log-filter-type-proxy input", // We only store the first, because we only need one for getting/setting value.
         role: "select[name='log_filter_role']", // For iteration: must go before uid.
         uid: "input[name='log_filter_uid']",
+        username: "input[name='log_filter_username']",
         hostname: "input[name='log_filter_hostname']",
         location: "input[name='log_filter_location']",
         referer: "input[name='log_filter_referer']"
@@ -779,7 +1278,7 @@
                 //  Clear uid when selecting a role.
                 jq.change(function() {
                   if(Judy.fieldValue(this)) {
-                    _elements.conditions.uid.value = "";
+                    _elements.conditions.uid.value = _elements.conditions.username.value = "";
                   }
                   _changedCriterion();
                 });
@@ -796,22 +1295,53 @@
                   if(v !== "") {
                     if(!/^\d+$/.test(v)) {
                       self.Message.set( self.local("invalid_uid"), "warning", {
-                          modal: true,
-                          close: function() {
-                            Judy.focus(_elements.conditions.uid);
-                          }
+                        modal: true,
+                        close: function() {
+                          Judy.focus(_elements.conditions.uid);
+                        }
                       });
                       this.value = v = "";
                     }
                     else {
-                      Judy.fieldValue(_elements.conditions.role, null, ""); // Clear role when setting a uid.
+                      // Clear role when setting a uid.
+                      Judy.fieldValue(_elements.conditions.role, null, "");
+                      _elements.conditions.username.value = '';
                     }
                   }
+                  // Always clear username when setting uid.
+                  _elements.conditions.username.value = '';
                   if(v !== _.recordedValues.uid) {
                     _.recordedValues.uid = v;
                     _changedCriterion();
                   }
                 });
+                break;
+              case "username":
+                oElms[nm] = elm;
+                $(elm).autocomplete({
+                  source: "/log_filter/ajax/username_autocomplete",
+                  minLength: 2,
+                  select: function(event, ui) {
+                    var v;
+                    if (ui.item) {
+                      _elements.conditions.uid.value = (v = ui.item.value);
+                      _elements.conditions.username.value = ui.item.label;
+                      if(v !== _.recordedValues.uid) {
+                        _.recordedValues.uid = v;
+                        Judy.fieldValue(_elements.conditions.role, null, ""); // Clear role when setting a uid.
+                        _changedCriterion();
+                      }
+                    }
+                    return false;
+                  },
+                }).bind('autocompletesearch', function() {
+                  $(this).addClass('throbbing');
+                }).bind('autocompleteresponse', function() { // Doesnt work, propably old version of jQuery UI.
+                  $(_elements.conditions.username).removeClass('throbbing');
+                });
+                _AjaxComplete.on('*', null, function(event) {
+                  $(_elements.conditions.username).removeClass('throbbing');
+                }, { url: /\/log_filter\/ajax\/username_autocomplete/ });
                 break;
               case "hostname":
                 oElms[nm] = elm;
@@ -1545,7 +2075,7 @@
      * @return {void}
      */
     _filterByEventColumn = function(evt) {
-      var that = evt.target, tag, logId, col, log, u, o = _elements.conditions, elm, elm1, v, v1, a, vShow;
+      var that = evt.target, tag, logId, col, log, u, o = _elements.conditions, elm, elm1, v, v1, a, vShow, username;
       if (evt.type === 'contextmenu') {
         evt.preventDefault();
       }
@@ -1554,6 +2084,7 @@
         case 'td':
           break;
         case 'a': // User column may contain link.
+          username = $(that).text();
           that = that.parentNode;
           break;
         default:
@@ -1613,6 +2144,9 @@
         default:
           (elm = o[col]).value = vShow = v = log[col];
           $(elm).trigger('change');
+          if (col === 'uid' && username) {
+            _elements.conditions.username.value = username;
+          }
       }
       self.Message.set( self.local("filtered_event_column", { '!column': self.local('log_' + col), '!value': vShow }), "info");
     };
@@ -1732,7 +2266,7 @@
               '" tabindex="' + (++tabindex) + '" onmouseover="focus(this);">' + o.time + '</td>' +
             '<td log_filter_list_event_column="uid" class="' + css + '-user" title="' +
               self.local('eventItemHover_user', { '!logId': o.wid, '!uid': o.uid }) + '"' +
-              (!o.uid ? (' onmouseover="focus(this);">' + o.name) :
+              (!o.uid || o.name === null ? (!o.uid ? (' onmouseover="focus(this);">' + (o.name)) : ('>-' + self.local("deleted_user") + '-')) :
                 ('><a href="/user/' + o.uid + '" onmouseover="focus(this);">' + o.name + '</a>')) +
               '</td>' +
             (!optionalColumns.hostname ? '' :
@@ -1804,7 +2338,6 @@
      * @return {void}
      */
     _ajaxRequest = function(action, oData) {
-      oData.form_token = Judy.fieldValue("[name='form_token']", _elements.form);
       $.ajax({
         url: "/log_filter/ajax/" + action,
         type: "POST",
@@ -2244,6 +2777,9 @@
           case "anonymous_user":
             _local[nm] = s = Drupal.t("anonymous");
             break;
+          case "deleted_user":
+            _local[nm] = s = Drupal.t("deleted");
+            break;
           case "log_event":
             _local[nm] = s = Drupal.t("Event");
             break;
@@ -2378,6 +2914,9 @@
                   ++n;
                   conditions[nm] = v;
                 }
+                break;
+              case "username":
+                // Skip, we use uid instead.
                 break;
               case "role":
                 if((v = Judy.fieldValue(r)) !== "" && v !== "_none" && (v = $.trim(v)) && (v = parseInt(v, 10))) {

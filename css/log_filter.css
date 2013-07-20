@@ -317,11 +317,11 @@ div#log_filter__message {
             overflow: auto;
             border: 0.1em dotted #999;
             border-width: 0.1em 0;
-            width: 17em; max-width: 17em;
+            width: 16em; max-width: 16em;
             height: 12.5em; max-height: 12.5em;
           }
             form#log-filter-form div#log_filter_criteria div.filter-conditions div div.log-filter-type-container input[type='text'] {
-              width: 13em;
+              width: 12em;
               padding-top: 0; padding-bottom: 0;
             }
             form#log-filter-form div#log_filter_criteria div.filter-conditions div div.log-filter-type-container textarea {
@@ -342,19 +342,34 @@ div#log_filter__message {
               margin-bottom: 0.5em;
             }
             form#log-filter-form div#log_filter_criteria div.filter-conditions div div.log-filter-user div.form-item-log-filter-role select {
-              max-width: 11em;
+              max-width: 10.5em;
             }
-          form#log-filter-form div#log_filter_criteria div.filter-conditions div div.log-filter-user div.log-filter-role-or {
-            margin: 2em 0.2em 0 0.2em;
-            min-width: 2.5em;
-            text-align: center;
-          }
-          form#log-filter-form div#log_filter_criteria div.filter-conditions div div div.form-item.form-item-log-filter-uid {
+          form#log-filter-form div#log_filter_criteria div.filter-conditions div div div.form-item.form-item-log-filter-uid,
+          form#log-filter-form div#log_filter_criteria div.filter-conditions div div div.form-item.form-item-log-filter-username {
+            padding-left: 0.5em;
           }
             form#log-filter-form div#log_filter_criteria div.filter-conditions div div div.form-item.form-item-log-filter-uid input {
               text-align: right;
-              max-width: 4em;
+              width: 3em;
             }
+            form#log-filter-form div#log_filter_criteria div.filter-conditions div div div.form-item.form-item-log-filter-username input {
+              width: 8em;
+            }
+ul.ui-autocomplete {
+  padding: 0;
+}
+  ul.ui-autocomplete a {
+    font-weight: normal;
+    color: #000;
+    cursor: pointer;
+  }
+  ul.ui-autocomplete a:hover,
+  ul.ui-autocomplete a.ui-state-hover,
+  ul.ui-autocomplete a.ui-state-active {
+    background: #0072b9;
+    color: #fff;
+    margin: 0;
+  }
         form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-hostname {
           padding: 0.8em 0 0.2em 0;
         }
@@ -371,7 +386,7 @@ div#log_filter__message {
           form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-hostname input,
           form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-location input,
           form#log-filter-form div#log_filter_criteria div.filter-conditions div div.form-item.form-item-log-filter-referer input {
-            width: 18em;
+            width: 23em;
           }
 
       /* orderBy */

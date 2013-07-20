@@ -1,3 +1,13 @@
+log_filter 7.x-1.x, 2013-07-20
+------------------------------
+* Removed small viewport (<1136 px wide) css support.
+* Removed AJAX callback form_token check, because provides little additional security, and is no good for GET requests.
+* Implemented searching by user name.
+
+log_filter 7.x-1.0, 2013-07-04
+--------------------------------------------------
+* Released.
+
 log_filter 7.x-1.x, 2013-07-04
 ------------------------------
 * Frontend now checks that the Judy library exists and has version 2.0+.

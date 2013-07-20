@@ -137,6 +137,8 @@ class LogFilter {
     drupal_add_library('system', 'ui.dialog');
     //  Get jQuery UI datepicker.
     drupal_add_library('system', 'ui.datepicker');
+    //  Get jQuery UI autocomplete for username.
+    drupal_add_library('system', 'ui.autocomplete');
     //  Have to include own datepicker localisation, because it doesnt seem to exist in neither core nor the Date Popup module.
     drupal_add_js(
       $path . '/js/jquery_ui_datepicker_i18n/jquery.ui.datepicker-' . $GLOBALS['language']->language . '.min.js',
@@ -431,6 +433,7 @@ class LogFilter {
       $theme = $GLOBALS['theme'];
 
       //  Build form.
+      $form['#attributes'] = array('autocomplete' => 'off');
       $form['log_filter_filter_edit'] = array(
         '#type' => 'fieldset',
         '#title' => t('Filter') . ': <span id="log_filter_title_display">' . $title . '</span>',
@@ -444,17 +447,14 @@ class LogFilter {
         'log_filter_mode' => array(
           '#type' => 'hidden',
           '#default_value' => $mode,
-          '#attributes' => array('autocomplete' => 'off'),
         ),
         'log_filter_name' => array(
           '#type' => 'hidden',
           '#default_value' => $filter_name,
-          '#attributes' => array('autocomplete' => 'off'),
         ),
         'log_filter_origin' => array(
           '#type' => 'hidden',
           '#default_value' => $filter['origin'],
-          '#attributes' => array('autocomplete' => 'off'),
         ),
         //  Conditions.
         //  Time.
@@ -463,7 +463,6 @@ class LogFilter {
           '#title' => t('Preceding hours'),
           '#default_value' => $conditions['time_range'] ? $conditions['time_range'] : '',
           '#size' => 2,
-          '#attributes' => array('autocomplete' => 'off'),
           '#prefix' => '<div id="log_filter_criteria"><div class="filter-conditions"><div class="form-item log-filter-time">'
             . '<label>' . t('Time') . '</label>',
         ),
@@ -472,29 +471,21 @@ class LogFilter {
           '#title' => t('From') . '<span>?</span>',
           '#default_value' => '', // Frontend sets it, if non-empty time_from.
           '#size' => 10,
-          '#attributes' => array(
-            'autocomplete' => 'off',
-          ),
           '#prefix' => '<div class="log-filter-time-or">' . t('or') . '</div>',
         ),
         'log_filter_time_from' => array(
           '#type' => 'hidden',
           '#default_value' => $conditions['time_from'],
-          '#attributes' => array('autocomplete' => 'off'),
         ),
         'log_filter_time_to_proxy' => array(
           '#type' => 'textfield',
           '#title' => t('To'),
           '#default_value' => '', // Frontend sets it, if non-empty time_to.
           '#size' => 10,
-          '#attributes' => array(
-            'autocomplete' => 'off',
-          ),
         ),
         'log_filter_time_to' => array( // End: log-filter-time (2 open).
           '#type' => 'hidden',
           '#default_value' => $conditions['time_to'],
-          '#attributes' => array('autocomplete' => 'off'),
           '#suffix' => '</div>',
         ),
         //  Severity.
@@ -504,14 +495,12 @@ class LogFilter {
           '#multiple' => TRUE,
           '#options' => $options_severity,
           '#default_value' => $conditions['severity'],
-          '#attributes' => array('autocomplete' => 'off'),
         ),
         //  Type.
         'log_filter_type_wildcard' => array( // (3 open).
           '#type' => 'checkbox',
           '#title' => t('Any'),
           '#default_value' => $conditions['type_wildcard'],
-          '#attributes' => array('autocomplete' => 'off'),
           '#prefix' => '<div class="form-item log-filter-type">'
             . '<label>' . t('Type') . '</label>',
         ),
@@ -519,13 +508,11 @@ class LogFilter {
           '#type' => 'checkboxes',
           '#options' => $options_type,
           '#default_value' => array(),
-          '#attributes' => array('autocomplete' => 'off'),
           '#prefix' => '<div class="log-filter-type-container">',
         ),
         'log_filter_type' => array( // End: log-filter-type (2 open).
           '#type' => 'textarea',
           '#default_value' => join("\n", $conditions['type']),
-          '#attributes' => array('autocomplete' => 'off'),
           '#resizable' => FALSE,
           '#suffix' => '</div></div>',
         ),
@@ -535,31 +522,35 @@ class LogFilter {
           '#title' => t('User role'),
           '#options' => $options_role,
           '#default_value' => $conditions['role'],
-          '#attributes' => array('autocomplete' => 'off'),
           '#prefix' => '<div class="form-item log-filter-various"><div class="log-filter-user">',
         ),
-        'log_filter_uid' => array( // End: log-filter-user (3 open).
+        'log_filter_uid' => array(
           '#type' => 'textfield',
-          '#title' => t('User ID'),
+          '#title' => t('ID'),
           '#default_value' => $conditions['uid'],
           '#size' => 11,
-          '#attributes' => array('autocomplete' => 'off'),
-          '#prefix' => '<div class="log-filter-role-or">' . t('or') . '</div>',
+        ),
+        'log_filter_username' => array( // End: log-filter-user (3 open).
+          '#type' => 'textfield',
+          '#title' => t('Name'),
+          '#default_value' => $conditions['uid'],
+          '#size' => 20,
+          '#attributes' => array(
+            'class' => array('form-autocomplete'),
+          ),
           '#suffix' => '</div>',
         ),
         'log_filter_hostname' => array(
           '#type' => 'textfield',
           '#title' => t('Visitor\'s hostname') . '<span title="' . t('Use * to display in event list, without filtering') . '">?</span>',
           '#default_value' => $conditions['hostname'],
-          '#size' => 32,
-          '#attributes' => array('autocomplete' => 'off'),
+          '#size' => 64,
         ),
         'log_filter_location' => array(
           '#type' => 'textfield',
           '#title' => t('Location') . '<span title="' . t('Use * to display in event list, without filtering') . '">?</span>',
           '#default_value' => $conditions['location'],
           '#size' => 64,
-          '#attributes' => array('autocomplete' => 'off'),
         ),
         'log_filter_referer' => array( // End: filter-conditions, (1 open).
           '#type' => 'textfield',
@@ -568,7 +559,6 @@ class LogFilter {
             . '">?</span>',
           '#default_value' => $conditions['referer'],
           '#size' => 64,
-          '#attributes' => array('autocomplete' => 'off'),
           '#suffix' => '</div></div>',
         ),
         //  Order by.
@@ -576,14 +566,12 @@ class LogFilter {
           '#type' => 'select',
           '#options' => $options_order_by,
           '#default_value' => $length_order_by ? array($order_by[0][0]) : array(),
-          '#attributes' => array('autocomplete' => 'off'),
           '#prefix' => '<div class="filter-orderby"><label>' . t('Order by') . '</label>',
         ),
         'log_filter_descending_1' => array(
           '#type' => 'checkbox',
           '#default_value' => $length_order_by ? $order_by[0][1] : FALSE,
           '#attributes' => array(
-            'autocomplete' => 'off',
             'title' => t('Descending'),
           ),
         ),
@@ -591,13 +579,11 @@ class LogFilter {
           '#type' => 'select',
           '#options' => $options_order_by,
           '#default_value' => $length_order_by > 1 ? array($order_by[1][0]) : array(),
-          '#attributes' => array('autocomplete' => 'off'),
         ),
         'log_filter_descending_2' => array(
           '#type' => 'checkbox',
           '#default_value' => $length_order_by > 1 ? $order_by[1][1] : FALSE,
           '#attributes' => array(
-            'autocomplete' => 'off',
             'title' => t('Descending'),
           ),
         ),
@@ -605,13 +591,11 @@ class LogFilter {
           '#type' => 'select',
           '#options' => $options_order_by,
           '#default_value' => $length_order_by > 2 ? array($order_by[2][0]) : array(),
-          '#attributes' => array('autocomplete' => 'off'),
         ),
         'log_filter_descending_3' => array(
           '#type' => 'checkbox',
           '#default_value' => $length_order_by > 2 ? $order_by[2][1] : FALSE,
           '#attributes' => array(
-            'autocomplete' => 'off',
             'title' => t('Descending'),
           ),
         ),
@@ -637,18 +621,12 @@ class LogFilter {
           '#title' => t('Filter'),
           '#options' => $options_filters,
           '#default_value' => $filter_name,
-          '#attributes' => array(
-            'autocomplete' => 'off',
-          ),
         ),
         'log_filter_only_own' => array(
           '#access' => $allow_filter_edit,
           '#type' => 'checkbox',
           '#title' => t('List my filters only'),
           '#default_value' => $value_only_own,
-          '#attributes' => array(
-            'autocomplete' => 'off',
-          ),
         ),
         array(
           '#type' => 'markup',
@@ -663,7 +641,6 @@ class LogFilter {
           '#size' => 32,
           '#attributes' => array(
             'maxlength' => 32,
-            'autocomplete' => 'off',
           ),
         ),
         'log_filter_require_admin' => array(
@@ -672,7 +649,6 @@ class LogFilter {
           '#title' => t('Restrict access') . '<span title="' . ($title = t('Require the \'Administer log filtering\' permission.')) . '">?</span>',
           '#default_value' => $require_admin,
           '#attributes' => array(
-            'autocomplete' => 'off',
             'title' => $title,
           ),
         ),
@@ -688,9 +664,6 @@ class LogFilter {
           '#rows' => 3,
           '#cols' => 32,
           '#resizable' => FALSE, // Otherwise styling too complicated, and browsers support it natively.
-          '#attributes' => array(
-            'autocomplete' => 'off',
-          ),
         ),
         array( // (3 open)
           '#type' => 'markup',
@@ -802,7 +775,6 @@ class LogFilter {
           '#title' => t('Max.'),
           '#default_value' =>  $settings && array_key_exists('delete_logs_max', $settings) ? $settings['delete_logs_max'] : '',
           '#attributes' => array(
-            'autocomplete' => 'off',
             'maxlength' => 11,
           ),
         ),
@@ -868,7 +840,6 @@ class LogFilter {
           '#title' => t('Logs per page'),
           '#default_value' => $settings && array_key_exists('pager_range', $settings) && $settings['pager_range'] > 0 ?
             $settings['pager_range'] : variable_get('log_filter_pgrng', self::PAGE_RANGE_DEFAULT),
-          '#attributes' => array('autocomplete' => 'off'),
           '#size' => 4,
         ),
         'log_filter_translate' => array(
@@ -876,7 +847,6 @@ class LogFilter {
           '#title' => t('Translate messages') . '<span title="' . ($title = t('Translating messages is heavy performance-wise.')) . '">?</span>',
           '#default_value' => $settings && array_key_exists('translate', $settings) ? $settings['translate'] : variable_get('log_filter_trnslt', 0),
           '#attributes' => array(
-            'autocomplete' => 'off',
             'title' => $title,
           ),
         ),
@@ -1802,161 +1772,185 @@ class LogFilter {
       !user_access('access site reports')
       //  Require valid composition of the 'action' parameter (presumably a GET var).
       || !$action || !($le = strlen($action)) // Deliberately not drupal_...().
-        || $le > 32 || !preg_match('/^[a-zA-Z\d_]+$/', $action)
-      //  Require valid composition of POST 'form_token'.
-      || !array_key_exists('form_token', $_POST) || !($le = strlen($form_token = check_plain($_POST['form_token']))) // Deliberately not drupal_...().
-        || $le > 100 //|| !preg_match('/^[\!-\~]+$/', $form_token) ???
+        || $le > 32
     ) {
       header('HTTP/1.1 403 Forbidden');
       exit;
     }
+    $action = '' . $action;
     $oResp = new stdClass();
     $oResp->action = check_plain($action); // Redundant; vs. code review.
     $oResp->error = '';
+    $oResp->success = TRUE;
+    $oResp->error_code = 0;
 
-    //  Check form_token.
-    if (!drupal_valid_token($form_token, 'log_filter_form')) {
-      $oResp->success = FALSE;
-      $oResp->error_code = self::$_errorCodes['perm_general'];
-    }
-    else {
-      $oResp->success = TRUE;
-      $oResp->error_code = 0;
-
-      try {
-        $uid = $GLOBALS['user']->uid;
-        switch ($action) {
-          case 'filter_create':
-          case 'filter_edit':
-            if (
-              !array_key_exists('name', $_POST) || !($le = strlen($name = $_POST['name'])) // Deliberately not drupal_...(). And composition is checked later.
-                || $le > 32
-              || !array_key_exists('filter', $_POST) || !is_array($filter = $_POST['filter']) // It is an array!
-              || !array_key_exists('require_admin', $filter) || !(($require_admin = (int)$filter['require_admin']) == 0 || $require_admin == 1)
-              || !array_key_exists('description', $filter)
-                || ( ($description = $filter['description']) !== '' && (!drupal_validate_utf8($description) || drupal_strlen($description) > 255) )
-              || !array_key_exists('conditions', $_POST)
-                || (($conditions = $_POST['conditions']) && !is_array($conditions)) // _saveFilter() checks/filters conditions buckets vs. xss.
-              || !array_key_exists('order_by', $_POST)
-                || (($order_by = $_POST['order_by']) && !is_array($order_by)) // _saveFilter() checks/filters order_by buckets vs. xss.
-            ) {
-              header('HTTP/1.1 403 Forbidden');
-              exit;
+    try {
+      switch ($action) {
+        case 'username_autocomplete':
+          $oResp = array();
+          if (isset($_GET['term']) && strlen($needle = trim($_GET['term'])) && drupal_validate_utf8($needle)) {
+            $maxResult = 9;
+            //$oResp = array( array('value' => '8', 'label' => 'someuser'), );
+            $uids = array();
+            $users = db_select('users', 'u')
+              ->fields('u', array('uid', 'name'))
+              ->condition('name', db_like($needle) . '%', 'LIKE')
+              ->range(0, $maxResult)
+              ->execute()
+              ->fetchAll();
+            if (($le = count($users))) {
+              for ($i = 0; $i < $le; ++$i) {
+                $oResp[] = array('value' => $uids[] = $users[$i]->uid, 'label' => $users[$i]->name);
+              }
             }
-            if (!user_access('log_filter edit filters')) {
-              $oResp->success = FALSE;
-              $oResp->error_code = self::$_errorCodes['perm_filter_crud'];
+            if ($le < $maxResult) {
+              $users = db_select('users', 'u')
+                ->fields('u', array('uid', 'name'));
+              if ($uids) {
+                $users = $users->condition('uid', $uids, 'NOT IN');
+              }
+              $users = $users->condition('name', '%' . db_like($needle) . '%', 'LIKE')
+                ->range(0, $maxResult - $le)
+                ->execute()
+                ->fetchAll();
+              if (($le = count($users))) {
+                for ($i = 0; $i < $le; ++$i) {
+                  $oResp[] = array('value' => $users[$i]->uid, 'label' => $users[$i]->name);
+                }
+              }
             }
-            elseif (!preg_match('/^[a-z_][a-z\d_]+$/', $name) || $name == 'default' || $name == 'adhoc') { // @IDE: var $name is declared.
-              $oResp->success = FALSE;
-              $oResp->error_code = self::$_errorCodes['filter_name_composition'];
-              //  $oResp->error = t('Invalid machine name[' . $name . '].'); Frontend creates own message.
-              $oResp->name = check_plain($name);
-            }
-            else {
-              $oResp->name = $name = check_plain(strtolower($name)); // Deliberately not drupal_...().
-              $oResp->description = !$description ? '' : check_plain(trim(str_replace(array("\r", "\n", "\t"), ' ', $description)));
-              self::_saveFilter(
-                $name,
-                array(
-                  'filter' => array(
-                    'require_admin' => $require_admin,
-                    'description' => $description
-                  ),
-                  'conditions' => $conditions ? $conditions : array(), // _saveFilter() checks/filters conditions buckets vs. xss.
-                  'order_by' => $order_by ? $order_by : array(), // _saveFilter() checks/filters order_by buckets vs. xss.
+          }
+          break;
+        case 'filter_create':
+        case 'filter_edit':
+          if (
+            !array_key_exists('name', $_POST) || !($le = strlen($name = $_POST['name'])) // Deliberately not drupal_...(). And composition is checked later.
+              || $le > 32
+            || !array_key_exists('filter', $_POST) || !is_array($filter = $_POST['filter']) // It is an array!
+            || !array_key_exists('require_admin', $filter) || !(($require_admin = (int)$filter['require_admin']) == 0 || $require_admin == 1)
+            || !array_key_exists('description', $filter)
+              || ( ($description = $filter['description']) !== '' && (!drupal_validate_utf8($description) || drupal_strlen($description) > 255) )
+            || !array_key_exists('conditions', $_POST)
+              || (($conditions = $_POST['conditions']) && !is_array($conditions)) // _saveFilter() checks/filters conditions buckets vs. xss.
+            || !array_key_exists('order_by', $_POST)
+              || (($order_by = $_POST['order_by']) && !is_array($order_by)) // _saveFilter() checks/filters order_by buckets vs. xss.
+          ) {
+            header('HTTP/1.1 403 Forbidden');
+            exit;
+          }
+          if (!user_access('log_filter edit filters')) {
+            $oResp->success = FALSE;
+            $oResp->error_code = self::$_errorCodes['perm_filter_crud'];
+          }
+          elseif (!preg_match('/^[a-z_][a-z\d_]+$/', $name) || $name == 'default' || $name == 'adhoc') { // @IDE: var $name is declared.
+            $oResp->success = FALSE;
+            $oResp->error_code = self::$_errorCodes['filter_name_composition'];
+            //  $oResp->error = t('Invalid machine name[' . $name . '].'); Frontend creates own message.
+            $oResp->name = check_plain($name);
+          }
+          else {
+            $oResp->name = $name = check_plain(strtolower($name)); // Deliberately not drupal_...().
+            $oResp->description = !$description ? '' : check_plain(trim(str_replace(array("\r", "\n", "\t"), ' ', $description)));
+            self::_saveFilter(
+              $name,
+              array(
+                'filter' => array(
+                  'require_admin' => $require_admin,
+                  'description' => $description
                 ),
-                $action == 'filter_create'
+                'conditions' => $conditions ? $conditions : array(), // _saveFilter() checks/filters conditions buckets vs. xss.
+                'order_by' => $order_by ? $order_by : array(), // _saveFilter() checks/filters order_by buckets vs. xss.
+              ),
+              $action == 'filter_create'
+            );
+          }
+          break;
+        case 'list_logs':
+          if (
+            !array_key_exists('conditions', $_POST)
+              || (($conditions = $_POST['conditions']) && !is_array($conditions)) // _logListQuery() checks/filters conditions buckets vs. xss.
+            || !array_key_exists('order_by', $_POST)
+              || (($order_by = $_POST['order_by']) && !is_array($order_by)) // _logListQuery() checks/filters order_by buckets vs. xss.
+            || !array_key_exists('offset', $_POST) || ($offset = (int)$_POST['offset']) < -1 || $offset > PHP_INT_MAX
+            || !array_key_exists('max', $_POST) || ($max = (int)$_POST['max']) < 0 || $max > PHP_INT_MAX
+            || !array_key_exists('translate', $_POST)
+          ) {
+            header('HTTP/1.1 403 Forbidden');
+            exit;
+          }
+          if ($max > self::PAGE_RANGE_MAX) {
+            $max = self::PAGE_RANGE_MAX;
+          }
+          if (!$conditions) {
+            $conditions = array();
+          }
+          $oResp->log_list = self::_listLogs(
+            $conditions,
+            $order_by ? $order_by : array(),
+            $offset,
+            $max,
+            $translate = (bool)$_POST['translate']
+          );
+          //  Save pager_range and translate to session.
+          $session = array(
+            'settings' => array(
+              'pager_range' => $max > 0 ? $max : variable_get('log_filter_pgrng', self::PAGE_RANGE_DEFAULT),
+              'translate' => $translate,
+            ),
+          );
+          if (module_exists('state')) {
+            State::sessionSet('module', 'log_filter', $session);
+          }
+          else {
+            drupal_session_start();
+            if (!isset($_SESSION['module'])) {
+              $_SESSION['module'] = array(
+                'log_filter' => $session,
               );
             }
-            break;
-          case 'list_logs':
-            if (
-              !array_key_exists('conditions', $_POST)
-                || (($conditions = $_POST['conditions']) && !is_array($conditions)) // _logListQuery() checks/filters conditions buckets vs. xss.
-              || !array_key_exists('order_by', $_POST)
-                || (($order_by = $_POST['order_by']) && !is_array($order_by)) // _logListQuery() checks/filters order_by buckets vs. xss.
-              || !array_key_exists('offset', $_POST) || ($offset = (int)$_POST['offset']) < -1 || $offset > PHP_INT_MAX
-              || !array_key_exists('max', $_POST) || ($max = (int)$_POST['max']) < 0 || $max > PHP_INT_MAX
-              || !array_key_exists('translate', $_POST)
-            ) {
-              header('HTTP/1.1 403 Forbidden');
-              exit;
-            }
-            if ($max > self::PAGE_RANGE_MAX) {
-              $max = self::PAGE_RANGE_MAX;
-            }
-            if (!$conditions) {
-              $conditions = array();
-            }
-            $oResp->log_list = self::_listLogs(
-              $conditions,
-              $order_by ? $order_by : array(),
-              $offset,
-              $max,
-              $translate = (bool)$_POST['translate']
-            );
-            //  Save pager_range and translate to session.
-            $session = array(
-              'settings' => array(
-                'pager_range' => $max > 0 ? $max : variable_get('log_filter_pgrng', self::PAGE_RANGE_DEFAULT),
-                'translate' => $translate,
-              ),
-            );
-            if (module_exists('state')) {
-              State::sessionSet('module', 'log_filter', $session);
-            }
             else {
-              drupal_session_start();
-              if (!isset($_SESSION['module'])) {
-                $_SESSION['module'] = array(
-                  'log_filter' => $session,
-                );
-              }
-              else {
-                $_SESSION['module']['log_filter'] = $session;
-              }
+              $_SESSION['module']['log_filter'] = $session;
             }
-            break;
-          case 'delete_logs':
-            if (
-              !array_key_exists('conditions', $_POST)
-                || (($conditions = $_POST['conditions']) && !is_array($conditions)) // _logListQuery() checks/filters conditions buckets vs. xss.
-              || !array_key_exists('order_by', $_POST)
-                || (($order_by = $_POST['order_by']) && !is_array($order_by)) // _logListQuery() checks/filters order_by buckets vs. xss.
-              || !array_key_exists('offset', $_POST) || ($offset = (int)$_POST['offset']) < -1 || $offset > PHP_INT_MAX
-              || !array_key_exists('max', $_POST) || ($max = (int)$_POST['max']) < 0 || $max > PHP_INT_MAX
-            ) {
-              header('HTTP/1.1 403 Forbidden');
-              exit;
-            }
-            $oResp->delete_logs = self::_deleteLogs(
-              $conditions ? $conditions : array(),
-              $order_by ? $order_by : array(),
-              $offset,
-              $max
-            );
-            break;
-          default:
-            $oResp->success = FALSE;
-            $oResp->error_code = 1;
-            $oResp->error = 'Unsupported action[' . $action . '].';
-        }
+          }
+          break;
+        case 'delete_logs':
+          if (
+            !array_key_exists('conditions', $_POST)
+              || (($conditions = $_POST['conditions']) && !is_array($conditions)) // _logListQuery() checks/filters conditions buckets vs. xss.
+            || !array_key_exists('order_by', $_POST)
+              || (($order_by = $_POST['order_by']) && !is_array($order_by)) // _logListQuery() checks/filters order_by buckets vs. xss.
+            || !array_key_exists('offset', $_POST) || ($offset = (int)$_POST['offset']) < -1 || $offset > PHP_INT_MAX
+            || !array_key_exists('max', $_POST) || ($max = (int)$_POST['max']) < 0 || $max > PHP_INT_MAX
+          ) {
+            header('HTTP/1.1 403 Forbidden');
+            exit;
+          }
+          $oResp->delete_logs = self::_deleteLogs(
+            $conditions ? $conditions : array(),
+            $order_by ? $order_by : array(),
+            $offset,
+            $max
+          );
+          break;
+        default:
+          $oResp->success = FALSE;
+          $oResp->error_code = 1;
+          $oResp->error = 'Unsupported action[' . $action . '].';
       }
-      catch (PDOException $xc) {
-        self::_errorHandler($xc);
-        $oResp->success = FALSE;
-        $oResp->error_code = self::$_errorCodes['db_general'];
+    }
+    catch (PDOException $xc) {
+      self::_errorHandler($xc);
+      $oResp->success = FALSE;
+      $oResp->error_code = self::$_errorCodes['db_general'];
+    }
+    catch (Exception $xc) {
+      self::_errorHandler($xc);
+      $oResp->success = FALSE;
+      if (($error_code = $xc->getCode()) && in_array($error_code, self::$_errorCodes)) {
+        $oResp->error_code = $error_code;
       }
-      catch (Exception $xc) {
-        self::_errorHandler($xc);
-        $oResp->success = FALSE;
-        if (($error_code = $xc->getCode()) && in_array($error_code, self::$_errorCodes)) {
-          $oResp->error_code = $error_code;
-        }
-        else {
-          $oResp->error_code = self::$_errorCodes['unknown'];
-        }
+      else {
+        $oResp->error_code = self::$_errorCodes['unknown'];
       }
     }
 
