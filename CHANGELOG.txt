@@ -1,3 +1,8 @@
+log_filter 7.x-1.x, 2013-07-21
+------------------------------
+* Now uses Judy.ajaxcomplete instead of own custom ditto.
+* Fixed username autocomplete result ordering.
+
 log_filter 7.x-1.x, 2013-07-20
 ------------------------------
 * Removed small viewport (<1136 px wide) css support.

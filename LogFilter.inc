@@ -535,6 +535,7 @@ class LogFilter {
           '#title' => t('Name'),
           '#default_value' => $conditions['uid'],
           '#size' => 20,
+          // Can't use Drupal Form API autocomplete, because we need to pass value to the uid field upon selection.
           '#attributes' => array(
             'class' => array('form-autocomplete'),
           ),
@@ -1795,6 +1796,7 @@ class LogFilter {
             $users = db_select('users', 'u')
               ->fields('u', array('uid', 'name'))
               ->condition('name', db_like($needle) . '%', 'LIKE')
+              ->orderBy('u.name', 'ASC')
               ->range(0, $maxResult)
               ->execute()
               ->fetchAll();
@@ -1810,6 +1812,7 @@ class LogFilter {
                 $users = $users->condition('uid', $uids, 'NOT IN');
               }
               $users = $users->condition('name', '%' . db_like($needle) . '%', 'LIKE')
+                ->orderBy('u.name', 'ASC')
                 ->range(0, $maxResult - $le)
                 ->execute()
                 ->fetchAll();
