@@ -62,6 +62,7 @@ function log_filter_menu() {
 
   // Take over the url of dblog's default viewer.
   $i = 0;
+  // Overwrite dblog's default viewer.
   $items['admin/reports/dblog'] = array(
     'title' => 'Recent log messages',
     'description' => 'View logged events using filters',
@@ -88,17 +89,20 @@ function log_filter_menu() {
     'theme callback' => 'log_filter_use_admin_theme', // Do always administrative theme, if set so.
     'weight' => ++$i,
   );
-  $items['admin/reports/dblog/dblog_view'] = array(
-    'title' => 'Standard dblog view',
-    'description' => 'View events that have recently been logged.',
-    'page callback' => 'dblog_overview',
-    'access arguments' => array('access site reports'),
-    'type' => MENU_LOCAL_TASK,
-    'file path' => drupal_get_path('module', 'dblog'),
-    'file' => 'dblog.admin.inc',
-    'theme callback' => 'log_filter_use_admin_theme', // Do always administrative theme, if set so.
-    'weight' => ++$i,
-  );
+  // Add dblog's default viewer as a tab.
+  if (module_exists('dblog')) {
+    $items['admin/reports/dblog/dblog_view'] = array(
+      'title' => 'Standard dblog view',
+      'description' => 'View events that have recently been logged.',
+      'page callback' => 'dblog_overview',
+      'access arguments' => array('access site reports'),
+      'type' => MENU_LOCAL_TASK,
+      'file path' => drupal_get_path('module', 'dblog'),
+      'file' => 'dblog.admin.inc',
+      'theme callback' => 'log_filter_use_admin_theme', // Do always administrative theme, if set so.
+      'weight' => ++$i,
+    );
+  }
 
   return $items;
 }
