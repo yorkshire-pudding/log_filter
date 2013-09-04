@@ -3,6 +3,10 @@ log_filter 7.x-1.x, 2013-09-01
 * Increase log_filter's module weight to 10; the module's hook_menu() must be invoked _after_ dblog's ditto.
 * Do only add dblog's viewer as menu tab if that module is enabled.
 
+log_filter 7.x-1.1, 2013-07-21
+--------------------------------------------------
+* Released.
+
 log_filter 7.x-1.x, 2013-07-21
 ------------------------------
 * Now uses Judy.ajaxcomplete instead of own custom ditto.
