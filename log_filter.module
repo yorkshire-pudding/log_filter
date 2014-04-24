@@ -170,8 +170,10 @@ function log_filter_admin_form_submit($form, &$form_state) {
  *
  * @see LogFilter::ajaxCallback()
  * @param string $action
+ * @param string $arg
+ *  Default: empty.
  * @return void
- *  - sends 403 header if the expected POST vars arent set or their sanitized values evaluates to empty
+ *  Sends 403 header if the expected POST vars arent set or their sanitized values evaluates to empty.
  */
 function log_filter_ajax_callback($action, $arg = '') {
   module_load_include('inc', 'log_filter', 'LogFilter');

@@ -3,8 +3,8 @@
  *  Drupal Log Filter module
  */
 
-'use strict';
-/*jslint browser: true, continue: true, indent: 2, newcap: true, nomen: true, plusplus: true, regexp: true, white: true*/
+
+/*jslint browser: true, continue: true, indent: 2, newcap: true, nomen: true, plusplus: true, regexp: true, white: true, ass: true*/
 /*global alert: false, confirm: false, console: false*/
 /*global jQuery: false, Drupal: false, inspect: false, Judy: false*/
 
@@ -13,6 +13,7 @@
  * @returns {object}
  */
 (function($) {
+  'use strict';
 
   /**
    * Singleton, instantiated to itself.
@@ -835,7 +836,7 @@
                       }
                     }
                     return false;
-                  },
+                  }
                 }).bind('autocompletesearch', function() {
                   $(this).addClass('throbbing');
                 }).bind('autocompleteresponse', function() { // Doesnt work, propably old version of jQuery UI.

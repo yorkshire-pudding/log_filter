@@ -1826,6 +1826,7 @@ class LogFilter {
           break;
         case 'filter_create':
         case 'filter_edit':
+          $conditions = $order_by = NULL;
           if (
             !array_key_exists('name', $_POST) || !($le = strlen($name = $_POST['name'])) // Deliberately not drupal_...(). And composition is checked later.
               || $le > 32
@@ -1833,10 +1834,12 @@ class LogFilter {
             || !array_key_exists('require_admin', $filter) || !(($require_admin = (int)$filter['require_admin']) == 0 || $require_admin == 1)
             || !array_key_exists('description', $filter)
               || ( ($description = $filter['description']) !== '' && (!drupal_validate_utf8($description) || drupal_strlen($description) > 255) )
-            || !array_key_exists('conditions', $_POST)
-              || (($conditions = $_POST['conditions']) && !is_array($conditions)) // _saveFilter() checks/filters conditions buckets vs. xss.
-            || !array_key_exists('order_by', $_POST)
-              || (($order_by = $_POST['order_by']) && !is_array($order_by)) // _saveFilter() checks/filters order_by buckets vs. xss.
+            // conditions may not exist, because jQuery.ajax() >v1.4.4 doesn't POST empty object.
+            // _saveFilter() checks/filters conditions buckets vs. xss.
+            || (array_key_exists('conditions', $_POST) && ($conditions = $_POST['conditions']) && !is_array($conditions))
+            // order_by may not exist, because jQuery.ajax() >v1.4.4 doesn't POST empty object.
+            // _saveFilter() checks/filters order_by buckets vs. xss.
+            || (array_key_exists('order_by', $_POST) && ($order_by = $_POST['order_by']) && !is_array($order_by))
           ) {
             header('HTTP/1.1 403 Forbidden');
             exit;
@@ -1869,11 +1872,14 @@ class LogFilter {
           }
           break;
         case 'list_logs':
+          $conditions = $order_by = NULL;
           if (
-            !array_key_exists('conditions', $_POST)
-              || (($conditions = $_POST['conditions']) && !is_array($conditions)) // _logListQuery() checks/filters conditions buckets vs. xss.
-            || !array_key_exists('order_by', $_POST)
-              || (($order_by = $_POST['order_by']) && !is_array($order_by)) // _logListQuery() checks/filters order_by buckets vs. xss.
+            // conditions may not exist, because jQuery.ajax() >v1.4.4 doesn't POST empty object.
+            // _logListQuery() checks/filters conditions buckets vs. xss.
+            (array_key_exists('conditions', $_POST) && ($conditions = $_POST['conditions']) && !is_array($conditions))
+            // order_by may not exist, because jQuery.ajax() >v1.4.4 doesn't POST empty object.
+            // _logListQuery() checks/filters order_by buckets vs. xss.
+            || (array_key_exists('order_by', $_POST) && ($order_by = $_POST['order_by']) && !is_array($order_by))
             || !array_key_exists('offset', $_POST) || ($offset = (int)$_POST['offset']) < -1 || $offset > PHP_INT_MAX
             || !array_key_exists('max', $_POST) || ($max = (int)$_POST['max']) < 0 || $max > PHP_INT_MAX
             || !array_key_exists('translate', $_POST)
@@ -1917,11 +1923,14 @@ class LogFilter {
           }
           break;
         case 'delete_logs':
+          $conditions = $order_by = NULL;
           if (
-            !array_key_exists('conditions', $_POST)
-              || (($conditions = $_POST['conditions']) && !is_array($conditions)) // _logListQuery() checks/filters conditions buckets vs. xss.
-            || !array_key_exists('order_by', $_POST)
-              || (($order_by = $_POST['order_by']) && !is_array($order_by)) // _logListQuery() checks/filters order_by buckets vs. xss.
+            // conditions may not exist, because jQuery.ajax() >v1.4.4 doesn't POST empty object.
+            // _logListQuery() checks/filters conditions buckets vs. xss.
+            (array_key_exists('conditions', $_POST) && ($conditions = $_POST['conditions']) && !is_array($conditions))
+            // order_by may not exist, because jQuery.ajax() >v1.4.4 doesn't POST empty object.
+            // _logListQuery() checks/filters order_by buckets vs. xss.
+            || (array_key_exists('order_by', $_POST) && ($order_by = $_POST['order_by']) && !is_array($order_by))
             || !array_key_exists('offset', $_POST) || ($offset = (int)$_POST['offset']) < -1 || $offset > PHP_INT_MAX
             || !array_key_exists('max', $_POST) || ($max = (int)$_POST['max']) < 0 || $max > PHP_INT_MAX
           ) {
