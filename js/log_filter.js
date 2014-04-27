@@ -2815,13 +2815,11 @@
               _.adminOverlayOffset,
             1
           );
-
           // Format inspect outputs.
           if (typeof window.inspect === "function" && window.inspect.formatInspectOutput) {
             inspect.formatInspectOutput(true, dialInner);
             inspect.formatTraceOutput(true, dialInner);
           }
-
           $dialOuter.css({
             visibility: 'visible',
             left: '150px', // jQuery UI dialog position apparantly doesnt work well when css position is fixed.
