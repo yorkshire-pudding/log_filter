@@ -2496,7 +2496,6 @@
     this.Message = function() {
       var _self = this,
       _n = -1,
-      _msie = $.browser.msie,
       _htmlList = "<div id=\"log_filter__message\"><div><div id=\"log_filter__message_list\"></div></div></div>",
       _htmlItem = "<div id=\"log_filter__message___NO__\" class=\"log-filter-message-__TYPE__\"><div class=\"log-filter--message-content\"><span>__CONTENT__</span></div><div title=\"" +
           Drupal.t("Close") + "\">x</div></div>",
@@ -2582,7 +2581,7 @@
           var n = _opacity, jq = __self._jq;
           if(!_stopped) {
             if((_opacity = (n -= (_subtractor *= _factor))) > 0) {
-              if(!_msie) {
+              if(Judy.browserIE < 11) {
                 jq.css("opacity", n / 100);
               }
               else {
@@ -2621,7 +2620,7 @@
         this.unfade = function() {
           __self.stop();
           if(_opacity < 100) {
-            if(!_msie) {
+            if(Judy.browserIE < 11) {
               __self._jq.css("opacity", 1);
             }
             else {

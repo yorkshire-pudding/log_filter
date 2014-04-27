@@ -2,6 +2,7 @@ log_filter 7.x-1.x, 2014-04-27
 ------------------------------
 * Added styling of jQuery UI dialog close button, for later versions of jQuery UI (jquery_update module support).
 * Removed meaningless url = url JS expression.
+* Fixed that jQuery >=1.9 has no browser property (~ jquery_update module support).
 
 log_filter 7.x-1.x, 2014-04-24
 ------------------------------
