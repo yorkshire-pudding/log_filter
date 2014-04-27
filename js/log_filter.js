@@ -2815,11 +2815,13 @@
               _.adminOverlayOffset,
             1
           );
+
           // Format inspect outputs.
           if (typeof window.inspect === "function" && window.inspect.formatInspectOutput) {
             inspect.formatInspectOutput(true, dialInner);
             inspect.formatTraceOutput(true, dialInner);
           }
+
           $dialOuter.css({
             visibility: 'visible',
             left: '150px', // jQuery UI dialog position apparantly doesnt work well when css position is fixed.
@@ -2915,7 +2917,7 @@
       //  Prepare log list.
       _getLogList(
         // Check if url ends with /integer ~ single log view.
-        /^.+\/(\d+)\/?$/.test(url = url) && (wid = parseInt(url.replace(/^.+\/(\d+)\/?$/, '$1'), 10)) &&
+        /^.+\/(\d+)\/?$/.test(url) && (wid = parseInt(url.replace(/^.+\/(\d+)\/?$/, '$1'), 10)) &&
           wid <= Math.pow(2, 31) ? wid : 0
       );
 

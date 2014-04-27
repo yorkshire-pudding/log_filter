@@ -1,3 +1,8 @@
+log_filter 7.x-1.x, 2014-04-27
+------------------------------
+* Added styling of jQuery UI dialog close button, for later versions of jQuery UI (jquery_update module support).
+* Removed meaningless url = url JS expression.
+
 log_filter 7.x-1.x, 2014-04-24
 ------------------------------
 * Fixed that sites using jQuery >v1.4.4 continually get 'form outdated' in the log viewer, due to AJAX http status 403 errors (issue 2073905).
