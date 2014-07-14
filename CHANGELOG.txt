@@ -1,3 +1,11 @@
+log_filter 7.x-1.x, 2014-07-14
+------------------------------
+* Use Drupal's JS API to attach behaviours.
+
+log_filter 7.x-1.2, 2014-04-27
+--------------------------------------------------
+* Released.
+
 log_filter 7.x-1.x, 2014-04-27
 ------------------------------
 * Added styling of jQuery UI dialog close button, for later versions of jQuery UI (jquery_update module support).
