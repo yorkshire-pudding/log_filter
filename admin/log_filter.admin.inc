@@ -70,6 +70,13 @@ function _log_filter_admin_form($form, &$form_state) {
       '#default_value' => variable_get('log_filter_trnslt', FALSE),
       '#attributes' => array('autocomplete' => 'off'),
     ),
+    'log_filter_showdeletions' => array(
+      '#type' => 'checkbox',
+      '#title' => t('List log entries that record that logs have been deleted'),
+      '#description' => t('Log entries of type \'log_filter delete logs\' defaults to be hidden, unless when that type is selected specifically.'),
+      '#default_value' => variable_get('log_filter_showdeletions', FALSE),
+      '#attributes' => array('autocomplete' => 'off'),
+    ),
   );
 
   $form['#submit'][] = 'log_filter_admin_form_submit';

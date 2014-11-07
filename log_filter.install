@@ -184,6 +184,7 @@ function log_filter_uninstall() {
   variable_del('log_filter_cssdefault');
   variable_del('log_filter_trnslt');
   variable_del('log_filter_pgrng');
+  variable_del('log_filter_showdeletions');
 }
 
 /**

@@ -1,3 +1,8 @@
+log_filter 7.x-1.x, 2014-11-07
+------------------------------
+* Don't display entries of type 'log_filter delete logs' unless, unless user actually want to see log deletions.
+* Fixed that 'log_filter delete logs' actually _were_ deletable, due to wrong removal of that filter deleting.
+
 log_filter 7.x-1.x, 2014-10-31
 ------------------------------
 * Release 7.x-1.3.

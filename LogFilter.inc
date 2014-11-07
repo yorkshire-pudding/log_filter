@@ -894,7 +894,6 @@ class LogFilter {
    */
   public static function viewerFormSubmit($form, &$form_state) {
     try {
-      //inspect($form_state);
       $values =& $form_state['values'];
       $prefix = 'log_filter_';
 
@@ -1454,6 +1453,7 @@ class LogFilter {
     //  Conditions.
     if ($deletion || $conditions) {
       // The wid (log id) condition is not part of the overall used conditions, so we have to handle it differently.
+      // @todo: Explain just how, the code is certainly not self-explanatory in this sense.
       $wid = 0;
       if (isset($conditions['wid'])) {
         if (($v = (int)$conditions['wid']) && $v > -1 && $v <= PHP_INT_MAX) {
@@ -1487,8 +1487,13 @@ class LogFilter {
 
         // Deleting events that log deletion of events is illegal.
         if ($deletion) {
-          if (!empty($conditions['type'])) {
-            unset($conditions['type']['log_filter delete logs']);
+          if (!empty($conditions['type']) && ($index = array_search('log_filter delete logs', $conditions['type'], TRUE)) !== FALSE) {
+            if (count($conditions['type']) == 1) {
+              unset($conditions['type']);
+            }
+            else {
+              array_splice($conditions['type'], $index, 1);
+            }
           }
           $query->condition('w.' . 'type', 'log_filter delete logs', '!=');
         }
@@ -1590,6 +1595,14 @@ class LogFilter {
           unset($conditions['uid']);
         }
       }
+    }
+
+    // Simple log listing defaults to hide previous log deletions, unless user actually want to list log deletions.
+    if (!$deletion
+      && (empty($conditions['type']) || array_search('log_filter delete logs', $conditions['type'], TRUE) === FALSE)
+      && !variable_get('log_filter_showdeletions', FALSE)
+    ) {
+      $query->condition('w.' . 'type', 'log_filter delete logs', '!=');
     }
 
     if ($log_columns === FALSE) {
