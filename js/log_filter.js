@@ -822,7 +822,7 @@
               case "username":
                 oElms[nm] = elm;
                 $(elm).autocomplete({
-                  source: "/log_filter/ajax/username_autocomplete",
+                  source: Drupal.settings.basePath + "log_filter/ajax/username_autocomplete",
                   minLength: 2,
                   select: function(event, ui) {
                     var v;
@@ -842,7 +842,7 @@
                 }).bind('autocompleteresponse', function() { // Doesnt work, propably old version of jQuery UI.
                   $(this).removeClass('throbbing');
                 });
-                Judy.ajaxcomplete(_selectors.conditions.username, '/log_filter/ajax/username_autocomplete', function(event) { // This works, instead.
+                Judy.ajaxcomplete(_selectors.conditions.username, Drupal.settings.basePath + "log_filter/ajax/username_autocomplete", function(event) { // This works, instead.
                   $(this).removeClass('throbbing');
                 });
                 break;
@@ -1842,7 +1842,7 @@
      */
     _ajaxRequest = function(action, oData) {
       $.ajax({
-        url: "/log_filter/ajax/" + action,
+        url: Drupal.settings.basePath + "log_filter/ajax/" + action,
         type: "POST",
         data: oData,
         dataType: "json", // expects json formatted response data
