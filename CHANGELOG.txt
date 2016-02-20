@@ -1,3 +1,8 @@
+log_filter 7.x-1.x, 2016-02-20
+------------------------------
+- Fixed that AJAX requests didn't work when the site installed in a subdir
+  (no dedicated virtualhost); issue #2669288 by K.MacKenzie.
+
 log_filter 7.x-1.x, 2014-11-08
 ------------------------------
 * Release 7.x-1.4.
